@@ -30,7 +30,6 @@ static CHILD_JOB: std::sync::OnceLock<win32job::Job> = std::sync::OnceLock::new(
 async fn prepare_for_update(app: tauri::AppHandle, translator: tauri::State<'_, translator::Translator>) -> Result<(), String> {
     translator.stop_for_update().await;
     torrserve::kill(&app);
-    torapi::kill(&app);
     #[cfg(windows)]
     if let Some(job) = CHILD_JOB.get() {
         job.set_extended_limit_info(&win32job::ExtendedLimitInfo::new()).map_err(|e| e.to_string())?;
@@ -55,13 +54,11 @@ pub fn run() {
             images::handle(ctx, request, responder)
         })
         .manage(TorrserveProcess(std::sync::Mutex::new(None)))
-        .manage(torapi::LocalTorapi(std::sync::Mutex::new(None)))
         .manage(translator::Translator::default())
         .manage(discord::Discord::default())
         .setup(|app| {
             app.manage(AppConfig::load(app.path().app_config_dir().ok(), app.path().app_cache_dir().ok()));
             torrserve::spawn(app.handle());
-            torapi::spawn(app.handle());
             // The window starts hidden and the page shows it after its first paint
             // (main.tsx). Safety net so a broken page load can't leave it invisible forever.
             let handle = app.handle().clone();
@@ -123,7 +120,6 @@ pub fn run() {
         .run(|app_handle, event| {
             if let tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit = event {
                 torrserve::kill(app_handle);
-                torapi::kill(app_handle);
             }
         });
 }
