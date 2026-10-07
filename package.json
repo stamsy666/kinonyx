@@ -1,0 +1,12 @@
+{
+  "name": "kinonyx",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@12.5.1",
+  "scripts": {
+    "dev": "pnpm --filter @kinonyx/desktop tauri dev",
+    "build": "pnpm --filter @kinonyx/desktop tauri build",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck"
+  }
+}

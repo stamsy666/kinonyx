@@ -1,0 +1,541 @@
+/* "Каналы" (IPTV): PortoTV's screens, ported as-is — same layout, sizes and behaviour.
+   Only PortoTV's amber accent maps onto KINONYX's red (--accent). */
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 36px var(--page-x) 0;
+  animation: screen-in 420ms var(--ease) both;
+}
+
+.screen--center {
+  align-items: center;
+  padding-bottom: 36px;
+}
+
+.screen--center__header {
+  flex: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.screen--center .screen__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: min(920px, 86vw);
+  overflow: visible;
+  margin: 0;
+}
+
+.screen--center .screen__body > .row,
+.screen--center .screen__body > .stack,
+.screen--center .screen__body > .btn--wide,
+.screen--center .screen__body > .section-label,
+.screen--center .screen__body > .empty {
+  width: 100%;
+}
+
+.screen__logo {
+  width: 88px;
+  height: 88px;
+  margin-bottom: 22px;
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.5));
+}
+
+.screen__logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.screen__title--center {
+  text-align: center;
+  width: 100%;
+}
+
+/* Compound selector: .screen__title's own margin:0 (same specificity, later in the file)
+   would otherwise win and zero this out — the bug PortoTV hit with this exact rule. */
+.screen__title.screen__title--center {
+  margin-bottom: 18px;
+}
+
+.screen__head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 26px;
+}
+
+.screen__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(26px, 3vw, 40px);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.screen__eyebrow {
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 10px;
+  font-weight: 700;
+}
+
+.screen__subtitle {
+  font-size: 15px;
+  color: var(--text-faint);
+  margin: 6px 0 0;
+}
+
+.screen__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 0 48px;
+  margin: 0 calc(var(--page-x) * -1);
+  padding-left: var(--page-x);
+  padding-right: var(--page-x);
+  scrollbar-width: none;
+}
+
+/* A grid tile's focus ring (.focusable::after, 3px out), its focus scale-up and the focus
+   plate behind it (FocusHighlight, 10px out) all reach past the tile — fine against a
+   neighbour's gap, but the first/last column sits flush against this container's own clip
+   edge (overflow-x: hidden, needed to suppress a stray horizontal scrollbar from the
+   padding/negative-margin trick above), so their left edge got sliced off. Gives the grid
+   12px of slack on both sides to reach into, then pulls it back by the same amount so the
+   tiles land exactly where they did before. Scoped to screens whose body is a grid
+   (categories/channels/genre/favourites) — every other `.screen__body` is untouched. */
+.screen__body:has(> .grid, > .grid-cards) {
+  padding-left: calc(var(--page-x) + 12px);
+  padding-right: calc(var(--page-x) + 12px);
+}
+
+.screen__body > .grid,
+.screen__body > .grid-cards {
+  margin-left: -12px;
+  margin-right: -12px;
+}
+
+.screen__body::-webkit-scrollbar {
+  display: none;
+}
+
+.screen__search {
+  margin-bottom: 8px;
+}
+
+.btn--wide {
+  width: 100%;
+}
+
+.btn--ghost {
+  background: transparent;
+}
+
+.grid {
+  display: grid;
+  gap: 22px;
+}
+
+.grid--channels {
+  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+}
+
+.grid--categories {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.tile {
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.tile.is-focused {
+  background: var(--surface-hi);
+  border-color: transparent;
+}
+
+.channel-tile {
+  display: flex;
+  flex-direction: column;
+  aspect-ratio: 1 / 1.02;
+  padding: 18px 18px 14px;
+  /* Off-screen tiles skip layout/paint — a big win on playlists with thousands of
+     channels. content-visibility implies contain:paint, which would clip the shared
+     outset ring, so this tile draws its focus inset instead (below). */
+  content-visibility: auto;
+  contain-intrinsic-size: 220px 224px;
+}
+
+/* In the "Каналы" grid, .grid--channels' `minmax(196px, 1fr)` tracks already give this
+   tile a definite width. In a RowScroll shelf (e.g. Home's "Избранные каналы") there's no
+   such track — a flex item with no width and only `aspect-ratio` to go on doesn't reliably
+   settle on one before layout, and the logo (`flex: 1`, sized off that width) ends up
+   drawn oversized, overlapping the name/now-playing text underneath it. An explicit width
+   here only applies in that flex-row context; the grid keeps stretching to its own track. */
+.row-scroll__track .channel-tile {
+  width: 220px;
+  flex-shrink: 0;
+}
+
+.channel-tile::after {
+  content: none;
+}
+
+.channel-tile.is-focused {
+  box-shadow:
+    inset 0 0 0 3px var(--accent),
+    inset 0 0 0 10px var(--accent-glow);
+}
+
+.channel-tile__logo {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+
+.channel-tile__logo img {
+  max-width: 78%;
+  max-height: 68%;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45));
+}
+
+.channel-tile__initials {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
+}
+
+.channel-tile__name {
+  font-weight: 700;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 10px;
+}
+
+.channel-tile__now {
+  font-size: 14px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 1.35em;
+  margin-top: 2px;
+}
+
+.channel-tile__progress {
+  height: 3px;
+  border-radius: 2px;
+  margin-top: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.channel-tile__progress i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-deep), var(--accent));
+  transition: width 1s linear;
+}
+
+.category-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 78px;
+  padding: 0 24px;
+}
+
+.category-row__index {
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--accent);
+  font-weight: 700;
+  width: 34px;
+  flex-shrink: 0;
+}
+
+.category-row__name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 19px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.category-row__count {
+  font-size: 14px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.playlist-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 84px;
+  padding: 0 24px;
+}
+
+.playlist-row__index {
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--text-faint);
+  width: 30px;
+}
+
+.playlist-row__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.playlist-row__name {
+  font-weight: 700;
+  font-size: 19px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playlist-row__meta {
+  font-size: 14px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-dot--loading {
+  background: var(--gold);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Not the focus plate (FocusHighlight): the entry animation's transform would override the
+   inline one that positions it. */
+.stagger > :not(.focus-highlight) {
+  animation: screen-in 480ms var(--ease) both;
+}
+
+.stagger > *:nth-child(n + 2) {
+  animation-delay: 30ms;
+}
+.stagger > *:nth-child(n + 4) {
+  animation-delay: 60ms;
+}
+.stagger > *:nth-child(n + 7) {
+  animation-delay: 90ms;
+}
+.stagger > *:nth-child(n + 11) {
+  animation-delay: 120ms;
+}
+.stagger > *:nth-child(n + 16) {
+  animation-delay: 150ms;
+}
+
+/* ---------- TV player extras ---------- */
+
+/* .player__top is shared with the movie player's plain back+title row (still centered
+   there). Here `.player__info` grows tall (the big logo), so back/LIVE need to pin to the
+   top of the row instead of centering on its full height — otherwise they visually drift
+   down the middle of the now much taller row alongside the logo. */
+.player__top--tv {
+  align-items: flex-start;
+}
+
+.player__top--tv .icon-btn,
+.player__top--tv .player__status {
+  margin-top: 4px;
+}
+
+.player__info {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+.player__logo {
+  /* No card chrome (was a bordered, tinted rounded square around the logo) — just a
+     bigger logo, the image's own drop-shadow below is enough to keep it legible over
+     an arbitrary bright/busy video frame without needing a background to sit on. */
+  width: 160px;
+  height: 160px;
+  margin: 0 auto 10px;
+  display: grid;
+  place-items: center;
+}
+
+.player__logo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.55));
+}
+
+.player__logo-initials {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-faint);
+  letter-spacing: 0.02em;
+}
+
+.player__channel {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player__now--center {
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 20px;
+  margin-bottom: 16px;
+}
+
+.player__now b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.player__status {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  font-weight: 800;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 92, 92, 0.16);
+  color: #ff8b8b;
+}
+
+.live-badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.archive-badge {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(63, 211, 198, 0.16);
+  color: var(--teal);
+  font-size: 13px;
+  font-weight: 700;
+  gap: 8px;
+}
+
+.archive-badge.is-focused,
+.archive-badge:hover {
+  background: rgba(63, 211, 198, 0.28);
+}
+
+.player__center-icon {
+  width: 40px;
+  height: 40px;
+  color: var(--text-faint);
+}
+
+.list-option--stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  /* Archives run to 100+ rows — skip layout/paint for off-screen ones. */
+  content-visibility: auto;
+  contain-intrinsic-size: 100% 58px;
+}
+
+.list-option--stack.is-active .archive-item__title {
+  color: var(--accent);
+}
+
+.archive-panel__day {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  font-weight: 700;
+  padding: 10px 12px 6px;
+}
+
+.archive-panel__range {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.archive-panel__more {
+  text-align: center;
+  padding: 10px;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.archive-item__time {
+  font-size: 12px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.archive-item__title {
+  font-size: 15px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
