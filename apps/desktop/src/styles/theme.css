@@ -3060,6 +3060,12 @@ body.mpv-active::after {
   text-align: center;
   justify-content: center;
 }
+.setup__logo {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  margin-bottom: 22px;
+}
 .setup__title {
   font-family: var(--font-display);
   font-weight: 600;
@@ -3082,7 +3088,7 @@ body.mpv-active::after {
 }
 .setup__blurb {
   max-width: 480px;
-  margin: 14px 0 0;
+  margin: 30px 0 0;
 }
 .setup__actions {
   display: flex;

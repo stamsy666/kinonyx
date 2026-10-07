@@ -12,6 +12,7 @@ import {
 } from "../data/api";
 import { openExternal } from "../data/io";
 import { rematchAll } from "../data/rematch";
+import logoMark from "../assets/logo-mark.png";
 import { TextField } from "../components/TextField";
 import { FocusHighlight } from "../components/FocusHighlight";
 
@@ -87,6 +88,7 @@ export function SetupScreen() {
 
   return (
     <FocusGroup focusKey="setup" className="settings setup screen-pad">
+      <img className="setup__logo" src={logoMark} alt="" />
       <h1 className="setup__title">Добро пожаловать в KINONYX</h1>
       <p className="setup__lead">
         {step === 0
