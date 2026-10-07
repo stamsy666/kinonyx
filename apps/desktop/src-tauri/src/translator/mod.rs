@@ -61,6 +61,17 @@ pub struct StatusReply {
     vram_mb: Option<u64>,
 }
 
+impl Translator {
+    /// Ends any running session and kills the model servers — before an update, so the
+    /// installer isn't blocked by their locked .exe files.
+    pub async fn stop_for_update(&self) {
+        if let Some(s) = self.session.lock().await.take() {
+            s.shutdown();
+        }
+        self.engines.stop_all().await;
+    }
+}
+
 /// Asked once per app run: video memory decides whether voice-over fits next to the models.
 fn vram_mb() -> Option<u64> {
     use std::os::windows::process::CommandExt as _;

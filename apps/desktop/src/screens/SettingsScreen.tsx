@@ -114,7 +114,7 @@ export function SettingsScreen() {
   const updVersion = useUpdater((s) => s.update?.version);
   const updError = useUpdater((s) => s.error);
   const autoCheck = useUpdater((s) => s.autoCheck);
-  const [appVersion, setAppVersion] = useState("1.0.5");
+  const [appVersion, setAppVersion] = useState("1.0.6");
   useEffect(() => {
     if (!isTauri) return;
     void import("@tauri-apps/api/app").then((m) => m.getVersion()).then(setAppVersion, () => undefined);

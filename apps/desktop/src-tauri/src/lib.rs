@@ -16,6 +16,28 @@ use config::AppConfig;
 use tauri::Manager;
 use torrserve::TorrserveProcess;
 
+/// The job that kills every child when the app exits (see `tie_child_processes_to_this_one`).
+#[cfg(windows)]
+static CHILD_JOB: std::sync::OnceLock<win32job::Job> = std::sync::OnceLock::new();
+
+/// Called right before the updater launches the installer. The installer is a child of this
+/// process, so the kill-on-close job would take it down the moment the app exits — seen in
+/// practice: the update downloaded, the app closed, nothing got installed. So: stop the
+/// helper processes whose files the installer must replace (TorrServer, translator models)
+/// and then lift the kill-on-close limit.
+#[tauri::command]
+async fn prepare_for_update(app: tauri::AppHandle, translator: tauri::State<'_, translator::Translator>) -> Result<(), String> {
+    translator.stop_for_update().await;
+    torrserve::kill(&app);
+    #[cfg(windows)]
+    if let Some(job) = CHILD_JOB.get() {
+        job.set_extended_limit_info(&win32job::ExtendedLimitInfo::new()).map_err(|e| e.to_string())?;
+    }
+    // Let the killed processes release their files.
+    tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(windows)]
@@ -48,6 +70,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             ytdlp::resolve_trailer_url,
+            prepare_for_update,
             config::config_status,
             config::set_torapi_base_url,
             config::set_kinopoisk_api_key,
@@ -112,8 +135,10 @@ fn tie_child_processes_to_this_one() {
     })();
     match job {
         // The handle must stay open for the whole process lifetime — closing it is what
-        // kills the members, us included.
-        Ok(job) => std::mem::forget(job),
+        // kills the members, us included. A static is never dropped.
+        Ok(job) => {
+            let _ = CHILD_JOB.set(job);
+        }
         Err(e) => eprintln!("[job] couldn't tie child processes to the app: {e}"),
     }
 }

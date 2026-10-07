@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { check, type Update } from "@tauri-apps/plugin-updater";
+import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "../data/io";
 
 const AUTO_KEY = "kinonyx.autoUpdateCheck";
@@ -91,15 +92,18 @@ export const useUpdater = create<UpdaterState>((set, get) => ({
     try {
       let total = 0;
       let received = 0;
-      await update.downloadAndInstall((event) => {
+      await update.download((event) => {
         if (event.event === "Started") total = event.data.contentLength ?? 0;
         else if (event.event === "Progress") {
           received += event.data.chunkLength;
           if (total > 0) set({ progress: Math.min(1, received / total) });
         } else if (event.event === "Finished") set({ status: "installing", progress: 1 });
       });
-      // On Windows the installer takes over and closes the app by itself; nothing to do here.
+      // The installer is our child process and would die with the app (see `prepare_for_update`
+      // in lib.rs) — free it first. On Windows `install()` then launches it and exits the app.
       set({ status: "installing" });
+      await invoke("prepare_for_update");
+      await update.install();
     } catch (e) {
       set({ status: "error", error: `Не удалось установить обновление: ${e instanceof Error ? e.message : String(e)}` });
     }
