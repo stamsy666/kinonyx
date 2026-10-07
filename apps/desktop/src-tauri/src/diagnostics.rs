@@ -137,7 +137,7 @@ fn js_runtime_check() -> Check {
 pub async fn run_diagnostics(config: tauri::State<'_, AppConfig>) -> Result<Vec<Check>, String> {
     let kp_key = config.kinopoisk_api_key.lock().unwrap().clone();
     let tmdb_key = config.tmdb_api_key.lock().unwrap().clone();
-    let torapi = config.torapi_base_url.lock().unwrap().clone();
+    let torapi = crate::torapi::resolved_base(&config).await;
     let ts_url = format!("http://127.0.0.1:{}/echo", config.torrserve_port);
 
     let ts = async {

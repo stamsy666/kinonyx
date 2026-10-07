@@ -1,6 +1,6 @@
 [package]
 name = "kinonyx"
-version = "1.1.0"
+version = "1.1.1"
 description = "KINONYX — фильмы и сериалы через торренты, с метаданными Kinopoisk"
 authors = ["KINONYX"]
 edition = "2021"
