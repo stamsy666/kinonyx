@@ -27,7 +27,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "PASTE_PUBLIC_KEY_HERE",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc0OUY1QkIwQjNBQTFDQjkKUldTNUhLcXpzRnVmZEh4OS9iaFoxczFDY3JRRldFT0IzRHhhU0Juem9Kd2k3TWhTRjlQUHhaUUEK",
       "endpoints": [
         "https://github.com/stamsy666/kinonyx/releases/latest/download/latest.json"
       ],
