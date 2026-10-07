@@ -46,7 +46,7 @@ export type Screen =
       filmId?: number;
       poster?: string;
       /** Name + year of the film being watched — saved with its progress for re-matching. */
-      film?: { nameRu?: string; nameOriginal?: string; year?: string | number };
+      film?: { nameRu?: string; nameOriginal?: string; year?: string | number; genres?: string[] };
       /** The other playable files from the same torrent (a season pack) — lets the OSD
        *  offer "next episode" without reopening the release picker. */
       episodes?: { hash: string; files: TorrentFile[]; index: number };
@@ -135,9 +135,26 @@ export interface PlayerPrefs {
   subtitleScale: number;
   /** mpv `sub-color`, "#RRGGBB". */
   subtitleColor: string;
+  /** Evens out loud and quiet parts (mpv `dynaudnorm`) — for watching at night. */
+  nightMode: boolean;
+  /** Video scaling quality (mpv `scale`/`cscale`): sharper costs GPU. */
+  upscale: "default" | "sharp" | "max";
+  /** Smooths banding in gradients (mpv `deband`). */
+  deband: boolean;
+  /** HDR → SDR mapping for ordinary screens (mpv `tone-mapping`). */
+  toneMapping: "auto" | "soft" | "contrast";
 }
 
-export const DEFAULT_PLAYER_PREFS: PlayerPrefs = { uiScale: 1, autoHideSec: 4, subtitleScale: 1, subtitleColor: "#FFFFFF" };
+export const DEFAULT_PLAYER_PREFS: PlayerPrefs = {
+  uiScale: 1,
+  autoHideSec: 4,
+  subtitleScale: 1,
+  subtitleColor: "#FFFFFF",
+  nightMode: false,
+  upscale: "default",
+  deband: false,
+  toneMapping: "auto",
+};
 
 function readPlayerPrefs(): PlayerPrefs {
   try {
@@ -154,6 +171,10 @@ function readPlayerPrefs(): PlayerPrefs {
           typeof p.subtitleColor === "string" && /^#[0-9a-fA-F]{6}$/.test(p.subtitleColor)
             ? p.subtitleColor
             : DEFAULT_PLAYER_PREFS.subtitleColor,
+        nightMode: p.nightMode === true,
+        upscale: p.upscale === "sharp" || p.upscale === "max" ? p.upscale : "default",
+        deband: p.deband === true,
+        toneMapping: p.toneMapping === "soft" || p.toneMapping === "contrast" ? p.toneMapping : "auto",
       };
     }
   } catch {
@@ -261,6 +282,9 @@ interface AppState {
   setPlayerDim: (v: number) => void;
   playerPrefs: PlayerPrefs;
   setPlayerPrefs: (patch: Partial<PlayerPrefs>) => void;
+  /** Show what is being watched as a Discord status (needs Discord running and an application id). */
+  discordEnabled: boolean;
+  setDiscordEnabled: (on: boolean) => void;
   /** Mirror of the Rust-side metadata source (Settings), so catalog pages can pick the
    *  shelves that suit it. `null` until `configStatus` answers at startup (App.tsx) — the
    *  catalog pages wait for it rather than load Kinopoisk shelves first (500 requests/day). */
@@ -311,6 +335,21 @@ export const useApp = create<AppState>((set, get) => ({
   musicEnabled: readBool(MUSIC_ENABLED_KEY),
   musicVolume: readVolume(MUSIC_VOLUME_KEY, 0.5),
   playerDim: readVolume(PLAYER_DIM_KEY, 0.5),
+  discordEnabled: (() => {
+    try {
+      return localStorage.getItem("kinonyx.discord") !== "0";
+    } catch {
+      return true;
+    }
+  })(),
+  setDiscordEnabled(on) {
+    set({ discordEnabled: on });
+    try {
+      localStorage.setItem("kinonyx.discord", on ? "1" : "0");
+    } catch {
+      /* preference just won't survive a restart */
+    }
+  },
   playerPrefs: readPlayerPrefs(),
   metadataSource: null,
   setMetadataSourceState: (source) => set({ metadataSource: source }),

@@ -1,5 +1,6 @@
 mod config;
 mod diagnostics;
+mod discord;
 mod epg;
 mod http;
 mod images;
@@ -54,6 +55,7 @@ pub fn run() {
         })
         .manage(TorrserveProcess(std::sync::Mutex::new(None)))
         .manage(translator::Translator::default())
+        .manage(discord::Discord::default())
         .setup(|app| {
             app.manage(AppConfig::load(app.path().app_config_dir().ok(), app.path().app_cache_dir().ok()));
             torrserve::spawn(app.handle());
@@ -77,6 +79,9 @@ pub fn run() {
             config::set_tmdb_api_key,
             config::set_metadata_source,
             config::set_setup_done,
+            config::set_discord_app_id,
+            discord::discord_set,
+            discord::discord_clear,
             diagnostics::check_source_key,
             diagnostics::run_diagnostics,
             config::set_youtube_cookies_browser,
@@ -106,6 +111,7 @@ pub fn run() {
             translator::translator_delete,
             translator::translator_start,
             translator::translator_stop,
+            translator::translator_release,
             translator::translator_position,
             translator::translator_voice,
         ])

@@ -72,12 +72,22 @@ export function FocusHighlight({ pad = 10, radius = 22 }: Props) {
 
     // Focusable toggles `is-focused` on itself — watching class changes catches every move,
     // keyboard or mouse, without threading a callback through every card type.
+    // Items beside the focused one can change size too (a button whose label goes
+    // "Проверить обновления" → "Проверяю…" → back) and shove it sideways without touching the
+    // row's own size — the plate then sat on stale offsets. Watch every direct child, plus text
+    // changes (`characterData`), and re-place on any of it.
+    const ro = new ResizeObserver(() => current && place());
+    const watchChildren = () => {
+      ro.disconnect();
+      ro.observe(row);
+      for (const child of Array.from(row.children)) if (child !== plate) ro.observe(child);
+    };
     const mo = new MutationObserver((records) => {
+      if (records.some((r) => r.type === "childList")) watchChildren();
       if (records.some((r) => r.target !== plate)) place();
     });
-    mo.observe(row, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
-    const ro = new ResizeObserver(() => current && place());
-    ro.observe(row);
+    mo.observe(row, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["class"] });
+    watchChildren();
     place();
     return () => {
       mo.disconnect();

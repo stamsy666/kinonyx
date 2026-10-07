@@ -6,8 +6,10 @@ import { Sidebar } from "./components/Sidebar";
 import { AppBackground } from "./components/backgrounds/AppBackground";
 import { ClickSpark } from "./components/ClickSpark";
 import { configStatus } from "./data/api";
+import { isTauri } from "./data/io";
 import { rematchAll } from "./data/rematch";
 import { useUpdater } from "./store/updater";
+import { clearPresence, setPresence } from "./data/discord";
 import { UpdateModal } from "./components/UpdateModal";
 import { installSoundEngine } from "./data/sounds";
 import { installMusicEngine } from "./data/music";
@@ -154,10 +156,37 @@ export function App() {
       .catch(() => useApp.getState().setMetadataSourceState("kinopoisk"));
   }, []);
 
+  // Discord status while browsing (players set their own while they are open).
+  const discordEnabled = useApp((s) => s.discordEnabled);
+  useEffect(() => {
+    if (isPlayer) return;
+    if (discordEnabled) setPresence({ details: "Выбирает, что посмотреть", state: "в KINONYX" });
+    else clearPresence();
+  }, [isPlayer, discordEnabled]);
+
   // A few seconds after launch, so the check never competes with the first screen's requests.
   useEffect(() => {
     const t = window.setTimeout(() => useUpdater.getState().maybeAutoCheck(), 6000);
     return () => window.clearTimeout(t);
+  }, []);
+
+  // Browser preview only: `?update` shows the "update available" window with sample data, so
+  // its look can be reviewed without publishing a release.
+  useEffect(() => {
+    if (isTauri || !location.search.includes("update")) return;
+    // `?update=downloading` / `installing` / `error` show the other states.
+    const param = new URLSearchParams(location.search).get("update");
+    const status = param === "downloading" || param === "installing" || param === "error" ? param : "available";
+    useUpdater.setState({
+      status,
+      progress: status === "downloading" ? 0.45 : status === "installing" ? 1 : 0,
+      error: status === "error" ? "Не удалось установить обновление: нет соединения с сервером." : null,
+      dismissed: false,
+      update: {
+        version: "1.0.8",
+        body: "Новые разделы в настройках, исправлена полоса перемотки в плеере, кнопки «Получить ключ на сайте».",
+      } as never,
+    });
   }, []);
 
   useEffect(() => installSoundEngine(), []);

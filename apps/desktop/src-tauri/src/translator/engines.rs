@@ -229,6 +229,12 @@ impl Engines {
         Ok(port)
     }
 
+    /// Kills only the voice-over server (the biggest memory user), keeping recognition and
+    /// translation loaded.
+    pub async fn stop_tts(&self) {
+        *self.tts.lock().await = None;
+    }
+
     /// Frees the GPU memory the models hold (e.g. when translation isn't used for a while).
     pub async fn stop_all(&self) {
         *self.asr.lock().await = None;

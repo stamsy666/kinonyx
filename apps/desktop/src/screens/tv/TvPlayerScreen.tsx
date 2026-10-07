@@ -42,10 +42,14 @@ import { FullscreenButton } from "../../components/FullscreenButton";
 import { LiveSubtitles, useLiveTranslation } from "../../components/LiveSubtitles";
 import { useVoiceOver, voiceAudio } from "../../components/VoiceOver";
 import { useTranslator } from "../../store/translator";
+import { translatorRelease } from "../../data/translator";
+import { buildMpvOptions } from "../../data/playerOptions";
+import { trackLabel } from "../../data/trackLabel";
+import { useWatchTracker } from "../../components/useWatchTracker";
+import { usePresence } from "../../components/usePresence";
 
 /** PortoTV's live-TV player: live guide, DVR seek, catch-up archive — ported as-is. */
 
-const OSD_TIMEOUT = 4000;
 const SEEK_STEP = 30;
 const DEFAULT_CATCHUP_DAYS = 3;
 const ARCHIVE_PAGE_SIZE = 20;
@@ -88,6 +92,9 @@ export function TvPlayerScreen({ channelId }: { channelId: string }) {
   const epgStatus = useTv((s) => s.epgStatus);
   const back = useApp((s) => s.back);
   const showStreamStats = useApp((s) => s.showStreamStats);
+  // The same player settings as the movie player (Settings → Плеер).
+  const playerDim = useApp((s) => s.playerDim);
+  const prefs = useApp((s) => s.playerPrefs);
   const channel = useMemo(() => playlist?.channels.find((c) => c.id === channelId), [playlist, channelId]);
   const isFavChannel = useChannelFavorites(
     (s) => !!activePlaylistId && s.items.some((f) => f.playlistId === activePlaylistId && f.channel.id === channelId),
@@ -181,15 +188,18 @@ export function TvPlayerScreen({ channelId }: { channelId: string }) {
     lastArchiveFocus[channel.id] != null &&
     visibleArchiveDays.some((day) => day.items.some((p) => p.start === lastArchiveFocus[channel.id]));
 
+  // Embedded subtitle tracks are drawn by mpv itself: its size/colour options, set per load.
+  const subtitleOptions = useMemo(() => buildMpvOptions(prefs), [prefs]);
+
   const baseSource: PlaySource | null = useMemo(() => {
     if (!channel) return null;
     if (archive) {
       const durationSec = Math.max(60, (archive.programme.stop - archive.programme.start) / 1000);
       const url = buildCatchupUrl(channel.url, channel.catchup, { start: new Date(archive.programme.start), durationSec });
-      return { url, title: `${channel.name} · ${archive.programme.title}`, live: false };
+      return { url, title: `${channel.name} · ${archive.programme.title}`, live: false, mpvOptions: subtitleOptions };
     }
-    return { url: channel.url, title: channel.name, live: true };
-  }, [channel, archive]);
+    return { url: channel.url, title: channel.name, live: true, mpvOptions: subtitleOptions };
+  }, [channel, archive, subtitleOptions]);
 
   const translateOn = useTranslator((s) => s.active);
   const setTranslateOn = useTranslator((s) => s.setActive);
@@ -225,16 +235,27 @@ export function TvPlayerScreen({ channelId }: { channelId: string }) {
   const bump = useCallback(() => {
     setOsd(true);
     window.clearTimeout(hideTimer.current);
+    // 0 = "don't hide": the controls stay until the viewer leaves the player.
+    if (prefs.autoHideSec <= 0) return;
     hideTimer.current = window.setTimeout(() => {
       setOsd(false);
       setMenu(null);
       setArchiveOpen(false);
       setVolumeOpen(false);
-    }, OSD_TIMEOUT);
-  }, []);
+    }, prefs.autoHideSec * 1000);
+  }, [prefs.autoHideSec]);
 
   // mpv renders into a native window behind a transparent hole — see useMpvReveal.
   const revealed = useMpvReveal(state.status, source);
+
+  // Discord status: the channel.
+  usePresence(channel ? { details: channel.name, state: "телеканал" } : null, state.status === "playing");
+
+  // Viewing statistics.
+  useWatchTracker(
+    state.status === "playing",
+    channel ? { key: `tv:${channel.id}`, title: channel.name, poster: channel.logo, kind: "tv", genres: ["Телеканалы"] } : null,
+  );
 
   useEffect(() => {
     const adapter = isTauri ? new MpvAdapter() : videoRef.current ? new Html5Adapter(videoRef.current) : null;
@@ -387,6 +408,8 @@ export function TvPlayerScreen({ channelId }: { channelId: string }) {
       return;
     }
     setTranslateOn(!translateOn);
+    // Switched off here (and no voice-over left running): no helper process stays behind.
+    if (translateOn && !voiceOn) void translatorRelease("all").catch(() => undefined);
     setMenu(null);
     bump();
   };
@@ -399,6 +422,8 @@ export function TvPlayerScreen({ channelId }: { channelId: string }) {
     // Inside the key/click handler: lets the voice-over's audio start without a gesture later.
     if (!voiceOn) voiceAudio();
     setVoiceOn(!voiceOn);
+    // Voice off: its server (the heaviest process) goes at once; with the subtitles off too, everything does.
+    if (voiceOn) void translatorRelease(translateOn ? "voice" : "all").catch(() => undefined);
     setMenu(null);
     bump();
   };
@@ -409,7 +434,7 @@ export function TvPlayerScreen({ channelId }: { channelId: string }) {
   if (!channel) {
     return (
       <FocusGroup focusKey="screen:player" className="player" isFocusBoundary>
-        <div className="player__osd">
+        <div className="player__osd" style={{ "--osd-dim": playerDim * 2, "--osd-scale": prefs.uiScale } as React.CSSProperties}>
           <div className="player__top">
             <Focusable as="button" className="icon-btn" focusKey="pl:back" onPress={() => back()} autoFocus scroll={false}>
               <BackIcon />
@@ -463,7 +488,7 @@ export function TvPlayerScreen({ channelId }: { channelId: string }) {
         </div>
       )}
 
-      <div className={`player__osd ${osd ? "" : "is-hidden"}`}>
+      <div className={`player__osd ${osd ? "" : "is-hidden"}`} style={{ "--osd-dim": playerDim * 2, "--osd-scale": prefs.uiScale } as React.CSSProperties}>
         <div className="player__top player__top--tv">
           <Focusable as="button" className="icon-btn" focusKey="pl:back" onPress={() => back()} scroll={false}>
             <BackIcon />
@@ -512,7 +537,7 @@ export function TvPlayerScreen({ channelId }: { channelId: string }) {
               {channel && activePlaylistId && (
                 <Focusable
                   as="button"
-                  className={`icon-btn ${isFavChannel ? "icon-btn--active" : ""}`}
+                  className={`icon-btn ${isFavChannel ? "icon-btn--active icon-btn--heart-on" : ""}`}
                   focusKey="pl:favorite"
                   onPress={() => toggleChannelFavorite(activePlaylistId, channel)}
                   scroll={false}
@@ -628,33 +653,17 @@ export function TvPlayerScreen({ channelId }: { channelId: string }) {
               <TrackItem
                 focusKey="menu:translate"
                 label="Локальный перевод на русский"
-                hint={translatorReady ? `эфир −${live.delay} с` : "скачайте в настройках"}
+                hint={translatorReady ? undefined : "скачайте в настройках"}
                 active={translateOn}
                 onPress={toggleTranslation}
               />
             )}
-            {menu === "subtitle" && isTauri && translationEnabled && voiceEnabled && (
-              <TrackItem
-                focusKey="menu:voice"
-                label="Закадровый голос"
-                hint={
-                  !voiceReady
-                    ? "скачайте в настройках"
-                    : voiceOn && live.voiceState === "starting"
-                      ? "загружается…"
-                      : "голосом говорящего"
-                }
-                active={voiceOn}
-                onPress={toggleVoice}
-              />
-            )}
-            {tracks.length === 0 && menu === "audio" && <div className="empty">Только одна дорожка</div>}
+            {tracks.length === 0 && menu === "audio" && !(isTauri && translationEnabled && voiceEnabled) && <div className="empty">Только одна дорожка</div>}
             {tracks.map((t, i) => (
               <TrackItem
                 key={t.id}
                 focusKey={`menu:${i}`}
-                label={t.title || t.lang || `Дорожка ${i + 1}`}
-                hint={t.lang}
+                label={trackLabel(t, tracks, i)}
                 active={t.selected && !(menu === "subtitle" && translateOn)}
                 onPress={() => {
                   if (menu === "audio") {
@@ -672,6 +681,22 @@ export function TvPlayerScreen({ channelId }: { channelId: string }) {
                 autoFocus={menu === "audio" && i === 0}
               />
             ))}
+            {/* Voice-over is audio, so it lives in the audio menu — last, after the real tracks. */}
+            {menu === "audio" && isTauri && translationEnabled && voiceEnabled && (
+              <TrackItem
+                focusKey="menu:voice"
+                label="AI-переводчик"
+                hint={
+                  !voiceReady
+                    ? "скачайте в настройках"
+                    : voiceOn && live.voiceState === "starting"
+                      ? "загружается…"
+                      : undefined
+                }
+                active={voiceOn}
+                onPress={toggleVoice}
+              />
+            )}
           </div>
         </Modal>
       )}
@@ -769,7 +794,7 @@ function TrackItem({
       scroll={false}
     >
       <span className="list-option__label">{label}</span>
-      {hint && <span className="list-option__hint">{hint}</span>}
+      {hint && hint.trim().toLowerCase() !== label.trim().toLowerCase() && <span className="list-option__hint">{hint}</span>}
     </Focusable>
   );
 }

@@ -514,6 +514,9 @@ export interface ConfigStatus {
   youtube_cookies_browser: YoutubeCookiesBrowser;
   torapi_base_url: string;
   setup_done: boolean;
+  /** Discord status can work (an application id was entered or built in). */
+  discord_ready: boolean;
+  discord_app_id: string;
   torrserve_port: number;
 }
 export function configStatus() {
@@ -533,6 +536,9 @@ export async function setTmdbApiKey(key: string) {
 }
 export function setYoutubeCookiesBrowser(browser: YoutubeCookiesBrowser) {
   return invoke<void>("set_youtube_cookies_browser", { browser });
+}
+export function setDiscordAppId(id: string) {
+  return invoke<void>("set_discord_app_id", { id });
 }
 export function setSetupDone(done: boolean) {
   return invoke<void>("set_setup_done", { done });

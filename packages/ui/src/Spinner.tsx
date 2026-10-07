@@ -1,12 +1,6 @@
-const DOTS = Array.from({ length: 12 });
-
-/** A classic 12-dot activity indicator, CSS-driven. */
+/** The app's loading animation: four dots chasing round a square, merging into a soft blob
+ *  (a "gooey" effect — see `.spinner` in theme.css and the `#kx-goo` filter in index.html).
+ *  Coloured by the theme's accent, so it follows the chosen theme. */
 export function Spinner() {
-  return (
-    <div className="spinner" role="status" aria-hidden="true">
-      {DOTS.map((_, i) => (
-        <i key={i} style={{ transform: `rotate(${i * 30}deg)`, animationDelay: `${(i * -1) / 12}s` }} />
-      ))}
-    </div>
-  );
+  return <div className="spinner" role="status" aria-hidden="true" />;
 }

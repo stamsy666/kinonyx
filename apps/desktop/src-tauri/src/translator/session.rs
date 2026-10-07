@@ -290,6 +290,13 @@ impl Session {
     }
 
     /// Switches voice-over on/off without restarting the session (the broadcast keeps playing).
+    /// The voice-over server is being killed from outside: forget its port, so switching the
+    /// voice back on starts a fresh one instead of assuming the old one still runs.
+    pub fn drop_voice(&self) {
+        self.voice.on.store(false, Ordering::SeqCst);
+        self.voice.port.store(0, Ordering::SeqCst);
+    }
+
     pub fn set_voice(&self, app: AppHandle, engines: Arc<Engines>, on: bool) {
         self.voice.on.store(on, Ordering::SeqCst);
         if on {

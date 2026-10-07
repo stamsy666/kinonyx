@@ -73,6 +73,8 @@ export const MOCK = {
           youtube_cookies_browser: mockCookies,
           torapi_base_url: mockTorApi,
           setup_done: mockSetupDone,
+          discord_ready: false,
+          discord_app_id: "",
           torrserve_port: 8090,
         } as T;
       case "set_kinopoisk_api_key": {
@@ -87,6 +89,10 @@ export const MOCK = {
         mockTmdbKey = k.length > 8 ? `${k.slice(0, 4)}…${k.slice(-4)}` : "•".repeat(k.length);
         return undefined as T;
       }
+      case "set_discord_app_id":
+      case "discord_set":
+      case "discord_clear":
+        return undefined as T;
       case "set_setup_done":
         mockSetupDone = Boolean(args?.done);
         return undefined as T;

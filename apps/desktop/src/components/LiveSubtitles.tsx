@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DUCK_FILTER, type PlaySource } from "@kinonyx/player-core";
 import { useTranslator } from "../store/translator";
+import { useApp } from "../store/app";
 import {
   onCue,
   onSessionStatus,
@@ -159,13 +160,14 @@ export function useLiveTranslation(base: PlaySource | null, enabled: boolean, vo
       url: session.playUrl,
       live: true,
       mpvOptions: {
+        ...base.mpvOptions,
+        // The voice-over duck filter goes after the viewer's own audio filter (night mode).
+        af: [base.mpvOptions?.af, DUCK_FILTER].filter(Boolean).join(","),
         // Same timeline as the audio decoder feeding the translator (both read the relay).
         "rebase-start-time": "no",
         // Start only once `delay` seconds are buffered: that head start is the translator's.
         "cache-pause-initial": "yes",
         "cache-pause-wait": String(delay),
-        // Lets voice-over turn the original down under the Russian line (setDuck).
-        af: DUCK_FILTER,
       },
     };
   }, [enabled, base, session, delay]);
@@ -204,10 +206,15 @@ export function LiveSubtitles({
   note: string | null;
   raised: boolean;
 }) {
+  const prefs = useApp((s) => s.playerPrefs);
   const cue = active ? currentCue(cues, position) : null;
   if (!cue && !note) return null;
   return (
-    <div className={`live-subs ${raised ? "live-subs--raised" : ""}`} aria-live="polite">
+    <div
+      className={`live-subs ${raised ? "live-subs--raised" : ""}`}
+      style={{ "--sub-scale": prefs.subtitleScale, "--sub-color": prefs.subtitleColor } as React.CSSProperties}
+      aria-live="polite"
+    >
       {cue ? <p className="live-subs__text">{cue.text}</p> : <p className="live-subs__note">{note}</p>}
     </div>
   );

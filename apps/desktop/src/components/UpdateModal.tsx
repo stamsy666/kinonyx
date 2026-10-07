@@ -15,22 +15,29 @@ export function UpdateModal() {
 
   return (
     <Modal focusKey="update-modal" preferredChildFocusKey="update:install" onClose={() => !busy && dismiss()}>
-      <div className="modal-panel__header">
+      <div className="modal-panel__header update__head">
         <h3>Доступна версия {update?.version}</h3>
       </div>
-      {update?.body && <p className="update__notes">{update.body}</p>}
-      {busy && (
-        <div className="update__progress" role="progressbar" aria-valuenow={Math.round(progress * 100)}>
-          <i style={{ width: `${Math.round(progress * 100)}%` }} />
-        </div>
-      )}
-      <p className="update__status">
-        {status === "downloading" && `Загрузка… ${Math.round(progress * 100)}%`}
-        {status === "installing" && "Устанавливаю — программа перезапустится сама."}
-        {status === "error" && error}
-        {status === "available" && "Обновление скачается и установится автоматически."}
-      </p>
-      <div className="trailer-error__actions">
+      <div className="update__body">
+        {update?.body && !busy && <p className="update__notes">{update.body}</p>}
+        {busy && (
+          <div className="update__progress" role="progressbar" aria-valuenow={Math.round(progress * 100)}>
+            <i style={{ width: `${Math.round(progress * 100)}%` }} />
+          </div>
+        )}
+        <p className={`update__status ${busy ? "update__status--center" : ""}`}>
+          {status === "downloading" && `Загрузка… ${Math.round(progress * 100)}%`}
+          {status === "installing" && "Устанавливаю — программа перезапустится сама."}
+          {status === "error" && error}
+          {status === "available" && "Обновление скачается и установится автоматически."}
+        </p>
+      </div>
+      <div className="update__actions">
+        {!busy && (
+          <Focusable as="button" className="btn" focusKey="update:later" scroll={false} onPress={dismiss}>
+            Позже
+          </Focusable>
+        )}
         <Focusable
           as="button"
           className="btn btn--primary"
@@ -41,11 +48,6 @@ export function UpdateModal() {
         >
           {busy ? "Обновляю…" : status === "error" ? "Повторить" : "Обновить"}
         </Focusable>
-        {!busy && (
-          <Focusable as="button" className="btn" focusKey="update:later" scroll={false} onPress={dismiss}>
-            Позже
-          </Focusable>
-        )}
       </div>
     </Modal>
   );

@@ -16,7 +16,7 @@ export interface ContinueWatchingEntry {
   duration: number;
   updatedAt: number;
   /** Name + year of the film, so the entry can be re-matched after a source switch. */
-  film?: { nameRu?: string; nameOriginal?: string; year?: string | number };
+  film?: { nameRu?: string; nameOriginal?: string; year?: string | number; genres?: string[] };
   /** Source the `filmId` belongs to; missing on old entries = Kinopoisk. */
   source?: MetadataSource;
 }

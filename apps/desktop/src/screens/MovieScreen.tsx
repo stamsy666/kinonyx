@@ -24,6 +24,8 @@ import { RowScroll } from "../components/RowScroll";
 import { MovieCard } from "../components/MovieCard";
 import { ReleasePickerModal } from "../components/ReleasePickerModal";
 import { LinksModal, type Link } from "../components/LinksModal";
+import { QUALITY_OPTIONS, type QualityKey } from "../data/quality";
+import { continueLabel } from "../store/episodeProgress";
 import { Modal } from "../components/Modal";
 import { ProgressiveImg } from "../components/ProgressiveImg";
 import { MovieBackdrop } from "../components/MovieBackdrop";
@@ -66,7 +68,7 @@ const STILLS_PER_VIEW = 4;
 const ACTORS_PER_VIEW = 7;
 const BACKDROP_SLIDES = 8;
 
-type Modal = "watch" | "trailer" | null;
+type Modal = "watch" | "quality" | "trailer" | null;
 
 // Kinopoisk's own videos list mixes real YouTube trailers with entries that just point
 // at its own embeddable widget player (widgets.kinopoisk.ru/.../trailer/...) — those
@@ -155,7 +157,9 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
 
   // The picker shows the speed each release needs (size ÷ runtime), and runtime is only in
   // the full record — one cached request, and only if the viewer actually wants to watch.
+  const [quality, setQuality] = useState<QualityKey | undefined>(undefined);
   const openWatch = () => {
+    setQuality(undefined);
     setModal("watch");
     if (film?.filmLength) return;
     kpFilm(id)
@@ -171,8 +175,8 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
     kpVideos(id)
       .then((r) => {
         const found = (r.items ?? []).map((v, i) => ({ key: String(i), title: v.name || "Трейлер", hint: v.site, url: v.url }));
-        // Always offered last: a YouTube link may be blocked, and TMDB often lists none.
-        setTrailers([...found, rutube]);
+        // Always offered, and first: a YouTube link may be blocked, and TMDB often lists none.
+        setTrailers([rutube, ...found]);
       })
       .catch(() => setTrailers([rutube]));
   };
@@ -278,7 +282,10 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
             ) : (
               <>
                 <Focusable as="button" focusKey="movie:watch" className="btn btn--primary" onPress={openWatch} autoFocus scroll={false}>
-                  Смотреть
+                  {continueLabel(id) ?? "Смотреть"}
+                </Focusable>
+                <Focusable as="button" focusKey="movie:quality" className="btn" onPress={() => setModal("quality")}>
+                  Качество
                 </Focusable>
                 <Focusable as="button" focusKey="movie:trailer" className="btn" onPress={openTrailers}>
                   Трейлер
@@ -328,13 +335,27 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
         ))}
       </RowScroll>
 
+      {modal === "quality" && (
+        <LinksModal
+          heading="Качество"
+          empty=""
+          links={QUALITY_OPTIONS.map((o) => ({ key: o.key, title: o.title, hint: o.hint, url: "" }))}
+          onClose={() => setModal(null)}
+          onSelect={(l) => {
+            // Straight into the search: the best release of this resolution starts by itself.
+            openWatch();
+            setQuality(l.key as QualityKey);
+          }}
+        />
+      )}
       {modal === "watch" && (
         <ReleasePickerModal
           filmId={id}
           title={title}
           year={year}
           durationMin={film.filmLength}
-          remembered={lastRelease}
+          quality={quality}
+          remembered={quality ? undefined : lastRelease}
           onClose={() => setModal(null)}
           onReady={(source) =>
             navigate({
@@ -343,7 +364,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
               url: source.url,
               hash: source.hash,
               filmId: id,
-              film: { nameRu: film.nameRu, nameOriginal: film.nameOriginal, year: film.year },
+              film: { nameRu: film.nameRu, nameOriginal: film.nameOriginal, year: film.year, genres: film.genres?.map((g) => g.genre) },
               poster: film.posterUrlPreview ? img(film.posterUrlPreview) : undefined,
               episodes: source.episodes,
             })

@@ -1,16 +1,22 @@
 import {
   AudioLines,
   Captions,
+  ChartColumn,
   ChevronLeft,
   ChevronRight,
   Clapperboard,
+  Database,
   Dices,
   FastForward,
   Film,
+  Flame,
   FolderOpen,
   Heart,
   History,
+  Info,
   ListVideo,
+  MonitorPlay,
+  Palette,
   Plus,
   Trash2,
   Gamepad2,
@@ -27,6 +33,7 @@ import {
   SignalZero,
   SkipForward,
   Sparkles,
+  Trophy,
   Tv,
   Volume2,
   VolumeX,
@@ -76,3 +83,12 @@ export const FavoriteIcon = wrap(Heart);
 export const NextEpisodeIcon = wrap(SkipForward, { fill: "currentColor" });
 export const DiceIcon = wrap(Dices);
 export const EpisodesIcon = wrap(ListVideo);
+
+export const SourcesIcon = wrap(Database);
+export const PlayerSettingsIcon = wrap(MonitorPlay);
+export const ThemeIcon = wrap(Palette);
+export const AboutIcon = wrap(Info);
+
+export const StatsIcon = wrap(ChartColumn);
+export const FlameIcon = wrap(Flame);
+export const TrophyIcon = wrap(Trophy);

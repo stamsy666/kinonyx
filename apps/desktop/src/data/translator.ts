@@ -84,6 +84,8 @@ export const translatorCancelDownload = (id: string) => invoke<void>("translator
 export const translatorDelete = (id: string) => invoke<void>("translator_delete", { id });
 export const translatorStart = (options: StartOptions) => invoke<{ session: number; playUrl: string }>("translator_start", { options });
 export const translatorStop = (session?: number) => invoke<void>("translator_stop", { session: session ?? null });
+/** "voice" kills just the voice-over server, "all" every helper process, immediately. */
+export const translatorRelease = (what: "voice" | "all") => invoke<void>("translator_release", { what });
 export const translatorPosition = (session: number, position: number) => invoke<void>("translator_position", { session, position });
 export const translatorVoice = (session: number, on: boolean) => invoke<void>("translator_voice", { session, on });
 

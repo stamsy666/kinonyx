@@ -94,6 +94,16 @@ function ensureMpv(): Promise<void> {
   return mpvReady;
 }
 
+/** A per-title option mpv doesn't know (an older build, another video output) must not stop
+ *  the video from loading — it just isn't applied. */
+async function softSet(key: string, value: string) {
+  try {
+    await mpvSetProperty(key, value);
+  } catch (e) {
+    console.warn(`[mpv] option ${key}=${value} not applied:`, e);
+  }
+}
+
 /** Defaults restored for `PlaySource.mpvOptions` keys once a title no longer asks for them.
  *  (cache-pause-* need no entry: every load sets them anyway.) */
 const OPTION_DEFAULTS: Record<string, string> = {
@@ -103,6 +113,11 @@ const OPTION_DEFAULTS: Record<string, string> = {
   start: "none",
   "sub-scale": "1",
   "sub-color": "#FFFFFF",
+  scale: "bilinear",
+  cscale: "bilinear",
+  deband: "no",
+  "tone-mapping": "auto",
+  "hdr-compute-peak": "auto",
 };
 
 /** Audio filter a source adds (via `mpvOptions.af`) to make `setDuck` work. */
@@ -325,9 +340,9 @@ export class MpvAdapter implements PlayerAdapter {
         // and anything a previous title changed goes back to its default.
         const extra = source.mpvOptions ?? {};
         for (const key of appliedExtraOptions) {
-          if (!(key in extra) && key in OPTION_DEFAULTS) await mpvSetProperty(key, OPTION_DEFAULTS[key]);
+          if (!(key in extra) && key in OPTION_DEFAULTS) await softSet(key, OPTION_DEFAULTS[key]);
         }
-        for (const [key, value] of Object.entries(extra)) await mpvSetProperty(key, value);
+        for (const [key, value] of Object.entries(extra)) await softSet(key, value);
         appliedExtraOptions = Object.keys(extra);
         await mpvCommand("loadfile", [source.url, "replace"]);
       });

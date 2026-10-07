@@ -14,7 +14,15 @@ export function setSoundHandlers(next: SoundHandlers) {
   handlers = next;
 }
 
+// A press often changes what is under the cursor (a modal opens, a list re-renders, the
+// screen changes) — the focus move that follows is a side effect of the press, not the
+// viewer navigating, and used to sound right on top of the click. So for a moment after a
+// press only the click is heard.
+const PRESS_QUIET_MS = 450;
+let lastPressAt = -Infinity;
+
 export function emitPressSound() {
+  lastPressAt = performance.now();
   handlers.onPress?.();
 }
 
@@ -40,6 +48,7 @@ if (typeof window !== "undefined") {
 }
 
 export function emitMoveSound(group: NavSoundGroup, byMouse?: boolean) {
+  if (performance.now() - lastPressAt < PRESS_QUIET_MS) return;
   if (!byMouse && performance.now() - lastDirectionalInputAt > 100) return;
   handlers.onMove?.(group);
 }

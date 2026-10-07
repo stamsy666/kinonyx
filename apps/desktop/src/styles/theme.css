@@ -437,32 +437,36 @@ img {
   padding: 30px 0;
 }
 
+/* Loading animation: four dots chasing round a square that melt together (the #kx-goo filter in
+   index.html blurs and re-thresholds the alpha). Dots are the theme accent, so it follows the theme.
+   Sized from --s so one rule scales: dot = s/4, centre square = s/2, frame = s/8. */
 .spinner {
-  position: relative;
-  width: 48px;
-  height: 48px;
+  --s: 56px;
+  --dot: var(--accent);
+  flex: none;
+  width: var(--s);
+  aspect-ratio: 1;
+  border: calc(var(--s) / 8) solid transparent;
+  box-sizing: border-box;
+  background:
+    radial-gradient(farthest-side, var(--dot) 98%, transparent) 0 0 / calc(var(--s) / 4) calc(var(--s) / 4),
+    radial-gradient(farthest-side, var(--dot) 98%, transparent) 100% 0 / calc(var(--s) / 4) calc(var(--s) / 4),
+    radial-gradient(farthest-side, var(--dot) 98%, transparent) 100% 100% / calc(var(--s) / 4) calc(var(--s) / 4),
+    radial-gradient(farthest-side, var(--dot) 98%, transparent) 0 100% / calc(var(--s) / 4) calc(var(--s) / 4),
+    linear-gradient(var(--dot) 0 0) 50% / calc(var(--s) / 2) calc(var(--s) / 2);
+  background-repeat: no-repeat;
+  filter: url(#kx-goo);
+  animation: spinner-chase 0.8s infinite;
 }
 
-.spinner i {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 4px;
-  height: 13px;
-  margin-left: -2px;
-  border-radius: 2px;
-  background: var(--accent);
-  transform-origin: 2px 24px;
-  animation: spinner-fade 1.1s linear infinite;
-  opacity: 0.15;
-}
-
-@keyframes spinner-fade {
-  0% {
-    opacity: 1;
-  }
+@keyframes spinner-chase {
   100% {
-    opacity: 0.15;
+    background-position:
+      100% 0,
+      100% 100%,
+      0 100%,
+      0 0,
+      center;
   }
 }
 
@@ -1426,6 +1430,15 @@ img {
 
 /* Favourite on the film page: just a red heart (outline → filled when saved), no
    background or border. */
+.icon-btn--heart-on,
+.icon-btn--heart-on.is-focused {
+  color: #ff3b57;
+}
+
+.icon-btn--heart-on svg {
+  filter: drop-shadow(0 0 8px rgba(255, 59, 87, 0.45));
+}
+
 .icon-btn--fav {
   width: 60px;
   height: 60px;
@@ -2118,7 +2131,7 @@ img {
 /* ---------- Settings (layout per the user's sketch) ---------- */
 
 .settings {
-  max-width: 920px;
+  max-width: 1120px;
   margin: 0 auto;
   min-height: 100%;
   display: flex;
@@ -2473,7 +2486,9 @@ img {
   font-weight: 700;
 }
 
+/* Space above, so the focus ring of the button over it doesn't touch the version line. */
 .settings__version {
+  margin-top: 18px;
   padding: 4px 20px 0;
   font-size: 12px;
   letter-spacing: 0.04em;
@@ -2723,6 +2738,13 @@ body.mpv-active::after {
   content: none;
 }
 
+/* Focus normally scales an element up; on a full-width bar that pushed both ends ~4% past
+   the page margins (and past the time label and buttons above/below it). The track already
+   gets thicker on focus, which is enough. */
+.seekbar.is-focused {
+  transform: none;
+}
+
 .seekbar__track {
   position: relative;
   height: 5px;
@@ -2902,7 +2924,9 @@ body.mpv-active::after {
 }
 
 .live-subs__text {
-  font-size: clamp(22px, 2.3vw, 38px);
+  /* Settings → Плеер → Субтитры: the same size and colour as the movie player's subtitles. */
+  color: var(--sub-color, #fff);
+  font-size: calc(clamp(22px, 2.3vw, 38px) * var(--sub-scale, 1));
   font-weight: 600;
   letter-spacing: 0.005em;
 }
@@ -3104,6 +3128,8 @@ body.mpv-active::after {
 .diag__loading {
   display: flex;
   align-items: center;
+  justify-content: center;
+  padding: 40px 0;
   gap: 12px;
   color: var(--text-dim);
 }
@@ -3193,22 +3219,33 @@ body.mpv-active::after {
 }
 
 /* Update modal */
+.update__head {
+  justify-content: center;
+}
+/* Same space above the description as below it (header line → text → buttons). */
+.update__body {
+  padding: 20px 6px;
+}
 .update__notes {
-  margin: 0 20px 14px;
+  margin: 0 0 14px;
   max-height: 180px;
   overflow-y: auto;
   white-space: pre-wrap;
   color: var(--text-dim);
   font-size: 14px;
+  line-height: 1.5;
 }
 .update__status {
-  margin: 0 20px 6px;
+  margin: 0;
   min-height: 1.4em;
   font-size: 14px;
   color: var(--text-dim);
 }
+.update__status--center {
+  text-align: center;
+}
 .update__progress {
-  margin: 4px 20px 10px;
+  margin: 0 0 12px;
   height: 6px;
   border-radius: 3px;
   background: rgba(255, 255, 255, 0.14);
@@ -3219,4 +3256,415 @@ body.mpv-active::after {
   height: 100%;
   background: var(--accent);
   transition: width 200ms linear;
+}
+/* "Позже" at the left edge, the main action at the right edge. */
+.update__actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 6px 4px;
+}
+.update__actions > :last-child {
+  margin-left: auto;
+}
+
+/* "Получить ключ на сайте": room for the focus ring + focus scale-up, so it doesn't land on
+   the hint text above it. */
+.settings__site-btn {
+  margin-top: 30px;
+  margin-bottom: 6px;
+}
+
+/* Settings: sections list on the left, the chosen section's cards on the right */
+.settings__layout {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 36px;
+  align-items: start;
+}
+.settings-nav {
+  position: sticky;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.settings-nav__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 52px;
+  padding: 0 18px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: left;
+}
+.settings-nav__item.is-active {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+}
+.settings-nav__item.is-focused {
+  color: var(--text);
+}
+.settings-pane {
+  min-width: 0;
+  animation: fade-in 180ms var(--ease) both;
+}
+/* Each setting is a card, so a long section reads as separate things, not one list. */
+.settings-pane .settings__item {
+  margin-bottom: 16px;
+  padding: 22px 26px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.settings-pane .settings__footer {
+  margin-top: 8px;
+}
+
+/* Settings before any section is opened */
+.settings-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 320px;
+  padding: 40px 24px;
+  border-radius: 18px;
+  border: 1px dashed var(--line-hi);
+  color: var(--text-faint);
+  text-align: center;
+}
+.settings-empty p {
+  margin: 8px 0 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.settings-empty span {
+  font-size: 14px;
+}
+
+/* "Next episode in N s" — over the player, bottom-right, above the controls */
+.autonext {
+  position: absolute;
+  right: var(--page-x);
+  bottom: 190px;
+  z-index: 6;
+  animation: fade-in 200ms var(--ease) both;
+}
+.autonext__card {
+  min-width: 320px;
+  padding: 18px 22px;
+  border-radius: 18px;
+  background: rgba(18, 12, 14, 0.94);
+  border: 1px solid var(--line-hi);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+}
+.autonext__title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+}
+.autonext__name {
+  margin: 4px 0 14px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+.autonext__actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ep-tag {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+.ep-done {
+  color: var(--teal);
+}
+
+.settings__sublabel {
+  margin: 14px 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.settings__sublabel:first-of-type {
+  margin-top: 0;
+}
+
+/* ---------- Statistics ---------- */
+.stats-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 16px;
+  padding: 28px 32px;
+  border-radius: 22px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--accent) 38%, transparent), transparent 60%),
+    var(--surface);
+  border: 1px solid var(--line-hi);
+}
+.stats-hero__label {
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-weight: 700;
+}
+.stats-hero__value {
+  margin: 6px 0 4px;
+  font-family: var(--font-display);
+  font-size: clamp(36px, 5vw, 60px);
+  font-weight: 700;
+  line-height: 1.05;
+}
+.stats-hero__sub {
+  font-size: 15px;
+  color: var(--text-dim);
+}
+.stats-streak {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120px;
+  padding: 14px 20px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ff9d3b;
+}
+.stats-streak b {
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 1;
+  color: var(--text);
+}
+.stats-streak span {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.stats-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.stats-tile {
+  padding: 18px 22px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.stats-tile span {
+  display: block;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.stats-tile b {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: 24px;
+}
+.stats-chart {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  height: 170px;
+}
+.stats-chart__col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.stats-chart__bar-wrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+.stats-chart__bar {
+  width: 100%;
+  border-radius: 8px 8px 3px 3px;
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  transform-origin: bottom;
+  animation: stats-grow 600ms var(--ease) both;
+}
+.stats-chart__bar.is-today {
+  background: var(--accent);
+  box-shadow: 0 0 18px -4px var(--accent-glow);
+}
+.stats-chart__day {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+@keyframes stats-grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+.stats-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.stats-two .settings__item {
+  margin-bottom: 16px;
+}
+.stats-split {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.stats-donut {
+  flex: none;
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  -webkit-mask: radial-gradient(circle, transparent 54%, #000 55%);
+  mask: radial-gradient(circle, transparent 54%, #000 55%);
+}
+.stats-legend,
+.stats-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+.stats-legend li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+}
+.stats-legend i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.stats-legend b {
+  margin-left: auto;
+}
+.stats-bars li {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+.stats-bars__track {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+.stats-bars__track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 50%, #fff));
+  animation: stats-slide 700ms var(--ease) both;
+}
+@keyframes stats-slide {
+  from {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+}
+.stats-bars b {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.stats-top {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.stats-top__item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 14px 8px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  text-align: left;
+}
+.stats-top__item.is-focused {
+  background: rgba(255, 255, 255, 0.1);
+  transform: none;
+}
+.stats-top__rank {
+  width: 28px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.stats-top__item img,
+.stats-top__noimg {
+  flex: none;
+  width: 42px;
+  height: 60px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--surface-hi);
+}
+.stats-top__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.stats-top__title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stats-top__sub {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.stats-footer {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 8px;
+}
+@media (max-width: 900px) {
+  .stats-two {
+    grid-template-columns: 1fr;
+  }
+  .stats-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* Stat blocks are focus stops (so arrow keys walk down the page card by card), but they aren't
+   buttons — no scale-up, just a ring. */
+.stats-focus.is-focused {
+  transform: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 70%, transparent);
 }

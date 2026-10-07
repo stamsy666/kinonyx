@@ -32,6 +32,12 @@ import {
 import { useApp } from "../store/app";
 import { useContinueWatching } from "../store/continueWatching";
 import { isTauri } from "../data/io";
+import { episodeKey, episodeLabel } from "../data/episodes";
+import { buildMpvOptions } from "../data/playerOptions";
+import { trackLabel } from "../data/trackLabel";
+import { useWatchTracker } from "../components/useWatchTracker";
+import { usePresence } from "../components/usePresence";
+import { useEpisodeProgress } from "../store/episodeProgress";
 import { streamUrlFor, torrentSwarmStats, type SwarmStats, type TorrentFile, type TrailerQuality } from "../data/api";
 import { SeekBar } from "../components/SeekBar";
 import { useMpvReveal } from "../components/useMpvReveal";
@@ -74,7 +80,7 @@ export function PlayerScreen({
   qualityIndex?: number;
   hash?: string;
   filmId?: number;
-  film?: { nameRu?: string; nameOriginal?: string; year?: string | number };
+  film?: { nameRu?: string; nameOriginal?: string; year?: string | number; genres?: string[] };
   poster?: string;
   episodes?: EpisodeQueue;
 }) {
@@ -122,11 +128,10 @@ export function PlayerScreen({
     const mpvOptions: Record<string, string> = {};
     if (curAudio) mpvOptions["audio-files"] = curAudio;
     if (resumeAt > 1) mpvOptions.start = String(Math.floor(resumeAt));
-    // mpv draws subtitles itself, so size/colour are its own options, set before each load.
-    mpvOptions["sub-scale"] = String(prefs.subtitleScale);
-    mpvOptions["sub-color"] = prefs.subtitleColor;
+    // The player settings (subtitles, night mode, scaling, HDR…) are mpv options set before each load.
+    Object.assign(mpvOptions, buildMpvOptions(prefs));
     return { url: curUrl, title, live: false, mpvOptions };
-  }, [curUrl, curAudio, title, resumeAt, prefs.subtitleScale, prefs.subtitleColor]);
+  }, [curUrl, curAudio, title, resumeAt, prefs]);
 
   const bump = () => {
     setOsd(true);
@@ -142,6 +147,27 @@ export function PlayerScreen({
 
   const revealed = useMpvReveal(state.status, source);
 
+  // Episode of a series pack being played — progress is kept per episode (see store/episodeProgress.ts).
+  const epKey = episodes ? episodeKey(episodes.files[episodes.index]) : null;
+
+  // Discord status: the film (and episode) being watched. Trailers show as such.
+  usePresence(
+    {
+      details: film?.nameRu || film?.nameOriginal || title,
+      state: filmId ? (epKey ? episodeLabel(epKey, "сериал") : "фильм") : "трейлер",
+    },
+    state.status === "playing",
+    state.position,
+  );
+
+  // Viewing statistics: time spent playing a film/episode (trailers aren't counted).
+  useWatchTracker(
+    state.status === "playing",
+    filmId
+      ? { key: `m:${filmId}`, title: film?.nameRu || film?.nameOriginal || title, poster, kind: episodes ? "series" : "movie", filmId, genres: film?.genres }
+      : null,
+  );
+
   // "Continue watching" — only for a genuine movie/episode watch (filmId set, never a
   // trailer). Resume-seek happens once per mount, the moment the real duration is known
   // (not the INITIAL_STATE placeholder); position is then reported throttled to at most
@@ -156,8 +182,13 @@ export function PlayerScreen({
     if (!filmId || resumedRef.current) return;
     if (!Number.isFinite(state.duration) || state.duration <= 0) return;
     resumedRef.current = true;
-    const saved = useContinueWatching.getState().positionFor(filmId);
+    // A series resumes each episode from its own position, not from whichever episode
+    // happened to be watched last.
+    const saved = epKey
+      ? useEpisodeProgress.getState().resumeAt(filmId, epKey)
+      : useContinueWatching.getState().positionFor(filmId);
     if (saved && saved < state.duration - 5) void adapterRef.current?.seek(saved);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filmId, state.duration]);
 
   const lastReportRef = useRef(0);
@@ -167,6 +198,8 @@ export function PlayerScreen({
     if (now - lastReportRef.current < 10_000) return;
     lastReportRef.current = now;
     useContinueWatching.getState().report({ filmId, title, poster, film, position: state.position, duration: state.duration });
+    if (epKey) useEpisodeProgress.getState().report(filmId, epKey, title, state.position, state.duration);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filmId, title, poster, film, state.position, state.duration]);
 
   const stateRef = useRef(state);
@@ -176,6 +209,7 @@ export function PlayerScreen({
     return () => {
       const s = stateRef.current;
       useContinueWatching.getState().report({ filmId, title, poster, film, position: s.position, duration: s.duration });
+      if (epKey) useEpisodeProgress.getState().report(filmId, epKey, title, s.position, s.duration);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filmId, title, poster, film]);
@@ -199,11 +233,38 @@ export function PlayerScreen({
       url: nextUrl,
       hash: episodes.hash,
       filmId,
+      film,
       poster,
       episodes: { hash: episodes.hash, files: episodes.files, index },
     });
   };
   const goToNextEpisode = () => void goToEpisode(episodes ? episodes.index + 1 : 0);
+
+  // When an episode ends, the next one starts by itself after a short countdown (cancellable).
+  const AUTO_NEXT_SECS = 8;
+  const [autoNext, setAutoNext] = useState<number | null>(null);
+  const autoNextCancelled = useRef(false);
+  useEffect(() => {
+    autoNextCancelled.current = false;
+    setAutoNext(null);
+  }, [episodes?.index]);
+  useEffect(() => {
+    if (state.status !== "ended") return;
+    if (filmId && epKey) useEpisodeProgress.getState().markWatched(filmId, epKey);
+    if (nextEpisode && !autoNextCancelled.current) setAutoNext(AUTO_NEXT_SECS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.status]);
+  useEffect(() => {
+    if (autoNext === null) return;
+    if (autoNext <= 0) {
+      setAutoNext(null);
+      goToNextEpisode();
+      return;
+    }
+    const t = window.setTimeout(() => setAutoNext((n) => (n === null ? null : n - 1)), 1000);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoNext]);
 
   useEffect(() => {
     const adapter = isTauri ? new MpvAdapter() : videoRef.current ? new Html5Adapter(videoRef.current) : null;
@@ -490,8 +551,7 @@ export function PlayerScreen({
                 <TrackItem
                   key={t.id}
                   focusKey={`menu:${i}`}
-                  label={t.title || t.lang || `Дорожка ${i + 1}`}
-                  hint={t.lang}
+                  label={trackLabel(t, tracks, i)}
                   active={t.selected}
                   onPress={() => void adapterRef.current?.selectTrack(menu, t.id)}
                   autoFocus={menu === "audio" && i === 0}
@@ -529,6 +589,42 @@ export function PlayerScreen({
         </Modal>
       )}
 
+      {autoNext !== null && nextEpisode && (
+        <div className="autonext" role="status">
+          <div className="autonext__card">
+            <div className="autonext__title">Следующая серия через {autoNext} с</div>
+            <div className="autonext__name">{episodeLabel(episodeKey(nextEpisode), nextEpisode.name)}</div>
+            <div className="autonext__actions">
+              <Focusable
+                as="button"
+                className="btn"
+                focusKey="autonext:cancel"
+                scroll={false}
+                onPress={() => {
+                  autoNextCancelled.current = true;
+                  setAutoNext(null);
+                }}
+              >
+                Отмена
+              </Focusable>
+              <Focusable
+                as="button"
+                className="btn btn--primary"
+                focusKey="autonext:now"
+                autoFocus
+                scroll={false}
+                onPress={() => {
+                  setAutoNext(null);
+                  goToNextEpisode();
+                }}
+              >
+                Смотреть сейчас
+              </Focusable>
+            </div>
+          </div>
+        </div>
+      )}
+
       {episodesOpen && osd && episodes && (
         <Modal
           focusKey="player:episodes"
@@ -548,6 +644,7 @@ export function PlayerScreen({
                 key={f.id}
                 focusKey={`ep:${i}`}
                 label={f.name}
+                hint={episodeHint(episodes.hash, filmId, f)}
                 active={i === episodes.index}
                 onPress={() => void goToEpisode(i)}
                 autoFocus={i === episodes.index}
@@ -558,6 +655,16 @@ export function PlayerScreen({
       )}
     </FocusGroup>
   );
+}
+
+/** "✓ просмотрено" / "37%" for the episode list — progress is kept per episode, across releases. */
+function episodeHint(_hash: string, filmId: number | undefined, f: TorrentFile): string | undefined {
+  if (!filmId) return undefined;
+  const e = useEpisodeProgress.getState().entry(filmId, episodeKey(f));
+  if (!e) return undefined;
+  if (e.watched) return "✓ просмотрено";
+  const pct = Math.round((e.position / e.duration) * 100);
+  return pct >= 2 ? `${pct}%` : undefined;
 }
 
 function StreamStats({ stats, bufferedAhead, swarm }: { stats: PlayerStats; bufferedAhead: number; swarm: SwarmStats | null }) {
@@ -615,7 +722,7 @@ function TrackItem({
       scroll={false}
     >
       <span className="list-option__label">{label}</span>
-      {hint && <span className="list-option__hint">{hint}</span>}
+      {hint && hint.trim().toLowerCase() !== label.trim().toLowerCase() && <span className="list-option__hint">{hint}</span>}
     </Focusable>
   );
 }

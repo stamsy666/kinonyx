@@ -12,6 +12,10 @@ import {
   type TorrentFile,
 } from "../data/api";
 import { useLastRelease, type LastRelease } from "../store/lastRelease";
+import { episodeKey, episodeLabel } from "../data/episodes";
+import { useEpisodeProgress } from "../store/episodeProgress";
+import { splitByYear } from "../data/releaseFilter";
+import { pickByQuality, qualityLabel, type QualityKey } from "../data/quality";
 import { Modal } from "./Modal";
 import { FocusHighlight } from "./FocusHighlight";
 
@@ -24,6 +28,9 @@ interface Props {
   /** A previously-picked release for this film — if set, skips straight to reconnecting
    *  to it instead of a fresh title search, falling back to the normal search on failure. */
   remembered?: LastRelease;
+  /** Quick pick: once the search is done, start the best release of this resolution at once
+   *  instead of showing the list (the list is the fallback when none matches). */
+  quality?: QualityKey;
   onClose: () => void;
   onReady: (source: {
     title: string;
@@ -54,15 +61,20 @@ function formatBytes(n: number): string {
   return `${Math.round(n / 1024 ** 2)} MB`;
 }
 
-export function ReleasePickerModal({ filmId, title, year, durationMin, remembered, onClose, onReady }: Props) {
+export function ReleasePickerModal({ filmId, title, year, durationMin, remembered, quality, onClose, onReady }: Props) {
   // A remembered release skips the search entirely and tries to reconnect straight away —
   // only a search-stage mount (nothing remembered, or the reconnect below failed) runs the
   // title search effect.
   const [stage, setStage] = useState<Stage>(remembered ? "connecting" : "searching");
   const [resuming, setResuming] = useState(!!remembered);
   const [releases, setReleases] = useState<TorApiRelease[]>([]);
+  // Releases that name only another year (other films with the same title) — hidden unless asked for.
+  const [hidden, setHidden] = useState<TorApiRelease[]>([]);
+  const [showHidden, setShowHidden] = useState(false);
   const [files, setFiles] = useState<{ hash: string; name: string; link: string; choices: TorrentFile[] } | null>(null);
   const [error, setError] = useState<string>("");
+  // The quick pick found nothing of the asked resolution — the list is shown with a note.
+  const [qualityMissed, setQualityMissed] = useState(false);
   const cancel = useRef({ cancelled: false });
 
   // Fresh token per mount: StrictMode's dev-only unmount/remount would otherwise leave the
@@ -117,9 +129,12 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
         }
         const torrent = await openTorrent(remembered.link, cancel.current);
         if (cancelled || cancel.current.cancelled) return;
-        const file = torrent.files.find((f) => f.id === remembered.fileId) ?? torrent.files.find((f) => f.path === remembered.filePath);
-        if (!file) throw new Error("Файл не найден в раздаче");
+        const remembered_ = torrent.files.find((f) => f.id === remembered.fileId) ?? torrent.files.find((f) => f.path === remembered.filePath);
         const { choices } = playableFiles(torrent.files);
+        // A series pack: not the file picked last time but the right one NOW — the episode
+        // left half-watched, else the one after the last watched.
+        const file = (choices.length > 1 ? useEpisodeProgress.getState().smartPick(filmId, choices) : undefined) ?? remembered_;
+        if (!file) throw new Error("Файл не найден в раздаче");
         await play(remembered.link, torrent.hash, remembered.releaseTitle, file, choices);
       } catch {
         if (cancelled) return;
@@ -139,11 +154,27 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
   useEffect(() => {
     if (stage !== "searching") return;
     let cancelled = false;
-    torApiSearchTitle(title, year)
-      .then((list) => {
+    // "Title year" first — the year in the query cuts out other films with the same name; if
+    // the trackers' own search doesn't cope with it (nothing found), the plain title.
+    (async () => {
+      if (year) {
+        const withYear = await torApiSearchTitle(`${title} ${year}`, year).catch(() => []);
+        if (withYear.length) return withYear;
+      }
+      return torApiSearchTitle(title, year);
+    })()
+      .then((all) => {
         if (cancelled) return;
-        list.sort((a, b) => (b.seeds ?? 0) - (a.seeds ?? 0));
+        all.sort((a, b) => (b.seeds ?? 0) - (a.seeds ?? 0));
+        const { relevant: list, hidden: other } = splitByYear(all, year);
+        setHidden(other);
         setReleases(list);
+        const best = quality ? pickByQuality(list, quality) : undefined;
+        if (best) {
+          void pick(best);
+          return;
+        }
+        if (quality && list.length) setQualityMissed(true);
         setStage(list.length ? "list" : "error");
         if (!list.length) setError("Раздачи не найдены");
       })
@@ -189,6 +220,9 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
       const { auto, choices } = playableFiles(torrent.files);
       if (auto) {
         await play(link, torrent.hash, name, auto, []);
+      } else if (choices.length > 1 && useEpisodeProgress.getState().smartPick(filmId, choices) && quality) {
+        // Quick pick of a series already started: no episode list, straight to the right one.
+        await play(link, torrent.hash, name, useEpisodeProgress.getState().smartPick(filmId, choices)!, choices);
       } else {
         setFiles({ hash: torrent.hash, name, link, choices });
         setStage("files");
@@ -197,6 +231,9 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
       fail(e);
     }
   }
+
+  // The episode to highlight in the list: the one in progress, else the one after the last watched.
+  const smartFile = stage === "files" && files ? useEpisodeProgress.getState().smartPick(filmId, files.choices) : undefined;
 
   const heading = stage === "files" ? "Выбор серии" : "Выбор раздачи";
 
@@ -214,7 +251,7 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
           <div style={{ display: "grid", placeItems: "center", padding: "40px 0", gap: 14 }}>
             <Spinner />
             <span className="modal-status">
-              {stage === "searching" ? "Ищу раздачи…" : resuming ? "Открываю сохранённую раздачу…" : "Получаю файлы раздачи от пиров…"}
+              {stage === "searching" ? (quality ? `Ищу раздачу ${qualityLabel(quality)}…` : "Ищу раздачи…") : resuming ? "Открываю сохранённую раздачу…" : "Получаю файлы раздачи от пиров…"}
             </span>
           </div>
         )}
@@ -228,11 +265,14 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
             )}
           </div>
         )}
+        {stage === "list" && qualityMissed && quality && (
+          <p className="release-note">Раздач в качестве «{qualityLabel(quality)}» не нашлось — выберите из того, что есть.</p>
+        )}
         {stage === "list" && (
-          <p className="release-note">Скорость зависит от числа сидов раздачи, а не от вашего интернета. Выбирайте раздачи с большим ▲.</p>
+          <p className="release-note">{year ? `Ищу «${title}» ${year} года. ` : ""}Скорость зависит от числа сидов раздачи, а не от вашего интернета. Выбирайте раздачи с большим ▲.</p>
         )}
         {stage === "list" &&
-          releases.map((r, i) => {
+          (showHidden ? [...releases, ...hidden] : releases).map((r, i) => {
             const need = neededMbit(r.size, durationMin);
             const few = (r.seeds ?? 0) < FEW_SEEDS;
             return (
@@ -256,23 +296,39 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
               </Focusable>
             );
           })}
+        {stage === "list" && hidden.length > 0 && !showHidden && (
+          <Focusable as="button" className="btn" focusKey="release:show-hidden" scroll={false} onPress={() => setShowHidden(true)}>
+            Показать ещё {hidden.length} — с другим годом
+          </Focusable>
+        )}
         {stage === "files" &&
-          files?.choices.map((f, i) => (
-            <Focusable
-              key={f.id}
-              as="button"
-              focusKey={`file:${i}`}
-              className="list-option"
-              autoFocus={i === 0}
-              onPress={() => void play(files.link, files.hash, `${files.name} — ${f.name}`, f, files.choices).catch(fail)}
-            >
-              <span className="list-option__title">{f.name}</span>
-              <span className="list-option__hint">
-                <span>{formatBytes(f.length)}</span>
-                {f.path.includes("/") && <span>{f.path.split("/").slice(0, -1).join(" / ")}</span>}
-              </span>
-            </Focusable>
-          ))}
+          files?.choices.map((f, i) => {
+            const key = episodeKey(f);
+            const e = useEpisodeProgress.getState().entry(filmId, key);
+            const next = smartFile && smartFile.id === f.id;
+            const label = episodeLabel(key, f.name);
+            return (
+              <Focusable
+                key={f.id}
+                as="button"
+                focusKey={`file:${i}`}
+                className="list-option"
+                autoFocus={smartFile ? next : i === 0}
+                onPress={() => void play(files.link, files.hash, `${files.name} — ${f.name}`, f, files.choices).catch(fail)}
+              >
+                <span className="list-option__title">
+                  {label}
+                  {next && <span className="ep-tag"> · далее</span>}
+                </span>
+                <span className="list-option__hint">
+                  {e?.watched && <span className="ep-done">✓ просмотрено</span>}
+                  {e && !e.watched && e.position / e.duration >= 0.02 && <span>{Math.round((e.position / e.duration) * 100)}%</span>}
+                  {label !== f.name && <span>{f.name}</span>}
+                  <span>{formatBytes(f.length)}</span>
+                </span>
+              </Focusable>
+            );
+          })}
       </div>
     </Modal>
   );

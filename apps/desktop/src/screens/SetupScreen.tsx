@@ -27,7 +27,7 @@ const SOURCES: {
     key: "kinopoisk",
     label: "Кинопоиск",
     blurb: "Русские названия, кадры, похожие фильмы. Бесплатный ключ даёт 500 запросов в сутки.",
-    keyUrl: "https://kinopoiskapiunofficial.tech/",
+    keyUrl: "https://kinopoiskapiunofficial.tech/profile",
     keyHost: "kinopoiskapiunofficial.tech",
   },
   {
@@ -79,11 +79,6 @@ export function SetupScreen() {
       setNote({ kind: "error", text: String(e) });
       setBusy(false);
     }
-  };
-
-  const skip = async () => {
-    await setSetupDone(true);
-    navigate({ name: "home" });
   };
 
   return (
@@ -165,11 +160,6 @@ export function SetupScreen() {
         </>
       )}
 
-      <div className="setup__skip">
-        <Focusable as="button" className="credit" focusKey="setup:skip" onPress={() => void skip()}>
-          Пропустить — настрою позже
-        </Focusable>
-      </div>
     </FocusGroup>
   );
 }

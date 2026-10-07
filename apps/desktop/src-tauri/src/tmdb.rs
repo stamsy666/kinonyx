@@ -355,7 +355,9 @@ pub async fn kp_search(keyword: &str, config: &AppConfig) -> Result<Value, Strin
 // ---------- kp_images ----------
 
 pub async fn kp_images(id: u32, image_type: &str, config: &AppConfig) -> Result<Value, String> {
-    let (v, _) = fetch_media(config, id, "/images", WEEK).await?;
+    // `language=ru-RU` (added by `fetch`) filters the list: stills carry no language at all, so
+    // without `include_image_language` they'd all be dropped — hence "no materials".
+    let (v, _) = fetch_media(config, id, "/images?include_image_language=ru,en,null", WEEK).await?;
     let key = if image_type == "POSTER" { "posters" } else { "backdrops" };
     let items: Vec<Value> = v[key]
         .as_array()
@@ -464,11 +466,12 @@ fn age_of(birthday: Option<&str>, deathday: Option<&str>) -> Option<i64> {
 // ---------- kp_videos ----------
 
 pub async fn kp_videos(id: u32, config: &AppConfig) -> Result<Value, String> {
-    let (v, _) = fetch_media(config, id, "/videos", WEEK).await?;
-    let items: Vec<Value> = v["results"]
-        .as_array()
+    // Same language filter as images: Russian first, English trailers as the fallback.
+    let (v, _) = fetch_media(config, id, "/videos?include_video_language=ru,en,null", WEEK).await?;
+    let mut results: Vec<&Value> = v["results"].as_array().into_iter().flatten().collect();
+    results.sort_by_key(|r| r["iso_639_1"].as_str() != Some("ru"));
+    let items: Vec<Value> = results
         .into_iter()
-        .flatten()
         .filter(|r| r["site"].as_str() == Some("YouTube"))
         .filter_map(|r| Some((s(r, "key")?, r)))
         .map(|(key, r)| {

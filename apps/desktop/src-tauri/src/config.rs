@@ -20,6 +20,8 @@ pub struct AppConfig {
     pub torapi_base_url: Mutex<String>,
     /// First-run wizard finished (or skipped because keys already existed).
     pub setup_done: Mutex<bool>,
+    /// Discord application id for Rich Presence (see discord.rs); empty = use the built-in one, if any.
+    pub discord_app_id: Mutex<String>,
     pub torrserve_port: u16,
     pub cache_dir: Option<PathBuf>,
     settings_file: Option<PathBuf>,
@@ -33,6 +35,7 @@ struct Saved {
     youtube_cookies_browser: Option<String>,
     torapi_base_url: Option<String>,
     setup_done: Option<bool>,
+    discord_app_id: Option<String>,
 }
 
 impl AppConfig {
@@ -70,6 +73,7 @@ impl AppConfig {
                 std::env::var("TORAPI_BASE_URL").unwrap_or_else(|_| "https://ohnofreefilms.vercel.app".into())
             })),
             setup_done: Mutex::new(saved.setup_done.unwrap_or(false)),
+            discord_app_id: Mutex::new(saved.discord_app_id.unwrap_or_default()),
             torrserve_port: std::env::var("TORRSERVE_PORT")
                 .ok()
                 .and_then(|s| s.parse().ok())
@@ -90,6 +94,7 @@ impl AppConfig {
             youtube_cookies_browser: Some(self.youtube_cookies_browser.lock().unwrap().clone()),
             torapi_base_url: Some(self.torapi_base_url.lock().unwrap().clone()),
             setup_done: Some(*self.setup_done.lock().unwrap()),
+            discord_app_id: Some(self.discord_app_id.lock().unwrap().clone()),
         };
         if let Some(parent) = file.parent() {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -118,6 +123,9 @@ pub struct ConfigStatus {
     pub youtube_cookies_browser: String,
     pub torapi_base_url: String,
     pub setup_done: bool,
+    /// Whether Discord status can work at all (an id was entered or built in).
+    pub discord_ready: bool,
+    pub discord_app_id: String,
     pub torrserve_port: u16,
 }
 
@@ -132,6 +140,8 @@ pub fn config_status(config: tauri::State<AppConfig>) -> ConfigStatus {
         youtube_cookies_browser: config.youtube_cookies_browser.lock().unwrap().clone(),
         torapi_base_url: config.torapi_base_url.lock().unwrap().clone(),
         setup_done: *config.setup_done.lock().unwrap(),
+        discord_ready: !crate::discord::effective_app_id(&config).is_empty(),
+        discord_app_id: config.discord_app_id.lock().unwrap().clone(),
         torrserve_port: config.torrserve_port,
     }
 }
@@ -172,6 +182,17 @@ pub fn set_youtube_cookies_browser(browser: String, config: tauri::State<AppConf
         return Err("Неизвестный браузер".into());
     }
     *config.youtube_cookies_browser.lock().unwrap() = browser;
+    config.persist()
+}
+
+#[tauri::command]
+pub fn set_discord_app_id(id: String, config: tauri::State<AppConfig>) -> Result<(), String> {
+    let id = id.trim().to_string();
+    // A Discord application id is a snowflake: 17–20 digits.
+    if !id.is_empty() && !(id.chars().all(|c| c.is_ascii_digit()) && (17..=20).contains(&id.len())) {
+        return Err("Application ID — это число из 17–20 цифр (Discord Developer Portal → ваше приложение → General Information)".into());
+    }
+    *config.discord_app_id.lock().unwrap() = id;
     config.persist()
 }
 

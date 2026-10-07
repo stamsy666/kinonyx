@@ -169,6 +169,27 @@ pub async fn translator_stop(state: State<'_, Translator>, session: Option<u64>)
     Ok(())
 }
 
+/// Switching a feature OFF means no helper process stays behind (the models otherwise linger
+/// a few minutes so zapping between channels doesn't reload them): `"voice"` kills only the
+/// voice-over server, anything else ends the session and kills every engine right now.
+#[tauri::command]
+pub async fn translator_release(state: State<'_, Translator>, what: String) -> Result<(), String> {
+    if what == "voice" {
+        if let Some(s) = state.session.lock().await.as_ref() {
+            s.drop_voice();
+        }
+        state.engines.stop_tts().await;
+        return Ok(());
+    }
+    if let Some(s) = state.session.lock().await.take() {
+        s.shutdown();
+    }
+    // Cancels an idle-unload timer that might still be pending.
+    state.generation.fetch_add(1, Ordering::SeqCst);
+    state.engines.stop_all().await;
+    Ok(())
+}
+
 /// Voice-over on/off for the running session (the broadcast isn't restarted).
 #[tauri::command]
 pub async fn translator_voice(app: AppHandle, state: State<'_, Translator>, session: u64, on: bool) -> Result<(), String> {

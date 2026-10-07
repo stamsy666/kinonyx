@@ -5,6 +5,7 @@ import {
   translatorCancelDownload,
   translatorDelete,
   translatorDownload,
+  translatorRelease,
   translatorStatus,
   type DownloadEvent,
   type TranslatorItem,
@@ -90,9 +91,21 @@ export const useTranslator = create<TranslatorState>()(
       setSourceLang: (sourceLang) => set({ sourceLang }),
       // Switching a component off also stops whatever was using it right now — a player
       // left running with the translator on would otherwise keep the models loaded.
-      setAsrEnabled: (asrEnabled) => set(asrEnabled ? { asrEnabled } : { asrEnabled, active: false, voiceActive: false }),
-      setMtEnabled: (mtEnabled) => set(mtEnabled ? { mtEnabled } : { mtEnabled, active: false, voiceActive: false }),
-      setVoiceEnabled: (voiceEnabled) => set(voiceEnabled ? { voiceEnabled } : { voiceEnabled, voiceActive: false }),
+      // …and kills the helper processes right away: with everything switched off the only
+      // KINONYX process left is KINONYX itself. (Switched ON they stay absent until a channel
+      // actually turns the feature on.)
+      setAsrEnabled: (asrEnabled) => {
+        set(asrEnabled ? { asrEnabled } : { asrEnabled, active: false, voiceActive: false });
+        if (!asrEnabled) void translatorRelease("all").catch(() => undefined);
+      },
+      setMtEnabled: (mtEnabled) => {
+        set(mtEnabled ? { mtEnabled } : { mtEnabled, active: false, voiceActive: false });
+        if (!mtEnabled) void translatorRelease("all").catch(() => undefined);
+      },
+      setVoiceEnabled: (voiceEnabled) => {
+        set(voiceEnabled ? { voiceEnabled } : { voiceEnabled, voiceActive: false });
+        if (!voiceEnabled) void translatorRelease(get().active ? "voice" : "all").catch(() => undefined);
+      },
       translationEnabled: () => get().asrEnabled && get().mtEnabled,
 
       async refresh() {

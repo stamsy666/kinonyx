@@ -7,6 +7,14 @@
     <title>KINONYX</title>
   </head>
   <body>
+    <!-- Filter for the loading animation (.spinner): blur, then a hard alpha threshold, so the
+         dots melt into each other with crisp edges on any background. -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true" focusable="false">
+      <filter id="kx-goo" color-interpolation-filters="sRGB" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="2.8" />
+        <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -8" />
+      </filter>
+    </svg>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
