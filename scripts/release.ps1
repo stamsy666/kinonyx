@@ -31,6 +31,11 @@ $product = $conf.productName
 if (-not $env:TAURI_SIGNING_PRIVATE_KEY_PATH -and -not $env:TAURI_SIGNING_PRIVATE_KEY) {
   throw "Set TAURI_SIGNING_PRIVATE_KEY_PATH (see the header of this script)."
 }
+# `tauri build` reads the key's CONTENT from TAURI_SIGNING_PRIVATE_KEY (the *_PATH variant is
+# ignored by the build step), so load the file when only the path was given.
+if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
+  $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content $env:TAURI_SIGNING_PRIVATE_KEY_PATH -Raw
+}
 if ($conf.plugins.updater.pubkey -like "PASTE_*") {
   throw "Paste the public key into src-tauri\tauri.conf.json (plugins.updater.pubkey) first."
 }
