@@ -19,8 +19,8 @@
   --font-display: "Roboto", system-ui, sans-serif;
   --font-body: "Roboto", system-ui, sans-serif;
 
-  --radius: 16px;
-  --radius-sm: 10px;
+  --radius: 8px;
+  --radius-sm: 4px;
   --focus-scale: 1.045;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 
