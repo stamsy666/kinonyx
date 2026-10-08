@@ -586,18 +586,19 @@ img {
 
 .sidebar {
   position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: min(320px, 82vw);
-  background: rgba(14, 9, 10, 0.97);
-  border-right: 1px solid var(--line-hi);
-  backdrop-filter: blur(24px);
+  top: 20px;
+  left: 20px;
+  bottom: 20px;
+  width: min(340px, 82vw);
+  background: rgba(58, 58, 62, 0.74);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(30px) saturate(1.15);
+  box-shadow: 0 24px 60px -16px rgba(0, 0, 0, 0.6);
   z-index: 9;
-  padding: 34px 22px;
+  padding: 22px 16px;
   display: flex;
   flex-direction: column;
-  gap: 34px;
+  gap: 22px;
   animation: sidebar-in 220ms var(--ease) both;
 }
 
@@ -654,29 +655,47 @@ img {
 .sidebar__item {
   display: flex;
   align-items: center;
-  gap: 16px;
-  height: 52px;
-  padding: 0 14px;
-  border-radius: var(--radius-sm);
-  color: var(--text-dim);
+  gap: 14px;
+  height: 56px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.85);
   font-size: 17px;
   font-weight: 600;
+  transition: background-color 200ms var(--ease), color 200ms var(--ease);
 }
 
+.sidebar__icon {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  transition: background-color 200ms var(--ease);
+}
+
+/* Focus: a light pill with dark text, like the system menus of a TV set. */
 .sidebar__item.is-focused {
-  background: var(--surface-hi);
-  color: var(--text);
+  background: #f2f2f4;
+  color: #141416;
 }
 
-.sidebar__item.is-active {
-  color: var(--text);
+.sidebar__item.is-focused .sidebar__icon {
+  background: rgba(0, 0, 0, 0.1);
 }
 
-.sidebar__item.is-active .sidebar__item-label {
-  text-decoration: underline;
-  text-decoration-color: var(--accent);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 6px;
+.sidebar__item.is-active:not(.is-focused) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.sidebar__clock {
+  margin-left: auto;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.7);
+  font-variant-numeric: tabular-nums;
 }
 
 .sidebar__item-hint {

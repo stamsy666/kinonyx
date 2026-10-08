@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   CategoriesIcon,
   CartoonsIcon,
@@ -59,6 +59,17 @@ function sectionOf(s: Screen): string | undefined {
   }
 }
 
+/** HH:MM, refreshed every 20 s while the menu is open. */
+function MenuClock() {
+  const fmt = () => new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  const [time, setTime] = useState(fmt);
+  useEffect(() => {
+    const t = window.setInterval(() => setTime(fmt()), 20000);
+    return () => window.clearInterval(t);
+  }, []);
+  return <span className="sidebar__clock">{time}</span>;
+}
+
 export function Sidebar() {
   const open = useApp((s) => s.sidebarOpen);
   const close = useApp((s) => s.closeSidebar);
@@ -110,6 +121,7 @@ export function Sidebar() {
           <div className="sidebar__brand-name">
             KINON<em>YX</em>
           </div>
+          <MenuClock />
         </div>
         <nav className="sidebar__nav">
           {ITEMS.map((item, i) => {
@@ -129,7 +141,9 @@ export function Sidebar() {
                   navigate(item.screen);
                 }}
               >
-                <Icon size={20} />
+                <span className="sidebar__icon">
+                  <Icon size={18} />
+                </span>
                 <span className="sidebar__item-label">{item.label}</span>
                 {item.soon && <span className="sidebar__item-hint">скоро</span>}
               </Focusable>
