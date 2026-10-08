@@ -125,6 +125,8 @@ const SOUND_KEY = "kinonyx.soundChoice";
 export type PlayerRoute = Extract<Screen, { name: "player" | "tv-player" }>;
 export const isPlayerRoute = (s: Screen): s is PlayerRoute => s.name === "player" || s.name === "tv-player";
 const UI_ZOOM_KEY = "kinonyx.uiZoom";
+const LITE_KEY = "kinonyx.liteGraphics";
+export type LiteMode = "auto" | "on" | "off";
 const VOLUME_KEY = "kinonyx.sfxVolume";
 const MUSIC_ENABLED_KEY = "kinonyx.musicEnabled";
 const CLICK_SPARK_KEY = "kinonyx.clickSpark";
@@ -293,6 +295,9 @@ interface AppState {
   clickSparkEnabled: boolean;
   /** Whole-program zoom (1 = as designed); for big TVs. Applied by data/uiZoom.ts. */
   uiZoom: number;
+  /** Simplified graphics (no blur/zoom effects) for very dense displays; "auto" = pixel ratio >= 2.5. */
+  liteGraphics: LiteMode;
+  setLiteGraphics: (m: LiteMode) => void;
   backgroundKind: BgKind;
   soundChoice: Record<SoundCategory, string | null>;
   sfxVolume: number;
@@ -366,6 +371,14 @@ export const useApp = create<AppState>((set, get) => ({
   showStreamStats: readBool(STATS_KEY),
   clickSparkEnabled: readBool(CLICK_SPARK_KEY, true),
   uiZoom: readUiZoom(),
+  liteGraphics: (() => {
+    try {
+      const v = localStorage.getItem(LITE_KEY);
+      return v === "on" || v === "off" ? v : "auto";
+    } catch {
+      return "auto" as LiteMode;
+    }
+  })(),
   backgroundKind: initialBgKind,
   soundChoice: readSoundChoice(),
   sfxVolume: readVolume(VOLUME_KEY, 0.7),
@@ -507,6 +520,15 @@ export const useApp = create<AppState>((set, get) => ({
       localStorage.setItem(BG_KEY, kind);
     } catch {
       /* preference just won't survive a restart */
+    }
+  },
+
+  setLiteGraphics(m) {
+    set({ liteGraphics: m });
+    try {
+      localStorage.setItem(LITE_KEY, m);
+    } catch {
+      /* the choice just won't survive a restart */
     }
   },
 

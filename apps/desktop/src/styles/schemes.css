@@ -190,3 +190,19 @@ h2 {
 .mini-player {
   border-radius: 0;
 }
+
+/* ---------- Simplified graphics (Settings → Оформление; App.tsx sets data-lite) ----------
+   For very dense / HDR displays where full-screen blurs and zooming layers stutter. */
+html[data-lite="1"] * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html[data-lite="1"] .movie-backdrop__slide {
+  animation: none !important;
+  will-change: auto;
+}
+
+html[data-lite="1"] .app-background {
+  display: none;
+}

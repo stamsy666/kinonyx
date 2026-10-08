@@ -193,6 +193,16 @@ export function App() {
   useEffect(() => {
     void applyUiZoom(uiZoom);
   }, [uiZoom]);
+  const liteGraphics = useApp((s) => s.liteGraphics);
+  useEffect(() => {
+    const apply = () => {
+      const on = liteGraphics === "on" || (liteGraphics === "auto" && window.devicePixelRatio >= 2.5);
+      document.documentElement.dataset.lite = on ? "1" : "0";
+    };
+    apply();
+    window.addEventListener("resize", apply); // moving the window to another monitor changes the ratio
+    return () => window.removeEventListener("resize", apply);
+  }, [liteGraphics]);
   useEffect(() => installInputModeTracker(), []);
 
   useEffect(() => {
