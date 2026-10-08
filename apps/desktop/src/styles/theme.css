@@ -1284,7 +1284,8 @@ img {
   inset: -8%;
   background-size: cover;
   background-position: center;
-  filter: blur(3px) brightness(0.42) saturate(1.2);
+  /* No CSS filter here: a filter on a full-screen layer that also zooms is re-rasterised every frame,
+     which is what stutters on a 4K / HDR display. The darkening is done by .movie-backdrop__shade. */
   opacity: 0;
   transform: scale(1);
   transition: opacity 1800ms ease;
@@ -1322,7 +1323,8 @@ img {
       rgba(10, 7, 8, 0.35) 60%,
       rgba(10, 7, 8, 0.5) 100%
     ),
-    linear-gradient(0deg, rgba(10, 7, 8, 0.85) 0%, rgba(10, 7, 8, 0) 45%);
+    linear-gradient(0deg, rgba(10, 7, 8, 0.85) 0%, rgba(10, 7, 8, 0) 45%),
+    rgba(0, 0, 0, 0.5);
 }
 
 .movie-head {
