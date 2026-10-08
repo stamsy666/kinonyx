@@ -123,3 +123,58 @@ html[data-bg="ps4"] {
   --text-dim: rgba(236, 244, 255, 0.68);
   --text-faint: rgba(236, 244, 255, 0.56);
 }
+
+/* ---------- Netflix theme (plain, static; tokens in data/backgrounds.ts) ----------
+   Flat charcoal canvas, one red accent, 4-8px corners, solid red primary buttons, quick
+   200-300ms transitions. Everything else follows the tokens. */
+html[data-bg="netflix"] body:not(.mpv-active)::before {
+  background: var(--bg);
+}
+
+html[data-bg="netflix"] .btn {
+  border-radius: var(--radius-sm);
+  transition: background-color 200ms var(--ease), transform 200ms var(--ease);
+}
+
+html[data-bg="netflix"] .btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+html[data-bg="netflix"] .btn--primary.is-focused {
+  background: #f6121d;
+}
+
+html[data-bg="netflix"] .btn:not(.btn--primary) {
+  background: rgba(109, 109, 110, 0.7);
+  border-color: transparent;
+}
+
+html[data-bg="netflix"] .btn:not(.btn--primary).is-focused {
+  background: rgba(109, 109, 110, 0.45);
+}
+
+/* Posters and stills are the interface: square-cornered, with a soft grey lift on focus. */
+html[data-bg="netflix"] .movie-card__poster,
+html[data-bg="netflix"] .still-card .movie-card__poster,
+html[data-bg="netflix"] .ch-cover {
+  border-radius: var(--radius-sm);
+}
+
+html[data-bg="netflix"] .movie-card.is-focused .movie-card__poster {
+  box-shadow: rgb(128 128 128) 0 0 5px 0;
+}
+
+/* Dialogs and menus: solid surface instead of translucent glass. */
+html[data-bg="netflix"] .modal-panel,
+html[data-bg="netflix"] .sidebar {
+  background: #2d2d2d;
+  backdrop-filter: none;
+  border-color: rgba(128, 128, 128, 0.35);
+  border-radius: var(--radius);
+}
+
+html[data-bg="netflix"] h1,
+html[data-bg="netflix"] h2 {
+  letter-spacing: -0.01em;
+}

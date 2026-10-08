@@ -12,7 +12,8 @@ export type BgKind =
   | "ps4"
   | "ps5"
   | "light"
-  | "bw";
+  | "bw"
+  | "netflix";
 
 export interface BgPalette {
   label: string;
@@ -136,6 +137,14 @@ export const BG_PALETTES: Record<BgKind, BgPalette> = {
     accentGlow: "rgba(230, 57, 80, 0.3)",
     colorA: hexToRgb("#e63950"),
   },
+  netflix: {
+    // Cinema look: near-black charcoal, one saturated red, small radii, quick motion.
+    label: "Netflix",
+    accent: "#e50914",
+    accentDeep: "#b20710",
+    accentGlow: "rgba(229, 9, 20, 0.38)",
+    colorA: hexToRgb("#e50914"),
+  },
   bw: {
     label: "Ч/Б",
     accent: "#ffffff",
@@ -146,9 +155,9 @@ export const BG_PALETTES: Record<BgKind, BgPalette> = {
 };
 
 /** Themes without an animated background — plain colour schemes. */
-export const PLAIN_KINDS: BgKind[] = ["light", "bw"];
+export const PLAIN_KINDS: BgKind[] = ["netflix", "light", "bw"];
 
-export function isPlainKind(kind: BgKind): kind is "light" | "bw" {
+export function isPlainKind(kind: BgKind): kind is "light" | "bw" | "netflix" {
   return PLAIN_KINDS.includes(kind);
 }
 
@@ -167,6 +176,22 @@ const PLAIN_TOKENS: Partial<Record<BgKind, Record<string, string>>> = {
     "--text-faint": "rgba(22, 18, 15, 0.4)",
     "--gold": "#b97d0a",
     "--teal": "#0f8f84",
+  },
+  netflix: {
+    "--bg": "#232323",
+    "--bg-2": "#1a1a1a",
+    "--surface": "rgba(255, 255, 255, 0.055)",
+    "--surface-hi": "rgba(255, 255, 255, 0.11)",
+    "--line": "rgba(255, 255, 255, 0.1)",
+    "--line-hi": "rgba(128, 128, 128, 0.6)",
+    "--text": "#ffffff",
+    "--text-dim": "rgba(255, 255, 255, 0.66)",
+    "--text-faint": "rgba(255, 255, 255, 0.4)",
+    "--gold": "#f5c518",
+    "--teal": "#46d369",
+    "--radius": "8px",
+    "--radius-sm": "4px",
+    "--ease": "cubic-bezier(0.4, 0, 0.2, 1)",
   },
   bw: {
     "--bg": "#000000",
@@ -198,6 +223,7 @@ export const BG_KINDS: BgKind[] = [
   "mono",
   "ps4",
   "ps5",
+  "netflix",
   "light",
   "bw",
 ];
