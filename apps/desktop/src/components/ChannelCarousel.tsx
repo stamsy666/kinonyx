@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { cleanGroupName } from "../data/groupName";
 import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { isWithinCatchupWindow, type Channel, type NowNext, type Programme } from "@kinonyx/epg";
 import { Focusable, onBack } from "@kinonyx/ui";
@@ -327,7 +328,7 @@ export function ChannelCarousel({
       </div>
 
       <div className="ch-carousel__info" key={channel.id} style={{ marginLeft: STEP }}>
-        {channel.group && <div className="ch-carousel__group">{channel.group}</div>}
+        {channel.group && <div className="ch-carousel__group">{cleanGroupName(channel.group)}</div>}
         <h2 className="ch-carousel__name">{channel.name}</h2>
       </div>
 

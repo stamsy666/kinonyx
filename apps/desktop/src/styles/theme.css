@@ -786,9 +786,7 @@ img {
 }
 
 .hero__category {
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 15px;
   color: var(--text-dim);
 }
 
@@ -862,16 +860,6 @@ img {
   color: var(--text-dim);
 }
 
-.hero__year::after {
-  content: "";
-  display: inline-block;
-  width: 4px;
-  height: 4px;
-  margin-left: 12px;
-  border-radius: 50%;
-  background: var(--text-faint);
-  vertical-align: middle;
-}
 
 .hero__arrow--prev {
   left: 18px;
@@ -1382,9 +1370,7 @@ img {
 }
 
 .movie-head__category {
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 15px;
   color: var(--text-dim);
 }
 

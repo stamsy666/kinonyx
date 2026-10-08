@@ -23,7 +23,7 @@ const MEDIA = ".movie-card__poster, .actor-card__avatar, .still-card";
  * remote/keyboard users just move focus, which scrolls the card into view). Each arrow
  * shows only when there's something to scroll to in its direction.
  */
-export function RowScroll({ label, description, children, count, perView, className = "", headClassName = "" }: Props) {
+export function RowScroll({ label, children, count, perView, className = "", headClassName = "" }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ start: true, end: true });
   const [arrowTop, setArrowTop] = useState<number | null>(null);
@@ -71,7 +71,6 @@ export function RowScroll({ label, description, children, count, perView, classN
     <section className={`shelf ${className}`}>
       <div className={`shelf__head ${headClassName}`}>
         <h2 className="shelf__title">{label}</h2>
-        {description && <p className="shelf__text">{description}</p>}
       </div>
       <div className={`row-scroll ${perView ? "row-scroll--paged" : ""}`} style={style}>
         <div className="row-scroll__track" ref={trackRef} onScroll={measure}>

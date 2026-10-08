@@ -104,7 +104,7 @@ export function HeroCarousel({ films, onOpen }: { films: KpCollectionItem[]; onO
               <div className="hero__meta">
                 {film.ratingKinopoisk != null && <span className="hero__rating">★ {film.ratingKinopoisk.toFixed(1)}</span>}
                 {film.year != null && <span className="hero__year">{film.year}</span>}
-                <span className="hero__category">{film.genres?.map((g) => g.genre).slice(0, 3).join(" · ") || "Фильм"}</span>
+                <span className="hero__category">{film.genres?.map((g) => g.genre).slice(0, 3).join(", ") || "Фильм"}</span>
               </div>
               <h2 className="hero__title">{title}</h2>
               {film.description && <p className="hero__desc">{film.description}</p>}

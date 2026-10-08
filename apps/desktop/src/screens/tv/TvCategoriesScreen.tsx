@@ -5,6 +5,8 @@ import { useTv, UNGROUPED } from "../../store/tv";
 import { TvScreenHeader } from "../../components/TvScreenHeader";
 import { FocusHighlight } from "../../components/FocusHighlight";
 
+import { cleanGroupName } from "../../data/groupName";
+
 export function TvCategoriesScreen() {
   const playlist = useTv((s) => s.playlist);
   const epgStatus = useTv((s) => s.epgStatus);
@@ -54,8 +56,7 @@ export function TvCategoriesScreen() {
                   navigate({ name: "tv-channels", group: r.key || UNGROUPED });
                 }}
               >
-                <span className="category-row__index">{i + 1}.</span>
-                <span className="category-row__name">{r.name}</span>
+                <span className="category-row__name">{cleanGroupName(r.name)}</span>
                 <span className="category-row__count">{r.count}</span>
               </Focusable>
             );

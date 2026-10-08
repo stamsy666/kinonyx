@@ -287,11 +287,11 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
                       >
                         {g.genre}
                       </Focusable>
-                      {i < film.genres!.length - 1 ? " · " : ""}
+                      {i < film.genres!.length - 1 ? ", " : ""}
                     </span>
                   ))
                 : "Фильм"}
-              {year ? ` · ${year}` : ""}
+              {year ? `, ${year}` : ""}
             </span>
           </div>
           <h1 className="movie-head__title">{title}</h1>

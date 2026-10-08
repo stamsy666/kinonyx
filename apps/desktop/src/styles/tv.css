@@ -793,9 +793,7 @@
 }
 
 .ch-carousel__group {
-  font-size: 13px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 15px;
   color: var(--text-faint);
   margin-bottom: 6px;
 }
@@ -818,10 +816,8 @@
 }
 
 .ch-carousel__live {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--accent);
 }
 
@@ -1012,9 +1008,7 @@
 .ch-sched__tag {
   margin-left: auto;
   flex: none;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 13px;
   color: var(--text-faint);
 }
 

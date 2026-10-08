@@ -32,6 +32,8 @@ function useClock(interval: number) {
   return now;
 }
 
+import { cleanGroupName } from "../../data/groupName";
+
 export function TvChannelsScreen({ group }: { group?: string }) {
   const playlist = useTv((s) => s.playlist);
   const epg = useTv((s) => s.epg);
@@ -74,7 +76,7 @@ export function TvChannelsScreen({ group }: { group?: string }) {
     return map;
   }, [epg, channels, programmesFor, now]);
 
-  const title = !group ? "Все каналы" : group === UNGROUPED ? "Без категории" : group;
+  const title = !group ? "Все каналы" : group === UNGROUPED ? "Без категории" : cleanGroupName(group);
   const open = (c: Channel, programme?: Programme) => {
     setLastChannelFocus(groupKey, `ch:${c.id}`);
     navigate({ name: "tv-player", channelId: c.id, programme });
