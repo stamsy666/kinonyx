@@ -323,7 +323,7 @@ export function MonoBackground() {
     let width = 1;
     let height = 1;
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       width = Math.max(1, Math.floor(canvas.clientWidth * dpr));
       height = Math.max(1, Math.floor(canvas.clientHeight * dpr));
       if (canvas.width !== width || canvas.height !== height) {

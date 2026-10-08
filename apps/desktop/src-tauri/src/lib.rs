@@ -44,6 +44,19 @@ pub fn run() {
     #[cfg(windows)]
     tie_child_processes_to_this_one();
 
+    // Smooth on 4K / high-DPI screens: rasterise on the GPU even if the driver is on Chromium's
+    // blocklist, and do not let Windows occlusion tracking throttle the window's frames. Added to
+    // whatever the environment already passes (a debugging port, for instance).
+    #[cfg(windows)]
+    {
+        let ours = "--enable-gpu-rasterization --ignore-gpu-blocklist --disable-features=CalculateNativeWinOcclusion";
+        let args = match std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS") {
+            Ok(existing) if !existing.is_empty() => format!("{existing} {ours}"),
+            _ => ours.to_string(),
+        };
+        std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", args);
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_libmpv::init())
         .plugin(tauri_plugin_opener::init())
