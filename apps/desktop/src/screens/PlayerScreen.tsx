@@ -428,13 +428,7 @@ export function PlayerScreen({
             <BackIcon />
           </Focusable>
           <h2 className="player__title">{title}</h2>
-          {isTauri ? (
-            <Focusable as="button" className="icon-btn" focusKey="pl:mini" onPress={minimize} scroll={false}>
-              <MiniPlayerIcon />
-            </Focusable>
-          ) : (
-            <span style={{ width: 52 }} />
-          )}
+          <span style={{ width: 52 }} />
         </div>
 
         <div className="player__bottom">
@@ -500,6 +494,11 @@ export function PlayerScreen({
             </div>
 
             <div className="player__controls-side player__controls-side--right">
+              {isTauri && (
+                <Focusable as="button" className="icon-btn" focusKey="pl:mini" onPress={minimize} scroll={false}>
+                  <MiniPlayerIcon />
+                </Focusable>
+              )}
               <div className="volume-control">
                 <Focusable
                   as="button"

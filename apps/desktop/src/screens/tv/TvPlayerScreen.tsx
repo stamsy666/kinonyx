@@ -511,11 +511,6 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
             <h2 className="player__channel">{channel.name}</h2>
           </div>
           <div className="player__status">
-            {isTauri && (
-              <Focusable as="button" className="icon-btn" focusKey="pl:mini" onPress={minimize} scroll={false}>
-                <MiniPlayerIcon />
-              </Focusable>
-            )}
             {archive ? (
               <Focusable as="button" className="btn btn--ghost archive-badge" focusKey="pl:live" onPress={resumeLive} scroll={false}>
                 В эфир
@@ -584,6 +579,11 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
             </div>
 
             <div className="player__controls-side player__controls-side--right">
+              {isTauri && (
+                <Focusable as="button" className="icon-btn" focusKey="pl:mini" onPress={minimize} scroll={false}>
+                  <MiniPlayerIcon />
+                </Focusable>
+              )}
               {canArchive && (
                 <Focusable
                   as="button"
