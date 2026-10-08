@@ -403,8 +403,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
     setVoiceOn(false);
   }, [live.voiceState, live.voiceError, setVoiceOn]);
   useEffect(() => {
-    if (voiceOn && live.voiceState === "starting") setTranslatorHint("Загружаю озвучку — первые фразы прозвучат через полминуты…");
-    else if (live.voiceState === "ready") setTranslatorHint((h) => (h?.startsWith("Загружаю озвучку") ? null : h));
+    if (live.voiceState === "ready") setTranslatorHint((h) => (h?.startsWith("Загружаю озвучку") ? null : h));
   }, [voiceOn, live.voiceState]);
 
   useVoiceOver({
@@ -496,9 +495,6 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
           <p className="player__center-label">
             {sessionOn && !live.started ? "Готовлю перевод…" : state.status === "loading" ? "Подключение…" : "Буферизация…"}
           </p>
-          {sessionOn && !live.started && (
-            <p className="player__center-hint">Эфир начнётся с отставанием {live.delay} с — за это время переводчик успевает опередить речь.</p>
-          )}
         </div>
       )}
 
