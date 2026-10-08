@@ -97,8 +97,10 @@ html[data-bg="ps4"] .modal-panel {
 }
 
 html[data-bg="ps4"] .sidebar {
-  background: rgba(14, 40, 80, 0.78);
-  border-color: rgba(120, 190, 255, 0.22);
+  background:
+    linear-gradient(140deg, rgba(160, 205, 255, 0.24) 0%, rgba(160, 205, 255, 0.06) 40%, rgba(160, 205, 255, 0.12) 100%),
+    rgba(14, 40, 80, 0.42);
+  border-color: rgba(160, 205, 255, 0.3);
 }
 
 html[data-bg="ps4"] .lightbox {
