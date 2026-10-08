@@ -103,6 +103,9 @@ export function App() {
   const backgroundKind = useApp((s) => s.backgroundKind);
   const clickSparkEnabled = useApp((s) => s.clickSparkEnabled);
   const miniOn = useApp((s) => s.miniOn);
+  // On a film page (and its stills) the slideshow backdrop covers the theme anyway, so the animated
+  // background is not even running there — it is what made scrolling stutter on 4K screens.
+  const stillBackdrop = useApp((s) => s.screen.name === "movie" || s.screen.name === "gallery");
   const isPlayer = useApp(
     (s) =>
       s.screen.name === "player" ||
@@ -227,7 +230,7 @@ export function App() {
   } else if (isFullScreen) {
     shell = (
       <>
-        <AppBackground key={backgroundKind} kind={backgroundKind} />
+        {!stillBackdrop && <AppBackground key={backgroundKind} kind={backgroundKind} />}
         <CurrentScreen />
         <Sidebar />
         <ClickSpark enabled={clickSparkEnabled} />
@@ -237,7 +240,7 @@ export function App() {
   } else {
     shell = (
       <>
-        <AppBackground key={backgroundKind} kind={backgroundKind} />
+        {!stillBackdrop && <AppBackground key={backgroundKind} kind={backgroundKind} />}
         <div className="app-shell">
           {!ownHeader && <TopBar />}
           <div
