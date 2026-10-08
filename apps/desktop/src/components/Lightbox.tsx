@@ -33,7 +33,6 @@ function insetFor(r: DOMRect | null | undefined): string | null {
   const px = (n: number) => `${Math.max(0, Math.round(n))}px`;
   return `inset(${px(r.top)} ${px(window.innerWidth - r.right)} ${px(window.innerHeight - r.bottom)} ${px(r.left)} round 12px)`;
 }
-const FULL = "inset(0px 0px 0px 0px round 0px)";
 
 /** Transform that makes the whole stage (the picture) look as small as the card `r`, centred on
  *  it — so while the window opens/closes the picture itself grows/shrinks, not just the frame
@@ -41,7 +40,7 @@ const FULL = "inset(0px 0px 0px 0px round 0px)";
 function stageShrunk(r: DOMRect): string {
   const W = window.innerWidth;
   const H = window.innerHeight;
-  const s = Math.max(r.width / W, r.height / H);
+  const s = Math.min(r.width / W, r.height / H);
   const dx = r.left + r.width / 2 - W / 2;
   const dy = r.top + r.height / 2 - H / 2;
   return `translate(${dx}px, ${dy}px) scale(${s})`;
@@ -70,8 +69,10 @@ export function Lightbox({ images, index, onIndex, onClose, getOrigin }: Props) 
     const rect = getOrigin?.(indexRef.current);
     const from = insetFor(rect);
     if (from && rect) {
-      el.style.animation = "none"; // drop the plain fade-in; the clip-path reveal replaces it
-      el.animate([{ clipPath: from }, { clipPath: FULL }], { duration: OPEN_MS, easing: EASE_OUT });
+      // Transform + opacity only (compositor-friendly): clip-path animations repaint every frame,
+      // which stuttered on 4K screens. The dim backdrop is the ::before layer.
+      el.style.animation = "none";
+      el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS, easing: EASE_OUT, pseudoElement: "::before" });
       el.querySelector<HTMLElement>(".lightbox__stage")?.animate(
         [{ transform: stageShrunk(rect) }, { transform: STAGE_FULL }],
         { duration: OPEN_MS, easing: EASE_OUT },
@@ -96,7 +97,7 @@ export function Lightbox({ images, index, onIndex, onClose, getOrigin }: Props) 
       );
     }
     const anim = to
-      ? el.animate([{ clipPath: FULL }, { clipPath: to }], { duration: CLOSE_MS, easing: EASE_IN_OUT, fill: "forwards" })
+      ? el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: CLOSE_MS, easing: EASE_IN_OUT, fill: "forwards", pseudoElement: "::before" })
       : el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: "ease-out", fill: "forwards" });
     let done = false;
     const finish = () => {

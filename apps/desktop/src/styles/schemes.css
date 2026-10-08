@@ -103,7 +103,7 @@ html[data-bg="ps4"] .sidebar {
   border-color: rgba(160, 205, 255, 0.3);
 }
 
-html[data-bg="ps4"] .lightbox {
+html[data-bg="ps4"] .lightbox::before {
   background: rgba(2, 10, 24, 0.97);
 }
 

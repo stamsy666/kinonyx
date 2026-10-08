@@ -1691,8 +1691,19 @@ img {
   position: fixed;
   inset: 0;
   z-index: 20;
-  background: rgba(3, 2, 3, 0.97);
   animation: fade-in 180ms var(--ease) both;
+}
+
+/* The dim backdrop is its own layer so the viewer can fade it without touching the picture. */
+.lightbox::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 2, 3, 0.97);
+}
+
+.lightbox__stage {
+  will-change: transform;
 }
 
 .lightbox__stage {
