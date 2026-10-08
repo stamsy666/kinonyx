@@ -43,7 +43,7 @@ export function DiagnosticsScreen() {
   return (
     <FocusGroup focusKey="diagnostics" className="settings screen-pad">
       <header className="settings__head">
-        <Focusable
+        <Focusable back
           as="button"
           className="back-btn"
           focusKey="diagnostics:back"

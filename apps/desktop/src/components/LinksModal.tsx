@@ -29,7 +29,7 @@ export function LinksModal({
     <Modal focusKey="links-modal" preferredChildFocusKey="link:0" onClose={onClose}>
         <div className="modal-panel__header">
           <h3>{heading}</h3>
-          <Focusable as="button" className="icon-btn" focusKey="link:close" onPress={onClose} scroll={false} autoFocus={!links?.length}>
+          <Focusable back as="button" className="icon-btn" focusKey="link:close" onPress={onClose} scroll={false} autoFocus={!links?.length}>
             ×
           </Focusable>
         </div>

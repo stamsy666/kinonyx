@@ -386,7 +386,7 @@ export function PlayerScreen({
   const isPlaying = state.status === "playing";
 
   return (
-    <FocusGroup focusKey="screen:player" className={`player ${isTauri ? "player--mpv" : ""} ${revealed ? "player--revealed" : ""}`} isFocusBoundary>
+    <FocusGroup focusKey="screen:player" className={`player ${isTauri ? "player--mpv" : ""} ${revealed ? "player--revealed" : ""} ${osd ? "" : "player--idle"}`} isFocusBoundary>
       {isTauri ? <div className="player__video-hole" /> : <video ref={videoRef} playsInline autoPlay />}
 
       {showStreamStats && <StreamStats stats={state.stats} bufferedAhead={state.bufferedAhead} swarm={swarm} />}
@@ -408,7 +408,7 @@ export function PlayerScreen({
 
       <div className={`player__osd ${osd ? "" : "is-hidden"}`} style={{ "--osd-dim": playerDim * 2, "--osd-scale": prefs.uiScale } as React.CSSProperties}>
         <div className="player__top">
-          <Focusable as="button" className="icon-btn" focusKey="pl:back" onPress={() => back()} scroll={false}>
+          <Focusable back as="button" className="icon-btn" focusKey="pl:back" onPress={() => back()} scroll={false}>
             <BackIcon />
           </Focusable>
           <h2 className="player__title">{title}</h2>

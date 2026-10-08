@@ -241,7 +241,7 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
     <Modal focusKey="release-picker" preferredChildFocusKey="release:0" onClose={onClose}>
       <div className="modal-panel__header">
         <h3>{heading}</h3>
-        <Focusable as="button" className="icon-btn" focusKey="release:close" onPress={onClose} scroll={false}>
+        <Focusable back as="button" className="icon-btn" focusKey="release:close" onPress={onClose} scroll={false}>
           ×
         </Focusable>
       </div>
@@ -259,7 +259,7 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
           <div className="stack" style={{ gap: 6 }}>
             <p className="empty" style={{ paddingBottom: 6 }}>{error}</p>
             {releases.length > 0 && (
-              <Focusable as="button" className="btn" focusKey="release:back" autoFocus scroll={false} onPress={() => setStage("list")}>
+              <Focusable back as="button" className="btn" focusKey="release:back" autoFocus scroll={false} onPress={() => setStage("list")}>
                 К списку раздач
               </Focusable>
             )}

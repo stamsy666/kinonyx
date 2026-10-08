@@ -130,12 +130,12 @@ pub async fn resolve_trailer_url(
     let can_search = name_ru.as_deref().is_some_and(|n| !n.trim().is_empty())
         || name_original.as_deref().is_some_and(|n| !n.trim().is_empty());
 
-    let mut first_error = None;
     if !url.is_empty() {
         match run_ytdlp(url.clone(), cookies_browser).await {
             Ok(r) => return Ok(r),
-            // Only a YouTube failure is worth a second source; anything else is final.
-            Err(e) if can_search && is_youtube(&url) => first_error = Some(e),
+            // A trailer the viewer picked by name must not silently turn into a name search
+            // on Rutube — every pick would then play the same video. The error is shown
+            // instead (with "open in browser"); the Rutube list entry is the explicit way.
             Err(e) => return Err(e),
         }
     } else if !can_search {
@@ -150,10 +150,7 @@ pub async fn resolve_trailer_url(
         Ok(None) => "Rutube: подходящего трейлера не нашлось".to_string(),
         Err(e) => e,
     };
-    Err(match first_error {
-        Some(y) => format!("{y}\n\nЗапасной вариант не сработал — {fallback}"),
-        None => fallback,
-    })
+    Err(fallback)
 }
 
 async fn run_ytdlp(url: String, cookies_browser: String) -> Result<ResolvedTrailer, String> {

@@ -14,22 +14,21 @@ import {
 import {
   applyFilters,
   hasActiveFilters,
-  nextStep,
-  RATING_STEPS,
+  ALL_RATINGS,
+  allYears,
   readFilters,
   toKpFilter,
   writeFilters,
-  YEAR_STEPS,
   DEFAULT_FILTERS,
   type SearchFilters,
   type SearchKind,
 } from "../data/searchFilters";
 import { useSearchHistory } from "../store/searchHistory";
-import { LinksModal, type Link } from "../components/LinksModal";
+import { FilterPickerModal } from "../components/FilterPickerModal";
 import { TextField } from "../components/TextField";
 import { MovieCard } from "../components/MovieCard";
 import { FocusHighlight } from "../components/FocusHighlight";
-import { SoonModal } from "../components/SoonModal";
+import { VoiceSearchModal } from "../components/VoiceSearchModal";
 
 const DEBOUNCE_MS = 450;
 
@@ -53,14 +52,16 @@ export function SearchScreen() {
   // safe no-op — "пульт как будто отключился". This waits for results and focuses the
   // first one once they're actually there, instead of assuming they already are.
   const wantsResultFocus = useRef(false);
-  const [voiceSoon, setVoiceSoon] = useState(false);
+  // Voice search: the mic opens a window that listens until the viewer presses the mic inside it.
+  const [voiceOpen, setVoiceOpen] = useState(false);
   // Shown before the viewer types anything at all — an empty screen with just a text
   // field read as broken ("with zero letters, at least show some releases").
   const [defaultFilms, setDefaultFilms] = useState<KpCollectionItem[] | null>(null);
   const [filters, setFilters] = useState<SearchFilters>(readFilters);
   const [filtered, setFiltered] = useState<KpCollectionItem[] | null>(null);
   const [genres, setGenres] = useState<KpGenreDef[] | null>(null);
-  const [genreModal, setGenreModal] = useState(false);
+  // Which filter window is open (genre / year / rating) — each is a choice + "Применить".
+  const [picker, setPicker] = useState<"genre" | "year" | "rating" | null>(null);
   const history = useSearchHistory((s) => s.items);
   const active = hasActiveFilters(filters);
   const update = (patch: Partial<SearchFilters>) =>
@@ -93,7 +94,7 @@ export function SearchScreen() {
   }, [filters, active]);
 
   const openGenres = () => {
-    setGenreModal(true);
+    setPicker("genre");
     if (!genres) {
       kpGenres()
         .then((r) => setGenres(r.genres ?? []))
@@ -144,7 +145,7 @@ export function SearchScreen() {
   return (
     <FocusGroup focusKey="search" className="screen-pad stack">
       <div className="row" style={{ marginTop: 4 }}>
-        <Focusable
+        <Focusable back
           as="button"
           className="icon-btn"
           focusKey="search:back"
@@ -173,7 +174,7 @@ export function SearchScreen() {
           as="button"
           className="icon-btn"
           focusKey="search:voice"
-          onPress={() => setVoiceSoon(true)}
+          onPress={() => setVoiceOpen(true)}
           scroll={false}
         >
           <MicIcon />
@@ -205,7 +206,7 @@ export function SearchScreen() {
           as="button"
           focusKey="search:year"
           className={`sound-option ${filters.yearFrom ? "is-active" : ""}`}
-          onPress={() => update({ yearFrom: nextStep(YEAR_STEPS, filters.yearFrom) })}
+          onPress={() => setPicker("year")}
         >
           Год: {filters.yearFrom ? `с ${filters.yearFrom}` : "любой"}
         </Focusable>
@@ -213,7 +214,7 @@ export function SearchScreen() {
           as="button"
           focusKey="search:rating"
           className={`sound-option ${filters.ratingFrom ? "is-active" : ""}`}
-          onPress={() => update({ ratingFrom: nextStep(RATING_STEPS, filters.ratingFrom) })}
+          onPress={() => setPicker("rating")}
         >
           Рейтинг: {filters.ratingFrom ? `${filters.ratingFrom}+` : "любой"}
         </Focusable>
@@ -288,22 +289,54 @@ export function SearchScreen() {
           ))}
         </div>
       )}
-      {genreModal && (
-        <LinksModal
+      {picker === "genre" && (
+        <FilterPickerModal
           heading="Жанр"
           empty="Жанры не загрузились"
-          onClose={() => setGenreModal(false)}
-          links={
-            genres &&
-            ([{ key: "any", title: "Любой жанр", url: "" }, ...genres.map((g) => ({ key: String(g.id), title: g.genre, url: String(g.id) }))] as Link[])
-          }
-          onSelect={(l) => {
-            setGenreModal(false);
-            update({ genre: l.key === "any" ? undefined : { id: Number(l.url), name: l.title } });
+          options={genres && [{ key: "any", title: "Любой жанр" }, ...genres.map((g) => ({ key: String(g.id), title: g.genre }))]}
+          value={filters.genre ? String(filters.genre.id) : "any"}
+          onClose={() => setPicker(null)}
+          onApply={(key) => {
+            setPicker(null);
+            const g = genres?.find((x) => String(x.id) === key);
+            update({ genre: g ? { id: g.id, name: g.genre } : undefined });
           }}
         />
       )}
-      {voiceSoon && <SoonModal text="Голосовой поиск ещё в разработке." onClose={() => setVoiceSoon(false)} />}
+      {picker === "year" && (
+        <FilterPickerModal
+          heading="Год выпуска"
+          options={[{ key: "any", title: "Любой год" }, ...allYears().map((y) => ({ key: String(y), title: `С ${y} года` }))]}
+          value={String(filters.yearFrom ?? "any")}
+          onClose={() => setPicker(null)}
+          onApply={(key) => {
+            setPicker(null);
+            update({ yearFrom: key === "any" ? undefined : Number(key) });
+          }}
+        />
+      )}
+      {picker === "rating" && (
+        <FilterPickerModal
+          heading="Рейтинг"
+          options={[{ key: "any", title: "Любой рейтинг" }, ...ALL_RATINGS.map((r) => ({ key: String(r), title: `${r} и выше` }))]}
+          value={String(filters.ratingFrom ?? "any")}
+          onClose={() => setPicker(null)}
+          onApply={(key) => {
+            setPicker(null);
+            update({ ratingFrom: key === "any" ? undefined : Number(key) });
+          }}
+        />
+      )}
+      {voiceOpen && (
+        <VoiceSearchModal
+          onClose={() => setVoiceOpen(false)}
+          onResult={(text) => {
+            setVoiceOpen(false);
+            setQuery(text);
+            useSearchHistory.getState().add(text);
+          }}
+        />
+      )}
     </FocusGroup>
   );
 }

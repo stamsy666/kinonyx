@@ -27,6 +27,7 @@ describe("lastDays", () => {
 describe("formatting", () => {
   it("formats durations", () => {
     expect(formatDuration(0)).toBe("—");
+    expect(formatDuration(20)).toBe("20 с");
     expect(formatDuration(25 * 60)).toBe("25 мин");
     expect(formatDuration(3600 * 2 + 5 * 60)).toBe("2 ч 05 мин");
   });

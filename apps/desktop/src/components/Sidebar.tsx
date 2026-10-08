@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import {
   CategoriesIcon,
   CartoonsIcon,
@@ -73,13 +73,35 @@ export function Sidebar() {
     });
   }, [open, close]);
 
+  // Closing animation: the menu is simply not rendered when closed, so when `open` turns off a
+  // non-interactive copy of it (the nodes captured while it was open) is left in <body> and
+  // slides/fades out (`.sidebar-ghost`, theme.css) before removing itself. Same trick as
+  // components/Modal.tsx.
+  const backdropRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const backdrop = backdropRef.current;
+    const panel = backdrop?.nextElementSibling;
+    const openedAt = performance.now();
+    return () => {
+      if (!backdrop || !panel || performance.now() - openedAt < 250) return; // StrictMode probe
+      const ghosts = [backdrop, panel].map((node) => {
+        const copy = node.cloneNode(true) as HTMLElement;
+        copy.classList.add("sidebar-ghost");
+        return copy;
+      });
+      document.body.append(...ghosts);
+      window.setTimeout(() => ghosts.forEach((g) => g.remove()), 260);
+    };
+  }, [open]);
+
   if (!open) return null;
 
   const activeIndex = Math.max(0, ITEMS.findIndex((i) => i.section === current));
 
   return (
     <>
-      <div className="sidebar-backdrop" onClick={close} />
+      <div ref={backdropRef} className="sidebar-backdrop" onClick={close} />
       <FocusGroup focusKey="sidebar" className="sidebar" isFocusBoundary preferredChildFocusKey={`sidebar:${activeIndex}`}>
         <div className="sidebar__brand">
           <div className="sidebar__brand-mark">

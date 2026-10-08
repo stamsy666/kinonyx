@@ -113,6 +113,7 @@ pub fn run() {
             translator::translator_stop,
             translator::translator_release,
             translator::translator_position,
+            translator::translator_transcribe,
             translator::translator_voice,
         ])
         .build(tauri::generate_context!())

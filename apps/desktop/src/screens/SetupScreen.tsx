@@ -153,7 +153,7 @@ export function SetupScreen() {
             >
               Где взять ключ
             </Focusable>
-            <Focusable as="button" className="btn" focusKey="setup:back" onPress={() => setStep(0)}>
+            <Focusable back as="button" className="btn" focusKey="setup:back" onPress={() => setStep(0)}>
               Назад
             </Focusable>
           </div>

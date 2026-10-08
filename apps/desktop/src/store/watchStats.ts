@@ -147,7 +147,7 @@ export function streak(days: Record<string, DayStat>, from = new Date()): number
 
 export function formatDuration(sec: number): string {
   const m = Math.floor(sec / 60);
-  if (m < 1) return sec >= 10 ? `${Math.round(sec)} с` : "—";
+  if (m < 1) return sec >= 1 ? `${Math.round(sec)} с` : "—";
   const h = Math.floor(m / 60);
   return h > 0 ? `${h} ч ${String(m % 60).padStart(2, "0")} мин` : `${m} мин`;
 }

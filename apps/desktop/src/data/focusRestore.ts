@@ -42,7 +42,15 @@ function contentFocusKey(): string | null {
   return key.startsWith("sidebar") ? focusBeforeSidebar : key;
 }
 
+/** True while the current screen was reached by "Назад" with a saved focus to return to —
+ *  a screen's own `autoFocus` (the home hero, which mounts late, once its slides load) must
+ *  stay out of it: it grabbed focus AFTER the restore had put it back on the card and scrolled
+ *  the page to itself ("the page position jumps" after Back). Cleared by the next navigation. */
+let cameBackToSavedFocus = false;
+export const returnedToSavedFocus = () => cameBackToSavedFocus;
+
 export function takeSnapshot(): FocusSnapshot {
+  cameBackToSavedFocus = false;
   return {
     focusKey: contentFocusKey(),
     scroll: SCROLLERS.flatMap((selector) => {
@@ -65,6 +73,7 @@ export function resetScroll() {
 let cancelRunning: (() => void) | null = null;
 
 export function restoreSnapshot(snapshot: FocusSnapshot) {
+  cameBackToSavedFocus = !!snapshot.focusKey;
   cancelRunning?.();
   const started = performance.now();
   let focusedAt = 0;

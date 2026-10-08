@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { BackIcon, DiceIcon, Focusable, FocusGroup, NextIcon, Spinner } from "@kinonyx/ui";
+import { BackIcon, Focusable, FocusGroup, NextIcon, Spinner } from "@kinonyx/ui";
 import { kpFilmsFilter, kpGenres, type KpCollectionItem } from "../data/api";
 import { img } from "../data/images";
 import { ProgressiveImg } from "./ProgressiveImg";
 import { Modal } from "./Modal";
+import { PopcornIcon } from "./AnimatedIcons";
 
 type Step = "mood" | "confidence" | "loading" | "results" | "empty";
 
@@ -95,9 +96,9 @@ export function WhatToWatchModal({ onClose, onOpenFilm }: { onClose: () => void;
     <Modal focusKey="what-to-watch" preferredChildFocusKey="wtw:0" onClose={onClose} className="wtw">
       <div className="modal-panel__header">
         <h3>
-          <DiceIcon size={18} /> Что посмотреть?
+          <PopcornIcon size={22} auto /> Что посмотреть?
         </h3>
-        <Focusable as="button" className="icon-btn" focusKey="wtw:close" onPress={onClose} scroll={false}>
+        <Focusable back as="button" className="icon-btn" focusKey="wtw:close" onPress={onClose} scroll={false}>
           ×
         </Focusable>
       </div>

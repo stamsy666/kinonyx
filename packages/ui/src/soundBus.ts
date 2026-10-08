@@ -5,6 +5,7 @@ export type NavSoundGroup = "menu" | undefined;
 
 interface SoundHandlers {
   onPress?: () => void;
+  onBack?: () => void;
   onMove?: (group: NavSoundGroup) => void;
 }
 
@@ -24,6 +25,12 @@ let lastPressAt = -Infinity;
 export function emitPressSound() {
   lastPressAt = performance.now();
   handlers.onPress?.();
+}
+
+/** Going back (Back/Esc key, or a back/close button): its own sound, quiet period like a press. */
+export function emitBackSound() {
+  lastPressAt = performance.now();
+  handlers.onBack?.();
 }
 
 // A focus change can arrive "programmatically" — a screen mounting and auto-focusing

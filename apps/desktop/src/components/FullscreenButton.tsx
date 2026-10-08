@@ -1,4 +1,5 @@
-import { Focusable, ExitFullscreenIcon, FullscreenIcon } from "@kinonyx/ui";
+import { Focusable } from "@kinonyx/ui";
+import { FullscreenCornersIcon } from "./AnimatedIcons";
 import { useApp } from "../store/app";
 
 export function FullscreenButton({ focusKey = "hdr:fullscreen", className = "icon-btn" }: { focusKey?: string; className?: string }) {
@@ -12,7 +13,7 @@ export function FullscreenButton({ focusKey = "hdr:fullscreen", className = "ico
       onPress={() => void toggleFullscreen()}
       scroll={false}
     >
-      {fullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
+      <FullscreenCornersIcon exit={fullscreen} />
     </Focusable>
   );
 }

@@ -209,7 +209,8 @@ function readBgKind(): BgKind {
   } catch {
     /* falls through to default */
   }
-  return "plasma";
+  // First launch (nothing saved yet): "Графит".
+  return "mono";
 }
 
 function readSoundChoice(): Record<SoundCategory, string | null> {

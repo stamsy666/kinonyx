@@ -15,9 +15,10 @@ import {
 } from "../data/api";
 import { TextField } from "../components/TextField";
 import { LinksModal } from "../components/LinksModal";
-import { BG_KINDS, BG_PALETTES } from "../data/backgrounds";
-import { SOUND_CATEGORIES, SOUND_CATEGORY_LABELS } from "../data/sounds";
+import { ANIMATED_KINDS, BG_PALETTES, EXCLUSIVE_KINDS, PLAIN_KINDS } from "../data/backgrounds";
+import { applyThemeKit, SOUND_CATEGORIES, SOUND_CATEGORY_LABELS } from "../data/sounds";
 import { SoundCategoryRow } from "../components/SoundCategoryRow";
+import { SoundKitRow } from "../components/SoundKitRow";
 import { MUSIC_CREDITS } from "../data/music";
 import { FullscreenButton } from "../components/FullscreenButton";
 import { VolumeRow } from "../components/VolumeRow";
@@ -143,7 +144,7 @@ export function SettingsScreen() {
   const updVersion = useUpdater((s) => s.update?.version);
   const updError = useUpdater((s) => s.error);
   const autoCheck = useUpdater((s) => s.autoCheck);
-  const [appVersion, setAppVersion] = useState("1.1.2");
+  const [appVersion, setAppVersion] = useState("1.1.3");
   useEffect(() => {
     if (!isTauri) return;
     void import("@tauri-apps/api/app").then((m) => m.getVersion()).then(setAppVersion, () => undefined);
@@ -252,7 +253,7 @@ export function SettingsScreen() {
   return (
     <FocusGroup focusKey="settings" className="settings screen-pad">
       <header className="settings__head">
-        <Focusable
+        <Focusable back
           as="button"
           className="back-btn"
           focusKey="settings:back"
@@ -643,35 +644,47 @@ export function SettingsScreen() {
         )}
         {tab === "look" && (
           <>
-            <section className="settings__item">
-              <div className="settings__label">Темы</div>
-              <div className="bg-options">
-                <FocusHighlight pad={8} radius={20} />
-                {BG_KINDS.map((kind, i) => {
-                  const palette = BG_PALETTES[kind];
-                  return (
-                    <Focusable
-                      as="button"
-                      key={kind}
-                      focusKey={`settings:bg:${i}`}
-                      className={`bg-option ${backgroundKind === kind ? "is-active" : ""}`}
-                      onPress={() => setBackgroundKind(kind)}
-                    >
-                      <span
-                        className="bg-option__swatch"
-                        style={{
-                          background: `linear-gradient(135deg, ${palette.accent} 0%, ${palette.accentDeep} 100%)`,
+            {[
+              { title: "Обычные темы", kinds: PLAIN_KINDS, hint: "Без анимации — спокойный однотонный фон." },
+              { title: "Анимированные темы", kinds: ANIMATED_KINDS, hint: "Живой фон; акцентный цвет интерфейса меняется вместе с ним." },
+              { title: "Эксклюзивные темы", kinds: EXCLUSIVE_KINDS, hint: "При выборе такой темы меняются музыка и звуки интерфейса (набор PS4 или PS5)." },
+            ].map((group) => (
+              <section className="settings__item" key={group.title}>
+                <div className="settings__label">{group.title}</div>
+                <div className="bg-options">
+                  <FocusHighlight pad={8} radius={20} />
+                  {group.kinds.map((kind) => {
+                    const palette = BG_PALETTES[kind];
+                    return (
+                      <Focusable
+                        as="button"
+                        key={kind}
+                        focusKey={`settings:bg:${kind}`}
+                        className={`bg-option ${backgroundKind === kind ? "is-active" : ""}`}
+                        onPress={() => {
+                          setBackgroundKind(kind);
+                          applyThemeKit(kind);
                         }}
-                      />
-                      {palette.label}
-                    </Focusable>
-                  );
-                })}
-              </div>
-              <div className="settings__hint">
-                Анимация и акцентный цвет интерфейса меняются вместе.
-              </div>
-            </section>
+                      >
+                        <span
+                          className="bg-option__swatch"
+                          style={{
+                            background:
+                              kind === "light"
+                                ? "linear-gradient(135deg, #ffffff 0%, #d9d5cf 100%)"
+                                : kind === "bw"
+                                  ? "linear-gradient(135deg, #ffffff 0%, #000000 100%)"
+                                  : `linear-gradient(135deg, ${palette.accent} 0%, ${palette.accentDeep} 100%)`,
+                          }}
+                        />
+                        {palette.label}
+                      </Focusable>
+                    );
+                  })}
+                </div>
+                <div className="settings__hint">{group.hint}</div>
+              </section>
+            ))}
             <section className="settings__item">
               <div className="settings__label">Эффект клика мышью</div>
               <Focusable
@@ -707,6 +720,11 @@ export function SettingsScreen() {
         )}
         {tab === "sound" && (
           <>
+            <section className="settings__item">
+              <div className="settings__label">Набор звуков</div>
+              <SoundKitRow focusPrefix="settings:snd:kit" />
+              <div className="settings__hint">Готовый набор сразу меняет кнопки и навигацию. Ниже можно подобрать отдельно.</div>
+            </section>
             {SOUND_CATEGORIES.map((category) => (
               <section className="settings__item" key={category}>
                 <div className="settings__label">
@@ -763,7 +781,7 @@ export function SettingsScreen() {
               <div className="settings__hint">
                 {musicEnabled && currentTrack
                   ? `Сейчас играет: ${currentTrack.title} — ${currentTrack.artist}`
-                  : "Тихая фоновая музыка во время просмотра каталога — не звучит поверх плеера."}
+                  : "Тихая фоновая музыка во время просмотра каталога — не звучит поверх плеера. Набор звуков PS4 приносит свою музыку."}
               </div>
             </section>
             <section className="settings__item">

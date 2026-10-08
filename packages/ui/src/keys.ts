@@ -1,4 +1,5 @@
 import { init, setKeyMap } from "@noriginmedia/norigin-spatial-navigation";
+import { emitBackSound } from "./soundBus";
 
 export const BACK_KEYS = new Set(["Escape", "Backspace", "BrowserBack", "GoBack"]);
 
@@ -38,6 +39,7 @@ export function installBackKeyListener() {
     for (let i = backStack.length - 1; i >= 0; i--) {
       if (backStack[i]() !== false) {
         e.preventDefault();
+        emitBackSound();
         return;
       }
     }

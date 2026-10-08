@@ -11,7 +11,7 @@ import { BackIcon, Focusable } from "@kinonyx/ui";
  */
 export function DetailBackButton({ focusKey, onPress, autoFocus }: { focusKey: string; onPress: () => void; autoFocus?: boolean }) {
   return createPortal(
-    <Focusable as="button" className="icon-btn detail-back" focusKey={focusKey} onPress={onPress} scroll={false} autoFocus={autoFocus}>
+    <Focusable back as="button" className="icon-btn detail-back" focusKey={focusKey} onPress={onPress} scroll={false} autoFocus={autoFocus}>
       <BackIcon />
     </Focusable>,
     document.body,

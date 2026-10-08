@@ -30,6 +30,12 @@ export function MovieCard({ film, focusKey, onPress, rank, progress, autoFocus }
         ) : (
           <img src={noPoster} alt={title} loading="lazy" decoding="async" />
         )}
+        <span className="movie-card__play" aria-hidden="true">
+          {/* Outline triangle that draws itself on focus (stroke-dash in theme.css). */}
+          <svg width="64" height="64" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 6l10 6l-10 6Z" />
+          </svg>
+        </span>
         {rank != null && <span className="movie-card__rank">{rank}</span>}
         {progress != null && (
           <div className="movie-card__progress">

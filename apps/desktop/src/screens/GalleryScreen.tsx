@@ -49,7 +49,7 @@ export function GalleryScreen({ filmId, startIndex }: { filmId: number; startInd
   return (
     <FocusGroup focusKey="gallery" className="screen-pad stack" style={{ height: "100%" }}>
       <div className="row" style={{ marginTop: 4 }}>
-        <Focusable as="button" className="icon-btn" focusKey="gallery:back" onPress={() => back()} scroll={false}>
+        <Focusable back as="button" className="icon-btn" focusKey="gallery:back" onPress={() => back()} scroll={false}>
           <BackIcon />
         </Focusable>
         <h1 className="screen-title">Материалы к фильму</h1>

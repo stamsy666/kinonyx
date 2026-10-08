@@ -1,4 +1,5 @@
-import { BackIcon, Focusable, FocusGroup, SearchIcon } from "@kinonyx/ui";
+import { BackIcon, Focusable, FocusGroup, } from "@kinonyx/ui";
+import { SearchLensIcon } from "../components/AnimatedIcons";
 import { useApp } from "../store/app";
 import { CATALOGS, categoryListsFor, type CatalogKind } from "../data/catalogs";
 import { FullscreenButton } from "../components/FullscreenButton";
@@ -28,14 +29,14 @@ export function CategoriesHubScreen() {
               <i />
             </span>
           </Focusable>
-          <Focusable as="button" className="icon-btn" focusKey="cathub:back" onPress={() => back()} scrollBlock="start">
+          <Focusable back as="button" className="icon-btn" focusKey="cathub:back" onPress={() => back()} scrollBlock="start">
             <BackIcon />
           </Focusable>
         </div>
         <h1 className="catalog__title">Категории</h1>
         <div className="row">
           <Focusable as="button" className="icon-btn" focusKey="cathub:search" onPress={() => navigate({ name: "search" })} scrollBlock="start">
-            <SearchIcon />
+            <SearchLensIcon />
           </Focusable>
           <FullscreenButton focusKey="cathub:fullscreen" />
         </div>

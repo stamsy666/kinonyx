@@ -6,6 +6,8 @@ import "@fontsource/roboto/700.css";
 import "@fontsource/roboto/900.css";
 import "./styles/theme.css";
 import "./styles/tv.css";
+import "./styles/beam.css";
+import "./styles/schemes.css";
 import { initSpatialNavigation, installBackKeyListener, startGamepadBridge } from "@kinonyx/ui";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { App } from "./App";
@@ -14,6 +16,14 @@ import { isTauri } from "./data/io";
 initSpatialNavigation();
 installBackKeyListener();
 startGamepadBridge();
+
+// No browser context menu ("Назад / Обновить / Сохранить как / Печать / Проверить") on a
+// right click — it's an app, not a web page. Text fields keep theirs (copy / paste).
+window.addEventListener("contextmenu", (e) => {
+  const t = e.target as HTMLElement | null;
+  if (t?.closest("input, textarea, [contenteditable='true']")) return;
+  e.preventDefault();
+});
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

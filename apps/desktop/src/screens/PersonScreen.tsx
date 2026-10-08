@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { BackIcon, Focusable, FocusGroup, SearchIcon, Spinner } from "@kinonyx/ui";
+import { BackIcon, Focusable, FocusGroup, Spinner } from "@kinonyx/ui";
+import { SearchLensIcon } from "../components/AnimatedIcons";
 import { useApp } from "../store/app";
 import { kpFilm, kpPerson, type KpPerson, type KpPersonFilm, type KpStaffPerson } from "../data/api";
 import { img } from "../data/images";
@@ -43,13 +44,13 @@ export function PersonScreen({ id, preview }: { id: number; preview?: KpStaffPer
         {useFloatingBack ? (
           <span />
         ) : (
-          <Focusable as="button" className="icon-btn" focusKey="person:back" onPress={onBackPress} scroll={false} autoFocus>
+          <Focusable back as="button" className="icon-btn" focusKey="person:back" onPress={onBackPress} scroll={false} autoFocus>
             <BackIcon />
           </Focusable>
         )}
         <h1 className="catalog__title">Информация об актере</h1>
         <Focusable as="button" className="icon-btn" focusKey="person:search" onPress={() => navigate({ name: "search" })} scrollBlock="start">
-          <SearchIcon />
+          <SearchLensIcon />
         </Focusable>
       </header>
     </>

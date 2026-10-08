@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
-import { Focusable } from "@kinonyx/ui";
+import { returnedToSavedFocus } from "../data/focusRestore";
+import { BackIcon, Focusable, NextIcon } from "@kinonyx/ui";
 import { kpImages, type KpCollectionItem } from "../data/api";
 import { img, stillLarge } from "../data/images";
 import { ProgressiveImg } from "./ProgressiveImg";
@@ -66,7 +67,7 @@ export function HeroCarousel({ films, onOpen }: { films: KpCollectionItem[]; onO
       // which is what "perfectly visible at the top" means for the tallest element on
       // the page (a plain "center" would leave slack above/below it instead).
       scrollBlock="start"
-      autoFocus
+      autoFocus={!returnedToSavedFocus()}
       onArrowPress={(direction) => {
         // Left/Right flip slides while the banner is focused; Down leaves it as usual.
         if (direction === "left" || direction === "right") {
@@ -102,7 +103,8 @@ export function HeroCarousel({ films, onOpen }: { films: KpCollectionItem[]; onO
             <div className="hero__info">
               <div className="hero__meta">
                 {film.ratingKinopoisk != null && <span className="hero__rating">★ {film.ratingKinopoisk.toFixed(1)}</span>}
-                <span className="hero__category">{film.genres?.map((g) => g.genre).join(" · ") || "Фильм"}</span>
+                {film.year != null && <span className="hero__year">{film.year}</span>}
+                <span className="hero__category">{film.genres?.map((g) => g.genre).slice(0, 3).join(" · ") || "Фильм"}</span>
               </div>
               <h2 className="hero__title">{title}</h2>
               {film.description && <p className="hero__desc">{film.description}</p>}
@@ -110,24 +112,14 @@ export function HeroCarousel({ films, onOpen }: { films: KpCollectionItem[]; onO
           </div>
         );
       })}
-      <button
-        className="hero__arrow hero__arrow--prev"
-        onClick={(e) => {
-          e.stopPropagation();
-          go(-1);
-        }}
-      >
-        ‹
-      </button>
-      <button
-        className="hero__arrow hero__arrow--next"
-        onClick={(e) => {
-          e.stopPropagation();
-          go(1);
-        }}
-      >
-        ›
-      </button>
+      {/* Ordinary app buttons: hover/press sounds and the usual focus beam. A click on them
+          doesn't reach the banner (Focusable stops propagation), so it won't open the film. */}
+      <Focusable as="button" className="icon-btn hero__arrow hero__arrow--prev" focusKey="hero:prev" scroll={false} onPress={() => go(-1)}>
+        <BackIcon size={24} />
+      </Focusable>
+      <Focusable as="button" className="icon-btn hero__arrow hero__arrow--next" focusKey="hero:next" scroll={false} onPress={() => go(1)}>
+        <NextIcon size={24} />
+      </Focusable>
       <div className="hero__dots">
         {slides.map((film, i) => (
           <i key={film.kinopoiskId} className={`hero__dot ${i === index ? "is-active" : ""}`} />

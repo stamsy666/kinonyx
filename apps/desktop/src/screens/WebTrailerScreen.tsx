@@ -87,7 +87,7 @@ export function WebTrailerScreen({ title, url }: { title: string; url: string })
   return (
     <FocusGroup focusKey="web-trailer" className="web-trailer" isFocusBoundary>
       <div className="web-trailer__bar">
-        <Focusable as="button" className="icon-btn web-trailer__back" focusKey="web-trailer:back" onPress={() => back()} autoFocus scroll={false}>
+        <Focusable back as="button" className="icon-btn web-trailer__back" focusKey="web-trailer:back" onPress={() => back()} autoFocus scroll={false}>
           <BackIcon />
         </Focusable>
         <span className="web-trailer__title">{title}</span>

@@ -72,7 +72,8 @@ interface TvState {
   setLastChannelFocus(group: string, focusKey: string): void;
   setLastArchiveFocus(channelId: string, start: number): void;
   addPlaylistFromUrl(url: string): Promise<void>;
-  addPlaylistFromFile(): Promise<void>;
+  /** `path` given (a file dropped onto the window) skips the file dialog. */
+  addPlaylistFromFile(path?: string): Promise<void>;
   removePlaylist(id: string): void;
   /** Parses/loads a saved playlist's channels (+ kicks off its EPG fetch in the
    *  background) without navigating anywhere — the piece `openPlaylist` and
@@ -134,8 +135,8 @@ export const useTv = create<TvState>()(
         await get().openPlaylist(entry.id);
       },
 
-      async addPlaylistFromFile() {
-        const picked = await pickPlaylistFile();
+      async addPlaylistFromFile(path) {
+        const picked = path ? { path } : await pickPlaylistFile();
         if (!picked) return;
         const entry: SavedPlaylist = {
           id: stableId("file", picked.path),

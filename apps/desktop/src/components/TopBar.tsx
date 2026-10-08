@@ -1,9 +1,10 @@
-import { useEffect, useState, type CSSProperties } from "react";
-import { DiceIcon, Focusable, GearIcon, SearchIcon } from "@kinonyx/ui";
+import { useEffect, useState } from "react";
+import { Focusable } from "@kinonyx/ui";
 import { useApp } from "../store/app";
 import { FullscreenButton } from "./FullscreenButton";
 import { WhatToWatchModal } from "./WhatToWatchModal";
 import logoMark from "../assets/logo-mark.png";
+import { PopcornIcon, SearchLensIcon, SettingsCogIcon } from "./AnimatedIcons";
 
 function useClock() {
   const [now, setNow] = useState(() => new Date());
@@ -38,17 +39,20 @@ export function TopBar() {
       </button>
       <div className="topbar__actions">
         <Focusable as="button" className="icon-btn" focusKey="hdr:menu" onPress={toggleSidebar} scroll={false}>
-          <span style={{ display: "block", width: 18 }}>
-            <span style={barStyle} />
-            <span style={{ ...barStyle, margin: "5px 0" }} />
-            <span style={barStyle} />
-          </span>
+          {/* Three lines that draw themselves one after another on focus (menu-icon in theme.css). */}
+          <svg className="menu-icon" width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+              <path d="M5 5h14" />
+              <path d="M5 12h14" />
+              <path d="M5 19h14" />
+            </g>
+          </svg>
         </Focusable>
         <Focusable as="button" className="icon-btn" focusKey="hdr:wtw" onPress={() => setWtwOpen(true)} scroll={false}>
-          <DiceIcon />
+          <PopcornIcon />
         </Focusable>
         <Focusable as="button" className="icon-btn" focusKey="hdr:search" onPress={() => navigate({ name: "search" })} scroll={false}>
-          <SearchIcon />
+          <SearchLensIcon />
         </Focusable>
         <FullscreenButton />
         <Focusable
@@ -58,7 +62,7 @@ export function TopBar() {
           onPress={() => navigate({ name: "settings" })}
           scroll={false}
         >
-          <GearIcon />
+          <SettingsCogIcon />
         </Focusable>
       </div>
       {wtwOpen && (
@@ -74,9 +78,3 @@ export function TopBar() {
   );
 }
 
-const barStyle: CSSProperties = {
-  display: "block",
-  height: 2,
-  background: "currentColor",
-  borderRadius: 1,
-};

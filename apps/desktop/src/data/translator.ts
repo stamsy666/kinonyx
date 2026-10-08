@@ -87,6 +87,12 @@ export const translatorStop = (session?: number) => invoke<void>("translator_sto
 /** "voice" kills just the voice-over server, "all" every helper process, immediately. */
 export const translatorRelease = (what: "voice" | "all") => invoke<void>("translator_release", { what });
 export const translatorPosition = (session: number, position: number) => invoke<void>("translator_position", { session, position });
+/** Voice search: recognise one recording (raw f32 LE samples, mono, 24 kHz) with `model`. */
+export async function translatorTranscribe(model: string, pcm: Uint8Array): Promise<string> {
+  if (!isTauri) throw new Error("Голосовой поиск работает только в приложении для ПК");
+  const { invoke: tauriInvoke } = await import("@tauri-apps/api/core");
+  return tauriInvoke<string>("translator_transcribe", pcm, { headers: { "x-model": model } });
+}
 export const translatorVoice = (session: number, on: boolean) => invoke<void>("translator_voice", { session, on });
 
 export const onDownload = (fn: (e: DownloadEvent) => void) => listen<DownloadEvent>("translator://download", fn);

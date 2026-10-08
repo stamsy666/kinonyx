@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Focusable, FocusGroup, FolderIcon, GearIcon, PlusIcon, TrashIcon } from "@kinonyx/ui";
+import { Focusable, FocusGroup, PlusIcon, TrashIcon } from "@kinonyx/ui";
+import { SettingsCogIcon } from "../../components/AnimatedIcons";
+import { FileDropZone } from "../../components/FileDropZone";
 import { useApp } from "../../store/app";
 import { useTv, type SavedPlaylist } from "../../store/tv";
 import { TextField } from "../../components/TextField";
@@ -49,7 +51,7 @@ export function TvPlaylistsScreen() {
         <span style={{ flex: 1 }} />
         <FullscreenButton />
         <Focusable as="button" className="icon-btn" focusKey="hdr:settings" onPress={() => navigate({ name: "settings" })} scroll={false}>
-          <GearIcon />
+          <SettingsCogIcon />
         </Focusable>
       </div>
       <div className="screen__body">
@@ -76,17 +78,19 @@ export function TvPlaylistsScreen() {
 
         <div style={{ height: 16 }} />
 
-        <Focusable
-          as="button"
-          className="btn btn--wide"
+        <FileDropZone
           focusKey="pl:file"
-          onPress={() => {
+          hint="M3U · M3U8 · TXT"
+          extensions={["m3u", "m3u8", "txt"]}
+          onPick={() => {
             setFileError(null);
             addFromFile().catch((e) => setFileError(e instanceof Error ? e.message : String(e)));
           }}
-        >
-          <FolderIcon /> Выбрать на устройстве
-        </Focusable>
+          onDropPaths={(paths) => {
+            setFileError(null);
+            addFromFile(paths[0]).catch((e) => setFileError(e instanceof Error ? e.message : String(e)));
+          }}
+        />
         {fileError && <div className="empty" style={{ padding: "10px 0 0" }}>{fileError}</div>}
 
         <div className="section-label">Плейлисты</div>

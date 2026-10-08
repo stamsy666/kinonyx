@@ -1,0 +1,120 @@
+/* ---------- Focus = a light "comet" running round the border (border-beam) ----------
+   Replaces the old static accent ring. Same idea as the Border Beam component (a conic
+   sweep clipped to the border ring by an XOR mask, so it follows any corner radius), done in
+   plain CSS because the app has no Tailwind. Loaded LAST (main.tsx), so at equal specificity
+   these rules win over the old ring rules in theme.css / tv.css.
+
+   Tunables (override on any element/screen):
+     --beam-w      ring thickness
+     --beam-len    how much of one lap the comet spans
+     --beam-speed  seconds per lap                                                      */
+
+@property --beam-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes kx-beam {
+  to {
+    --beam-angle: 360deg;
+  }
+}
+
+@keyframes kx-beam-in {
+  from {
+    opacity: 0;
+  }
+}
+
+:root {
+  --beam-w: 4px;
+  --beam-len: 18%;
+  --beam-speed: 3.6s;
+}
+
+/* Every focused element that already has a ring pseudo-element (`.focusable::after`) — and the
+   ones that paint their ring as an overlay on an image (posters, avatars, stills, hero,
+   gallery). Elements that switch that pseudo-element off (`content: none`: seek bar, cards'
+   outer box, lightbox stage, …) stay off: this rule deliberately sets no `content`. */
+.focusable.is-focused::after,
+.hero.is-focused::after,
+.gallery-view.is-focused::after,
+.movie-card.is-focused .movie-card__poster::after,
+.actor-card.is-focused .actor-card__avatar::after,
+.still-card.is-focused::after,
+.channel-tile.is-focused::after,
+.list-option.is-focused::after {
+  border: 0;
+  padding: var(--beam-w);
+  box-shadow: none;
+  background:
+    conic-gradient(
+      from var(--beam-angle),
+      transparent 0%,
+      var(--accent) var(--beam-len),
+      transparent calc(var(--beam-len) * 1.25)
+    ),
+    /* a faint full outline, so the focused item stays readable while the comet is on the far side */
+      color-mix(in srgb, var(--accent) 30%, transparent);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation:
+    kx-beam var(--beam-speed) linear infinite,
+    kx-beam-in 200ms ease-out;
+}
+
+/* These had no ring pseudo-element at all (their focus was an inset box-shadow / a side bar):
+   give them one, drawn inside the box so the scrolling/clipping parents can't cut it. */
+.channel-tile.is-focused::after,
+.list-option.is-focused::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.channel-tile.is-focused {
+  box-shadow: none;
+}
+
+.list-option.is-focused::before {
+  content: none;
+}
+
+.stats-focus.is-focused {
+  box-shadow: none;
+}
+
+/* No sliding plate behind the focused card any more — the comet is the whole focus effect.
+   (FocusHighlight still mounts; it just never paints.) Rows in modal lists used to rely on the
+   plate as their fill, so they get the ordinary fill back. */
+.focus-highlight {
+  display: none;
+}
+
+.modal-panel__list .list-option.is-focused {
+  background: var(--surface-hi);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focusable.is-focused::after,
+  .hero.is-focused::after,
+  .gallery-view.is-focused::after,
+  .movie-card.is-focused .movie-card__poster::after,
+  .actor-card.is-focused .actor-card__avatar::after,
+  .still-card.is-focused::after,
+  .channel-tile.is-focused::after,
+  .list-option.is-focused::after {
+    animation: none;
+    --beam-angle: 300deg;
+  }
+}

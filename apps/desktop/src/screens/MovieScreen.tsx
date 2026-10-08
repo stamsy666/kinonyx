@@ -18,7 +18,11 @@ import {
   type KpSimilarFilm,
   type KpStaffPerson,
 } from "../data/api";
-import { img } from "../data/images";
+import { img, stillCard, stillLarge } from "../data/images";
+import { Lightbox } from "../components/Lightbox";
+import { preloadImage } from "../data/imagePreload";
+import { RESTORE_DETAILS } from "../data/focusRestore";
+import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { openExternal } from "../data/io";
 import { RowScroll } from "../components/RowScroll";
 import { MovieCard } from "../components/MovieCard";
@@ -97,6 +101,8 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
   const [similars, setSimilars] = useState<KpSimilarFilm[]>([]);
   const [trailers, setTrailers] = useState<Link[] | null>(null);
   const [modal, setModal] = useState<Modal>(null);
+  // A still opens straight into the full-window viewer (index of the open one, null = closed).
+  const [stillOpen, setStillOpen] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [trailerResolving, setTrailerResolving] = useState(false);
   const [trailerError, setTrailerError] = useState<{ message: string; url: string } | null>(null);
@@ -147,6 +153,21 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
     });
   };
 
+  // Warm the first few full-size stills while the viewer is still closed, so opening one (and the
+  // first flips) don't wait on the download. Sequential — it must not crowd out the page itself.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      for (const im of images.slice(0, 3)) {
+        if (cancelled) return;
+        await preloadImage(img(stillLarge(im.imageUrl)));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [images]);
+
   // The film's stills as the page's ambient backdrop; the poster until they arrive.
   const backdrop = useMemo(() => {
     const stills = images.slice(0, BACKDROP_SLIDES).map((i) => img(i.previewUrl)).filter((u): u is string => !!u);
@@ -189,7 +210,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
     <DetailBackButton focusKey="movie:back" onPress={onBackPress} autoFocus={!film} />
   ) : (
     <div className="row" style={{ marginTop: 4 }}>
-      <Focusable as="button" className="icon-btn" focusKey="movie:back" onPress={onBackPress} scroll={false} autoFocus={!film}>
+      <Focusable back as="button" className="icon-btn" focusKey="movie:back" onPress={onBackPress} scroll={false} autoFocus={!film}>
         <BackIcon />
       </Focusable>
     </div>
@@ -299,7 +320,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
               onPress={onToggleFavorite}
               scroll={false}
             >
-              <FavoriteIcon fill={isFav ? "currentColor" : "none"} />
+              <FavoriteIcon key={String(isFav)} fill={isFav ? "currentColor" : "none"} />
             </Focusable>
           </div>
         </div>
@@ -310,10 +331,19 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
           <Focusable
             key={image.previewUrl + i}
             focusKey={`stills:${i}`}
-            className="still-card"
-            onPress={() => navigate({ name: "gallery", filmId: id, startIndex: i })}
+            className={`still-card ${stillOpen === i ? "is-opened" : ""}`}
+            onPress={() => setStillOpen(i)}
           >
-            <img src={img(image.previewUrl)} alt="" loading="lazy" decoding="async" />
+            <ProgressiveImg src={img(stillCard(image.imageUrl))} placeholder={img(image.previewUrl)} />
+            <span className="still-card__zoom" aria-hidden="true">
+              {/* Magnifier that wobbles once when the frame gets focus (still-card__lens in theme.css). */}
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <g className="still-card__lens">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="M17 17L21 21" />
+                </g>
+              </svg>
+            </span>
           </Focusable>
         ))}
       </RowScroll>
@@ -335,6 +365,23 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
         ))}
       </RowScroll>
 
+      {stillOpen !== null && images.length > 0 && (
+        <Lightbox
+          images={images.map((im) => ({ full: img(stillLarge(im.imageUrl)), preview: img(im.previewUrl) }))}
+          index={Math.min(stillOpen, images.length - 1)}
+          // The viewer grows out of (and shrinks back into) the card of the frame it is on.
+          getOrigin={(i) => document.querySelectorAll(".still-card")[i]?.getBoundingClientRect() ?? null}
+          onIndex={setStillOpen}
+          onClose={() => {
+            const closed = stillOpen;
+            setStillOpen(null);
+            // Focus lived in the viewer; put it back on the still that was open.
+            // RESTORE_DETAILS: put focus back without scrolling the page (a plain focus re-centred the
+            // card's row and the page jumped ~150 px after closing the viewer).
+            requestAnimationFrame(() => setFocus(`stills:${closed}`, RESTORE_DETAILS));
+          }}
+        />
+      )}
       {modal === "quality" && (
         <LinksModal
           heading="Качество"
@@ -423,7 +470,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
         <Modal focusKey="trailer-error" preferredChildFocusKey="trailer-err:browser" onClose={() => setTrailerError(null)}>
           <div className="modal-panel__header">
             <h3>Не удалось открыть трейлер</h3>
-            <Focusable
+            <Focusable back
               as="button"
               className="icon-btn"
               focusKey="trailer-err:close"
@@ -458,7 +505,16 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
 function ActorTile({ person, focusKey, onPress }: { person: KpStaffPerson; focusKey: string; onPress: () => void }) {
   return (
     <Focusable focusKey={focusKey} className="actor-card" onPress={onPress}>
-      <div className="actor-card__avatar">{person.posterUrl && <img src={img(person.posterUrl)} alt="" loading="lazy" decoding="async" />}</div>
+      <div className="actor-card__avatar">
+        {person.posterUrl && <img src={img(person.posterUrl)} alt="" loading="lazy" decoding="async" />}
+        {/* Link mark over the focused photo — "opens the person's page" (actor-card__link in theme.css). */}
+        <span className="actor-card__link" aria-hidden="true">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path pathLength="1" d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+            <path pathLength="1" d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+          </svg>
+        </span>
+      </div>
       <div className="actor-card__name">{person.nameRu || person.nameEn}</div>
       <div className="actor-card__role">{person.professionText}</div>
     </Focusable>

@@ -8,7 +8,7 @@ export function SoonModal({ text = "Эта функция ещё в разраб
     <Modal focusKey="soon" preferredChildFocusKey="soon:close" onClose={onClose}>
       <div className="modal-panel__header">
         <h3>В разработке</h3>
-        <Focusable as="button" className="icon-btn" focusKey="soon:close" onPress={onClose} scroll={false} autoFocus>
+        <Focusable back as="button" className="icon-btn" focusKey="soon:close" onPress={onClose} scroll={false} autoFocus>
           ×
         </Focusable>
       </div>

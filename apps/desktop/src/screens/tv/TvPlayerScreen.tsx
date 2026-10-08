@@ -436,7 +436,7 @@ export function TvPlayerScreen({ channelId }: { channelId: string }) {
       <FocusGroup focusKey="screen:player" className="player" isFocusBoundary>
         <div className="player__osd" style={{ "--osd-dim": playerDim * 2, "--osd-scale": prefs.uiScale } as React.CSSProperties}>
           <div className="player__top">
-            <Focusable as="button" className="icon-btn" focusKey="pl:back" onPress={() => back()} autoFocus scroll={false}>
+            <Focusable back as="button" className="icon-btn" focusKey="pl:back" onPress={() => back()} autoFocus scroll={false}>
               <BackIcon />
             </Focusable>
           </div>
@@ -461,7 +461,7 @@ export function TvPlayerScreen({ channelId }: { channelId: string }) {
   const nowInfo = archive ? archive.programme : guide.now;
 
   return (
-    <FocusGroup focusKey="screen:player" className={`player ${isTauri ? "player--mpv" : ""} ${revealed ? "player--revealed" : ""}`} isFocusBoundary>
+    <FocusGroup focusKey="screen:player" className={`player ${isTauri ? "player--mpv" : ""} ${revealed ? "player--revealed" : ""} ${osd ? "" : "player--idle"}`} isFocusBoundary>
       {isTauri ? <div className="player__video-hole" /> : <video ref={videoRef} playsInline autoPlay />}
 
       {showStreamStats && <StreamStats stats={state.stats} live={state.live} bufferedAhead={state.bufferedAhead} />}
@@ -490,7 +490,7 @@ export function TvPlayerScreen({ channelId }: { channelId: string }) {
 
       <div className={`player__osd ${osd ? "" : "is-hidden"}`} style={{ "--osd-dim": playerDim * 2, "--osd-scale": prefs.uiScale } as React.CSSProperties}>
         <div className="player__top player__top--tv">
-          <Focusable as="button" className="icon-btn" focusKey="pl:back" onPress={() => back()} scroll={false}>
+          <Focusable back as="button" className="icon-btn" focusKey="pl:back" onPress={() => back()} scroll={false}>
             <BackIcon />
           </Focusable>
           <div className="player__info">

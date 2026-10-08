@@ -53,7 +53,9 @@ export function StatsPanel() {
     };
   }, [days, titles, genres, hours]);
 
-  const hasData = stats.total >= 60;
+  // Anything counted at all (a few seconds is enough) — it used to wait for a full minute, so a
+  // 20-second watch still showed the empty "here will be your statistics" screen.
+  const hasData = stats.total >= 5;
   const share = (k: StatKind) => (stats.total ? stats.by[k] / stats.total : 0);
   const donut = (() => {
     let acc = 0;

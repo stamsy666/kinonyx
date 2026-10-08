@@ -1,4 +1,5 @@
-import { CategoriesIcon, Focusable, FocusGroup, SearchIcon } from "@kinonyx/ui";
+import { CategoriesIcon, Focusable, FocusGroup, } from "@kinonyx/ui";
+import { SearchLensIcon } from "../components/AnimatedIcons";
 import { useApp } from "../store/app";
 import { kpCollection, kpFilmsFilter, type KpCollectionItem } from "../data/api";
 import { catalogsFor, type CatalogKind, type CatalogShelf } from "../data/catalogs";
@@ -40,7 +41,7 @@ export function CatalogScreen({ kind }: { kind: CatalogKind }) {
             <CategoriesIcon />
           </Focusable>
           <Focusable as="button" className="icon-btn" focusKey="catalog:search" onPress={() => navigate({ name: "search" })} scrollBlock="start">
-            <SearchIcon />
+            <SearchLensIcon />
           </Focusable>
           <FullscreenButton focusKey="catalog:fullscreen" />
         </div>

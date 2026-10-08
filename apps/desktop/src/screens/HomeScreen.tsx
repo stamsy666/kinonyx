@@ -269,7 +269,7 @@ export function HomeScreen() {
         <Modal focusKey="channel-error" preferredChildFocusKey="channel-err:close" onClose={() => setChannelError(null)}>
           <div className="modal-panel__header">
             <h3>Не удалось открыть канал</h3>
-            <Focusable as="button" className="icon-btn" focusKey="channel-err:close" onPress={() => setChannelError(null)} scroll={false} autoFocus>
+            <Focusable back as="button" className="icon-btn" focusKey="channel-err:close" onPress={() => setChannelError(null)} scroll={false} autoFocus>
               ×
             </Focusable>
           </div>

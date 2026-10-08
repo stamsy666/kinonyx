@@ -17,7 +17,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use serde::Serialize;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 use tokio::sync::Mutex;
 
 use catalog::Kind;
@@ -197,6 +197,55 @@ pub async fn translator_voice(app: AppHandle, state: State<'_, Translator>, sess
         s.set_voice(app, state.engines.clone(), on);
     }
     Ok(())
+}
+
+/// Voice search: one recording, recognised with the same whisper-server the translator uses.
+/// The body is raw little-endian f32 samples, mono at `asr::SAMPLE_RATE` (24 kHz), sent as the
+/// IPC raw payload; the model id travels in the `x-model` header. Returns the recognised text
+/// (empty when nothing intelligible was said).
+///
+/// The model server is started if needed and given back after a short idle — unless a
+/// translation session is running, which owns it.
+#[tauri::command]
+pub async fn translator_transcribe(app: AppHandle, state: State<'_, Translator>, request: tauri::ipc::Request<'_>) -> Result<String, String> {
+    let model_id = request
+        .headers()
+        .get("x-model")
+        .and_then(|v| v.to_str().ok())
+        .ok_or("не указана модель распознавания")?
+        .to_string();
+    let item = catalog::item(&model_id).ok_or("неизвестная модель распознавания")?;
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("ожидалась запись звука".into());
+    };
+    let samples: Vec<f32> = bytes.chunks_exact(4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).collect();
+    if samples.len() < (asr::SAMPLE_RATE as usize) / 4 {
+        return Ok(String::new());
+    }
+
+    let port = state.engines.asr(&app, item).await?;
+    let client = reqwest::Client::new();
+    let reply = asr::transcribe(&client, port, asr::Request { audio: &samples, language: Some("ru"), prompt: None }).await;
+
+    // Give the model back after a minute of quiet, unless a translation session is using it.
+    let gen = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        let state = handle.state::<Translator>();
+        if state.generation.load(Ordering::SeqCst) == gen && state.session.lock().await.is_none() {
+            state.engines.stop_all().await;
+        }
+    });
+
+    let text = reply?
+        .segments
+        .iter()
+        .filter(|s| asr::reject_reason(s, None).is_none())
+        .map(|s| s.text.trim())
+        .collect::<Vec<_>>()
+        .join(" ");
+    Ok(text.trim().trim_end_matches(['.', '!', '?', '…']).trim().to_string())
 }
 
 /// The visible player's current `time-pos` — lets the pipeline tell how much lookahead is

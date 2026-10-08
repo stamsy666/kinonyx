@@ -61,6 +61,8 @@ interface TranslatorState {
   ready(): boolean;
   /** …and the voice-over runtime and model too. */
   voiceReady(): boolean;
+  /** Speech recognition alone is usable (voice search needs no translation model). */
+  asrReady(): boolean;
 }
 
 let listening = false;
@@ -150,6 +152,12 @@ export const useTranslator = create<TranslatorState>()(
         const { items, asrModel, mtModel, bundled } = get();
         const ok = (id: string) => items.some((i) => i.id === id && i.installed);
         return get().translationEnabled() && bundled && ok("engine-cuda") && ok(asrModel) && ok(mtModel);
+      },
+
+      asrReady() {
+        const { items, asrModel, bundled, asrEnabled } = get();
+        const ok = (id: string) => items.some((i) => i.id === id && i.installed);
+        return asrEnabled && bundled && ok("engine-cuda") && ok(asrModel);
       },
 
       voiceReady() {

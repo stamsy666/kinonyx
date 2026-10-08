@@ -1,6 +1,6 @@
 import { useFocusable, type UseFocusableConfig } from "@noriginmedia/norigin-spatial-navigation";
 import { useEffect, useRef, type ReactNode, type CSSProperties } from "react";
-import { emitMoveSound, emitPressSound, type NavSoundGroup } from "./soundBus";
+import { emitBackSound, emitMoveSound, emitPressSound, type NavSoundGroup } from "./soundBus";
 
 interface FocusableProps extends Omit<UseFocusableConfig, "extraProps"> {
   className?: string;
@@ -20,6 +20,8 @@ interface FocusableProps extends Omit<UseFocusableConfig, "extraProps"> {
   /** Suppresses the generic navigation/press sounds entirely — for controls that
    *  play their own bespoke sound instead (e.g. the sound picker itself). */
   mute?: boolean;
+  /** A back/close control: plays the "back" sound instead of the press sound. */
+  back?: boolean;
 }
 
 export function Focusable({
@@ -34,6 +36,7 @@ export function Focusable({
   autoFocus,
   soundGroup,
   mute,
+  back,
   onEnterPress,
   onFocus,
   ...config
@@ -49,7 +52,7 @@ export function Focusable({
     ...config,
     onEnterPress: (props, details) => {
       onEnterPress?.(props, details);
-      if (onPress && !mute) emitPressSound();
+      if (onPress && !mute) (back ? emitBackSound() : emitPressSound());
       onPress?.();
     },
     onFocus: (layout, props, details) => {
@@ -67,9 +70,18 @@ export function Focusable({
       // keyboard/gamepad navigation (which can land on off-screen items) scrolls;
       // both get the navigation sound.
       if (!byMouse && scroll) {
-        // A restored focus keeps the page where it was saved ("nearest" only scrolls if the
-        // item is off-screen) — re-centring it moved an already-visible card's row.
-        ref.current?.scrollIntoView({ block: restore ? "nearest" : scrollBlock, inline: "nearest", behavior: restore ? "instant" : "smooth" });
+        const el = ref.current;
+        if (restore && el) {
+          // A restored focus keeps the page exactly where "Назад" put it. Even "nearest" nudged
+          // the page (a card sticking out past the bottom edge scrolled up to show its whole
+          // title: the home page came back ~65 px off) — so only scroll if the card is not on
+          // screen at all.
+          const r = el.getBoundingClientRect();
+          const visible = r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth;
+          if (!visible) el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
+        } else {
+          el?.scrollIntoView({ block: scrollBlock, inline: "nearest", behavior: "smooth" });
+        }
       }
     },
   });
@@ -90,7 +102,7 @@ export function Focusable({
         e.stopPropagation();
         if (!focused) suppressNextMoveSound.current = true;
         focusSelf({ byMouse: true });
-        if (onPress && !mute) emitPressSound();
+        if (onPress && !mute) (back ? emitBackSound() : emitPressSound());
         onPress?.();
       }}
     >

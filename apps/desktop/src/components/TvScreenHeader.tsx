@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { BackIcon, Focusable, GearIcon } from "@kinonyx/ui";
+import { BackIcon, Focusable } from "@kinonyx/ui";
+import { SettingsCogIcon } from "./AnimatedIcons";
 import { FullscreenButton } from "./FullscreenButton";
 
 interface Props {
@@ -30,7 +31,7 @@ export function TvScreenHeader({ eyebrow, title, subtitle, onMenu, onBack, onSet
           </Focusable>
         )}
         {onBack && (
-          <Focusable as="button" className="icon-btn" focusKey="hdr:back" onPress={onBack} scroll={false}>
+          <Focusable back as="button" className="icon-btn" focusKey="hdr:back" onPress={onBack} scroll={false}>
             <BackIcon />
           </Focusable>
         )}
@@ -45,7 +46,7 @@ export function TvScreenHeader({ eyebrow, title, subtitle, onMenu, onBack, onSet
         <FullscreenButton />
         {onSettings && (
           <Focusable as="button" className="icon-btn" focusKey="hdr:settings" onPress={onSettings} scroll={false}>
-            <GearIcon />
+            <SettingsCogIcon />
           </Focusable>
         )}
       </div>

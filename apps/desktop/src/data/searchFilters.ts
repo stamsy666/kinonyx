@@ -15,6 +15,16 @@ export const DEFAULT_FILTERS: SearchFilters = { kind: "ALL" };
 export const YEAR_STEPS: (number | undefined)[] = [undefined, 2020, 2010, 2000, 1990, 1970];
 export const RATING_STEPS: (number | undefined)[] = [undefined, 6, 7, 8];
 
+/** Every year from this one back to 1950 — the year window lists them all (newest first). */
+export function allYears(now = new Date().getFullYear()): number[] {
+  const out: number[] = [];
+  for (let y = now; y >= 1950; y--) out.push(y);
+  return out;
+}
+
+/** Whole-number rating thresholds for the rating window: 1+ … 9+. */
+export const ALL_RATINGS: number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
 /** Next value in a cycling chip, wrapping back to "any". */
 export function nextStep<T>(steps: T[], current: T): T {
   const i = steps.indexOf(current);

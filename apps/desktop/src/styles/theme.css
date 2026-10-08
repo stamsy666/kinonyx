@@ -192,6 +192,14 @@ body.has-canvas-bg::before {
   opacity: 0.45;
 }
 
+/* "Графит" — greyscale plasma shader (see MonoBackground.tsx); dimmed so text stays readable. */
+.mono-bg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0.4;
+}
+
 /* "Плазма" theme — SVG goo filter + six blended radial gradients (see BubbleBackground.tsx).
    The blend-mode blobs are vivid and near-opaque at their core by design (that's what makes
    the "gooey" look read at all) — same treatment as the cloud shader: opacity down so it
@@ -331,7 +339,7 @@ img {
   border-color: var(--accent);
   box-shadow:
     0 0 0 6px var(--accent-glow),
-    0 18px 50px -12px rgba(230, 57, 80, 0.45);
+    0 18px 50px -12px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 /* Big surfaces clip their own content (overflow:hidden), which would also clip the
@@ -759,7 +767,7 @@ img {
   position: absolute;
   left: var(--page-x);
   right: var(--page-x);
-  bottom: 34px;
+  bottom: 44px;
   max-width: 640px;
 }
 
@@ -793,11 +801,12 @@ img {
 }
 
 .hero__desc {
-  font-size: 15px;
+  font-size: 16px;
+  line-height: 1.5;
   color: var(--text-dim);
-  max-width: 520px;
+  max-width: 580px;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin: 0;
@@ -827,25 +836,41 @@ img {
   border-radius: 4px;
 }
 
+/* Ordinary icon buttons (Focusable): top is offset by half the 52px size instead of a
+   translate, so the focus scale isn't fighting a transform. Shown on hover and on focus. */
 .hero__arrow {
   position: absolute;
-  z-index: 2;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: rgba(10, 7, 8, 0.5);
-  border: 1px solid var(--line-hi);
+  z-index: 4;
+  top: calc(50% - 26px);
+  background: rgba(10, 7, 8, 0.55);
+  border-color: var(--line-hi);
   color: var(--text);
-  display: grid;
-  place-items: center;
   opacity: 0;
-  transition: opacity 160ms var(--ease);
+  transition:
+    opacity 160ms var(--ease),
+    transform 200ms var(--ease),
+    background-color 160ms var(--ease);
 }
 
-.hero:hover .hero__arrow {
+.hero:hover .hero__arrow,
+.hero__arrow.is-focused {
   opacity: 1;
+}
+
+.hero__year {
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.hero__year::after {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  margin-left: 12px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  vertical-align: middle;
 }
 
 .hero__arrow--prev {
@@ -910,7 +935,7 @@ img {
 }
 
 .category-chip.is-focused {
-  background: rgba(230, 57, 80, 0.16);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -1461,6 +1486,52 @@ img {
   filter: drop-shadow(0 0 8px rgba(255, 59, 87, 0.45));
 }
 
+/* A film that is already in favorites: the filled heart keeps a calm heartbeat (two quick beats,
+   a long pause). The icon is re-keyed on toggle, so adding restarts the animation with a beat right away. */
+.icon-btn--fav.is-fav svg {
+  animation: fav-heartbeat 2.4s ease-in-out infinite;
+}
+
+@keyframes fav-heartbeat {
+  0%,
+  28%,
+  100% {
+    transform: scale(1);
+  }
+  8% {
+    transform: scale(1.14);
+  }
+  16% {
+    transform: scale(1);
+  }
+  22% {
+    transform: scale(1.1);
+  }
+}
+
+/* The heart beats three times when the button gets focus (Lucide Animated "heart"). */
+.icon-btn--fav.is-focused svg,
+.icon-btn--fav.is-fav.is-focused svg {
+  animation: fav-beat 450ms ease-in-out 3;
+}
+
+@keyframes fav-beat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn--fav svg,
+  .icon-btn--fav.is-fav svg {
+    animation: none !important;
+  }
+}
+
 /* ---------- Gallery / lightbox ---------- */
 
 .gallery-view {
@@ -1728,6 +1799,10 @@ img {
   z-index: 8;
   display: grid;
   place-items: center;
+  /* The same dimming + blur as every other window's backdrop (.modal-backdrop); it also
+     swallows stray clicks while the link resolves. */
+  background: rgba(6, 4, 5, 0.6);
+  backdrop-filter: blur(3px);
   animation: fade-in 200ms var(--ease) both;
 }
 
@@ -2000,7 +2075,7 @@ img {
 /* ---------- Volume popup + track menu (ported from PortoTV) ---------- */
 
 .icon-btn--active {
-  background: rgba(230, 57, 80, 0.16);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
   color: var(--accent);
 }
 
@@ -2395,7 +2470,7 @@ img {
 .sound-option.is-active {
   color: var(--text);
   border-color: var(--accent);
-  background: rgba(230, 57, 80, 0.14);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .sound-option.is-focused {
@@ -3667,4 +3742,573 @@ body.mpv-active::after {
 .stats-focus.is-focused {
   transform: none;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+/* The player's controls are hidden (idle for the auto-hide time) → the mouse pointer goes too,
+   and comes back with the first mouse movement (which also brings the controls back). The
+   controls keep their own `cursor: pointer`, hence the `*`. */
+.player--idle,
+.player--idle * {
+  cursor: none !important;
+}
+
+/* Viewer buttons are ordinary .icon-btn / Focusable now — these only place them. (No transform
+   for the vertical centring: a focused Focusable scales itself with `transform`.) */
+.lightbox__btn {
+  position: absolute;
+  z-index: 2;
+}
+
+.lightbox__btn--prev {
+  top: calc(50% - 26px);
+  left: 28px;
+}
+
+.lightbox__btn--next {
+  top: calc(50% - 26px);
+  right: 28px;
+}
+
+.lightbox__btn--close {
+  top: 24px;
+  right: 28px;
+}
+
+/* ---------- Filter choice window (components/FilterPickerModal.tsx) ---------- */
+.modal-panel.filter-modal {
+  width: min(460px, 92vw);
+}
+
+/* A row with the title on the left and a tick on the right for the marked option. */
+.list-option--row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.list-option.is-picked {
+  color: var(--text);
+}
+
+.list-option__check {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.filter-modal__footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.filter-modal__footer .btn {
+  min-width: 200px;
+}
+
+/* ---------- Window closing animation (components/Modal.tsx leaves a copy to fade out) ---------- */
+@keyframes modal-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 10px)) scale(0.96);
+  }
+}
+
+@keyframes backdrop-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.modal-backdrop.modal-ghost {
+  pointer-events: none;
+  animation: backdrop-out 200ms var(--ease) forwards;
+}
+
+.modal-panel.modal-ghost {
+  pointer-events: none;
+  animation: modal-out 200ms var(--ease) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-ghost {
+    display: none;
+  }
+}
+
+/* Hover/focus slightly darkens posters and actor photos (the focus beam stays as it is). */
+.movie-card__poster img,
+.actor-card__avatar img {
+  transition: filter 220ms var(--ease);
+}
+
+.movie-card.is-focused .movie-card__poster img {
+  filter: brightness(0.38);
+}
+
+.actor-card.is-focused .actor-card__avatar img {
+  filter: brightness(0.6);
+}
+
+/* Link mark over a focused actor photo; the two halves flex once when it appears. */
+.actor-card__link {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  opacity: 0;
+  transform: scale(0.7);
+  transition:
+    opacity 200ms var(--ease),
+    transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.6));
+}
+
+.actor-card.is-focused .actor-card__link {
+  opacity: 1;
+  transform: none;
+}
+
+.actor-card__link path {
+  stroke-dasharray: 1;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.actor-card.is-focused .actor-card__link path {
+  animation: actor-link-flex 1s ease-in-out;
+}
+
+@keyframes actor-link-flex {
+  0% {
+    stroke-dashoffset: 0;
+    transform: rotate(0deg);
+  }
+  20% {
+    stroke-dashoffset: 0.03;
+    transform: rotate(-3deg);
+  }
+  40% {
+    stroke-dashoffset: 0;
+    transform: rotate(-5deg);
+  }
+  60% {
+    stroke-dashoffset: 0.03;
+    transform: rotate(-2deg);
+  }
+  100% {
+    stroke-dashoffset: 0;
+    transform: rotate(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .actor-card__link,
+  .actor-card__link path {
+    transition: none;
+    animation: none !important;
+  }
+}
+
+/* Play mark over a focused poster — "this opens the film's page". */
+.movie-card__play {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  opacity: 0;
+  transform: scale(0.7);
+  transition:
+    opacity 200ms var(--ease),
+    transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+  filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.6));
+}
+
+.movie-card.is-focused .movie-card__play {
+  opacity: 1;
+  transform: none;
+}
+
+/* The triangle is drawn stroke by stroke when the card gets focus, and wiped when it loses it. */
+.movie-card__play path {
+  stroke-dasharray: 38;
+  stroke-dashoffset: 38;
+  transition: stroke-dashoffset 180ms var(--ease);
+}
+
+.movie-card.is-focused .movie-card__play path {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 520ms cubic-bezier(0.4, 0, 0.2, 1) 80ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .movie-card__play,
+  .movie-card__play path {
+    transition: none;
+  }
+}
+
+/* ---------- Still cards in the film page's "Материалы" row ---------- */
+/* Focused (or its viewer open): the frame is held — blurred a touch, darkened, with a magnifier
+   on it — which says "this opens big" before the press. */
+.still-card img {
+  transition:
+    filter 240ms var(--ease),
+    transform 360ms var(--ease);
+}
+
+.still-card.is-focused img,
+.still-card.is-opened img {
+  filter: blur(2px) brightness(0.62);
+  transform: scale(1.05);
+}
+
+.still-card__zoom {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  opacity: 0;
+  transform: scale(0.7);
+  transition:
+    opacity 200ms var(--ease),
+    transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.55));
+}
+
+.still-card.is-focused .still-card__zoom,
+.still-card.is-opened .still-card__zoom {
+  opacity: 1;
+  transform: none;
+}
+
+.still-card__lens {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.still-card.is-focused .still-card__lens,
+.still-card.is-opened .still-card__lens,
+.icon-btn.is-focused .still-card__lens {
+  animation: still-lens-wobble 1.2s ease-in-out;
+}
+
+@keyframes still-lens-wobble {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(2px, -1px) rotate(6deg);
+  }
+  50% {
+    transform: translate(-2px, 2px) rotate(-6deg);
+  }
+  75% {
+    transform: translate(1px, -1px) rotate(4deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .still-card__lens {
+    animation: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .still-card img,
+  .still-card__zoom {
+    transition: none;
+  }
+}
+
+/* ---------- Side menu closing animation (components/Sidebar.tsx leaves a copy to slide out) ---------- */
+@keyframes sidebar-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-34px);
+  }
+}
+
+.sidebar-backdrop.sidebar-ghost {
+  pointer-events: none;
+  animation: backdrop-out 220ms var(--ease) forwards;
+}
+
+.sidebar.sidebar-ghost {
+  pointer-events: none;
+  animation: sidebar-out 220ms var(--ease) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-ghost {
+    display: none;
+  }
+}
+
+/* ---------- "PS4" animated theme (components/backgrounds/WavesBackground.tsx) ---------- */
+/* A flat PlayStation blue with big soft waves rolling in from the LEFT edge only; the rest of
+   the screen stays calm, so the interface reads cleanly. Each wave is an oversized rounded
+   square turning slowly around a point off-screen to the left — only its curved edge sweeps
+   the left third of the window. */
+.ps4-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: linear-gradient(100deg, #08488c 0%, #0a58a6 45%, #09509a 100%);
+}
+
+.ps4-bg__wave {
+  position: absolute;
+  top: 50%;
+  --size: max(1500px, 80vmax);
+  width: var(--size);
+  height: calc(var(--size) * 0.87);
+  /* centre of the square sits left of the window: x = -15vw */
+  left: calc(-15vw - var(--size) / 2);
+  margin-top: calc(var(--size) * -0.435);
+  border-radius: 43%;
+  transform-origin: 50% 48%;
+  will-change: transform;
+}
+
+.ps4-bg__wave--one {
+  background: #00aaff;
+  opacity: 0.24;
+  animation: ps4-turn 70s linear infinite;
+}
+
+.ps4-bg__wave--two {
+  background: #001a40;
+  opacity: 0.14;
+  animation: ps4-turn 44s linear infinite;
+}
+
+.ps4-bg__wave--three {
+  background: #77daff;
+  opacity: 0.2;
+  --size: max(1380px, 74vmax);
+  animation: ps4-turn 96s linear infinite;
+}
+
+.ps4-bg__shade {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(130% 100% at 70% 40%, transparent 50%, rgba(2, 14, 38, 0.45) 100%);
+}
+
+@keyframes ps4-turn {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ps4-bg__wave {
+    animation-duration: 240s;
+  }
+}
+
+/* ---------- Menu button icon: the three lines are drawn in turn when it gets focus ---------- */
+.menu-icon path {
+  stroke-dasharray: 16;
+  stroke-dashoffset: 0;
+}
+
+.icon-btn.is-focused .menu-icon path {
+  animation: menu-line-draw 300ms ease-out both;
+}
+
+.icon-btn.is-focused .menu-icon path:nth-child(2) {
+  animation-delay: 300ms;
+}
+
+.icon-btn.is-focused .menu-icon path:nth-child(3) {
+  animation-delay: 600ms;
+}
+
+@keyframes menu-line-draw {
+  from {
+    stroke-dashoffset: 16;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn.is-focused .menu-icon path {
+    animation: none;
+  }
+}
+
+/* ---------- "What to watch" button: popcorn bucket (components/TopBar.tsx) ---------- */
+.wtw-icon .wtw-icon__flap,
+.wtw-icon .wtw-icon__top {
+  transform-box: view-box;
+}
+
+.wtw-icon__flap--l {
+  transform-origin: 2px 2px;
+}
+
+.wtw-icon__flap--r {
+  transform-origin: 22px 2px;
+}
+
+.wtw-icon__top {
+  transform-origin: 12px 9px;
+}
+
+.wtw-icon--auto .wtw-icon__flap--l,
+.icon-btn.is-focused .wtw-icon__flap--l {
+  animation: wtw-flap-l 700ms ease-in-out;
+}
+
+.wtw-icon--auto .wtw-icon__flap--r,
+.icon-btn.is-focused .wtw-icon__flap--r {
+  animation: wtw-flap-r 700ms ease-in-out;
+}
+
+.wtw-icon--auto .wtw-icon__top,
+.icon-btn.is-focused .wtw-icon__top {
+  animation: wtw-top 700ms ease-in-out;
+}
+
+@keyframes wtw-flap-l {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  35% {
+    transform: rotate(-18deg);
+  }
+  65% {
+    transform: rotate(-8deg);
+  }
+}
+
+@keyframes wtw-flap-r {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  35% {
+    transform: rotate(18deg);
+  }
+  65% {
+    transform: rotate(8deg);
+  }
+}
+
+@keyframes wtw-top {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  35% {
+    transform: scaleY(1.25);
+  }
+  65% {
+    transform: scaleY(0.9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn.is-focused .wtw-icon * {
+    animation: none;
+  }
+}
+
+/* ---------- Full-screen button: the corners push out (or pull in) on focus ---------- */
+.icon-btn.is-focused .fs-corner {
+  animation: fs-corner-nudge 650ms ease-in-out;
+}
+
+@keyframes fs-corner-nudge {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  40% {
+    transform: translate(calc(var(--dx) * 2px), calc(var(--dy) * 2px));
+  }
+  70% {
+    transform: translate(calc(var(--dx) * 0.6px), calc(var(--dy) * 0.6px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn.is-focused .fs-corner {
+    animation: none;
+  }
+}
+
+/* ---------- Settings cog: half a turn on focus, back on blur ---------- */
+.gear-icon {
+  transition: transform 650ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.icon-btn.is-focused .gear-icon {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gear-icon {
+    transition: none;
+  }
+}
+
+/* ---------- Categories icon: a heartbeat when its button/menu row gets focus ---------- */
+.focusable.is-focused .cat-icon {
+  animation: cat-icon-beat 800ms ease-in-out;
+}
+
+/* two quick beats, then rest */
+@keyframes cat-icon-beat {
+  0%,
+  60%,
+  100% {
+    transform: scale(1);
+  }
+  12% {
+    transform: scale(1.22);
+  }
+  26% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.16);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focusable.is-focused .cat-icon {
+    animation: none;
+  }
 }

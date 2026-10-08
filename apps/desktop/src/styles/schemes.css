@@ -1,0 +1,123 @@
+/* ---------- Plain themes: "Белая" (light) and "Ч/Б" (black & white) ----------
+   The tokens themselves are swapped in JS (data/backgrounds.ts → applyBgPalette), which also
+   sets `data-bg` and `data-scheme` on <html>. This file only holds what tokens can't express.
+   Loaded last (main.tsx). */
+
+/* No animated canvas, so the body's own gradient is the background — without the red/gold
+   glows of the default one. */
+/* Not while a video plays (`body.mpv-active`): the page must stay transparent then, or this
+   fill covers the native video window behind it — which is exactly the "no picture in the
+   player on the white / B&W theme" bug. */
+html[data-bg="light"] body:not(.mpv-active)::before,
+html[data-bg="bw"] body:not(.mpv-active)::before {
+  background: linear-gradient(180deg, var(--bg-2) 0%, var(--bg) 100%);
+}
+
+/* ---- Light scheme ---- */
+
+/* Surfaces that stay dark in the light theme (menus, dialogs, image overlays, the player):
+   they hard-code a dark fill, so their text has to keep the dark-theme colours instead of
+   flipping with the page. */
+html[data-scheme="light"] :is(
+    .sidebar,
+    .hero,
+    .gallery-view,
+    .lightbox,
+    .modal-panel,
+    .trailer-resolving__card,
+    .volume-popup,
+    .player,
+    .autonext__card,
+    .live-subs__note,
+    .movie-backdrop,
+    .row-scroll__arrow,
+    .hero__arrow
+  ) {
+  --text: #f3ece7;
+  --text-dim: rgba(243, 236, 231, 0.58);
+  --text-faint: rgba(243, 236, 231, 0.34);
+  --surface: rgba(255, 255, 255, 0.045);
+  --surface-hi: rgba(255, 255, 255, 0.09);
+  --line: rgba(255, 255, 255, 0.08);
+  --line-hi: rgba(255, 255, 255, 0.16);
+  --gold: #e8b649;
+  --teal: #3fd3c6;
+  color: var(--text);
+}
+
+/* The film page keeps its dark blurred-stills backdrop on the light theme too — exactly as on
+   the animated themes. Text on a dark picture has to be light, so while that backdrop is on
+   screen the whole page (top bar included) uses the dark-theme colours. */
+html[data-scheme="light"] body:has(.movie-backdrop) {
+  --text: #f3ece7;
+  --text-dim: rgba(243, 236, 231, 0.58);
+  --text-faint: rgba(243, 236, 231, 0.34);
+  --surface: rgba(255, 255, 255, 0.045);
+  --surface-hi: rgba(255, 255, 255, 0.09);
+  --line: rgba(255, 255, 255, 0.08);
+  --line-hi: rgba(255, 255, 255, 0.16);
+  --gold: #e8b649;
+  --teal: #3fd3c6;
+  color: var(--text);
+}
+
+/* The comet's faint outline and the soft shadows read fine on white; the card titles that turn
+   accent-coloured on focus keep their contrast. Dim the heavy dark shadows of cards/posters. */
+html[data-scheme="light"] .movie-card__poster,
+html[data-scheme="light"] .actor-card__avatar {
+  box-shadow: 0 10px 28px -14px rgba(0, 0, 0, 0.45);
+}
+
+/* ---- Black & white ---- */
+
+/* White accent: the primary button's gradient is white → grey, so its text must be dark. */
+html[data-bg="bw"] .btn--primary {
+  color: #000;
+}
+
+/* Same for the tick inside an accent-filled checkbox (it is white by default). */
+html[data-bg="bw"] .checkbox.is-on .checkbox__box {
+  color: #000;
+}
+
+html[data-bg="bw"] .icon-btn--heart-on,
+html[data-bg="bw"] .icon-btn--fav {
+  color: #fff;
+}
+
+html[data-bg="bw"] .live-badge,
+html[data-bg="bw"] .live-badge::before {
+  filter: grayscale(1);
+}
+
+/* ---- "PS4" theme: the dark panels and the logo follow the blue instead of the warm black ---- */
+html[data-bg="ps4"] .modal-panel {
+  background: rgba(7, 22, 48, 0.96);
+  border-color: rgba(120, 190, 255, 0.22);
+}
+
+html[data-bg="ps4"] .sidebar {
+  background: rgba(6, 20, 44, 0.97);
+  border-right-color: rgba(120, 190, 255, 0.2);
+}
+
+html[data-bg="ps4"] .lightbox {
+  background: rgba(2, 10, 24, 0.97);
+}
+
+/* The logo mark is red; turn it to the theme's blue. */
+html[data-bg="ps4"] .topbar__logo-mark,
+html[data-bg="ps4"] .sidebar__brand-mark img,
+html[data-bg="ps4"] .setup__logo {
+  filter: hue-rotate(228deg) saturate(1.1);
+}
+
+/* Cards, fields and chips: a touch more body and a bluish edge so they sit on the blue. */
+html[data-bg="ps4"] {
+  --surface: rgba(255, 255, 255, 0.07);
+  --surface-hi: rgba(255, 255, 255, 0.13);
+  --line: rgba(160, 205, 255, 0.16);
+  --line-hi: rgba(160, 205, 255, 0.3);
+  --text-dim: rgba(236, 244, 255, 0.68);
+  --text-faint: rgba(236, 244, 255, 0.56);
+}
