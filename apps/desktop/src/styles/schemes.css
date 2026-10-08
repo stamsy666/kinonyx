@@ -172,7 +172,6 @@ html[data-bg="netflix"] body:not(.mpv-active)::before {
   background: #2d2d2d;
   backdrop-filter: none;
   border-color: rgba(128, 128, 128, 0.35);
-  border-radius: var(--radius);
 }
 
 .sidebar {
@@ -182,4 +181,12 @@ html[data-bg="netflix"] body:not(.mpv-active)::before {
 h1,
 h2 {
   letter-spacing: -0.01em;
+}
+
+/* Windows (dialogs, trailer card, next-episode card, update window) have square corners. */
+.modal-panel,
+.trailer-resolving__card,
+.autonext__card,
+.mini-player {
+  border-radius: 0;
 }

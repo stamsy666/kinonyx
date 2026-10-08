@@ -86,7 +86,7 @@ export function VoiceSearchModal({
   };
 
   const title =
-    phase === "listening" ? "Слушаю…" : phase === "thinking" ? "Распознаю…" : phase === "error" ? "Не получилось" : "Включаю микрофон…";
+    phase === "listening" ? "Слушаю" : phase === "thinking" ? "Распознаю" : phase === "error" ? "Не получилось" : "Включаю микрофон";
   const hint =
     phase === "error" ? message : "";
 
