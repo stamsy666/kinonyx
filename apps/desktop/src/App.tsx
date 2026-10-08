@@ -102,6 +102,7 @@ export function App() {
   const back = useApp((s) => s.back);
   const backgroundKind = useApp((s) => s.backgroundKind);
   const clickSparkEnabled = useApp((s) => s.clickSparkEnabled);
+  const miniOn = useApp((s) => s.miniOn);
   const isPlayer = useApp(
     (s) =>
       s.screen.name === "player" ||
@@ -209,7 +210,9 @@ export function App() {
   const updateModal = updateOffered && !isPlayer ? <UpdateModal /> : null;
 
   let shell: ReactNode;
-  if (isPlayer) {
+  if (miniOn) {
+    shell = null; // the window is the small floating player: nothing else is drawn
+  } else if (isPlayer) {
     shell = <CurrentScreen />;
   } else if (isFullScreen) {
     shell = (

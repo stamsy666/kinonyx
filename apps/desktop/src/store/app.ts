@@ -21,6 +21,7 @@ import type { Programme } from "@kinonyx/epg";
 import { applyBgPalette, BG_KINDS, type BgKind } from "../data/backgrounds";
 import type { SoundCategory } from "../data/sounds";
 import type { MusicTrack } from "../data/music";
+import { enterPip, exitPip } from "../data/pip";
 
 export type Screen =
   | { name: "home" }
@@ -418,15 +419,21 @@ export const useApp = create<AppState>((set, get) => ({
   minimize() {
     if (!isPlayerRoute(get().screen)) return;
     set({ miniOn: true });
-    if (!get().back()) set({ miniOn: false });
+    if (!get().back()) {
+      set({ miniOn: false });
+      return;
+    }
+    void enterPip();
   },
 
   expandPlayer() {
     const route = get().activePlayer;
+    void exitPip();
     if (route) get().navigate(route);
   },
 
   closePlayer() {
+    void exitPip();
     set({ activePlayer: null, miniOn: false });
   },
 

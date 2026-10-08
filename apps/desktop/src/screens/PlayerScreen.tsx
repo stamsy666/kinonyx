@@ -46,7 +46,7 @@ import { FocusHighlight } from "../components/FocusHighlight";
 import { Modal } from "../components/Modal";
 import { VolumeSlider } from "../components/VolumeSlider";
 import { FullscreenButton } from "../components/FullscreenButton";
-import { MiniPlayerChrome, useCloseOnOutsidePress, useMiniLayout } from "../components/MiniPlayer";
+import { MiniPlayerChrome, useCloseOnOutsidePress } from "../components/MiniPlayer";
 
 const SEEK_STEP = 15;
 
@@ -153,8 +153,7 @@ export function PlayerScreen({
     }, prefs.autoHideSec * 1000);
   };
 
-  const revealed = useMpvReveal(state.status, source, mini);
-  useMiniLayout(adapterRef, mini);
+  const revealed = useMpvReveal(state.status, source);
   // A press on the picture (anywhere outside the volume control) closes the volume slider.
   useCloseOnOutsidePress(volumeOpen, () => setVolumeOpen(false));
 

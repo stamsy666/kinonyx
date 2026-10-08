@@ -4319,31 +4319,48 @@ body.mpv-active::after {
 }
 
 /* ---------- Mini player (components/MiniPlayer.tsx) ----------
-   Sizes must match MINI_W / MINI_H / MINI_BAR / MINI_GAP there. */
+   The whole window is the player (see data/pip.ts); mpv's picture is behind the transparent page. */
 .mini-player {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 40;
-  width: 400px;
-  box-shadow: 0 18px 50px -12px rgba(0, 0, 0, 0.7);
+  inset: 0;
+  overflow: hidden;
+  color: #f3ece7;
 }
 
-.mini-player__video {
-  height: 225px;
+/* Black until mpv has a frame, then the page goes transparent and the picture shows. */
+body:not(.mpv-active) .mini-player {
   background: #000;
 }
 
+.mini-player__top,
 .mini-player__bar {
-  height: 46px;
+  position: absolute;
+  left: 0;
+  right: 0;
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 0 6px 0 14px;
-  background: rgba(14, 10, 12, 0.97);
-  border: 1px solid var(--line-hi);
-  border-top: 0;
-  color: #f3ece7;
+  padding: 6px 8px;
+  opacity: 0;
+  transition: opacity 160ms var(--ease);
+}
+
+.mini-player__top {
+  top: 0;
+  background: linear-gradient(rgba(0, 0, 0, 0.8), transparent);
+  padding-bottom: 22px;
+}
+
+.mini-player__bar {
+  bottom: 0;
+  justify-content: center;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  padding-top: 22px;
+}
+
+.mini-player:hover .mini-player__top,
+.mini-player:hover .mini-player__bar {
+  opacity: 1;
 }
 
 .mini-player__title {
@@ -4354,38 +4371,23 @@ body.mpv-active::after {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: move;
+  padding: 4px 6px;
 }
 
 .mini-player__btn {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  color: rgba(243, 236, 231, 0.75);
+  color: rgba(243, 236, 231, 0.9);
+  background: rgba(0, 0, 0, 0.35);
   cursor: pointer;
   transition: background-color 140ms var(--ease), color 140ms var(--ease);
 }
 
 .mini-player__btn:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.22);
   color: #fff;
-}
-
-/* The page is clipped with a hole where the video is, so mpv's surface (behind the transparent
-   window) shows through there. Even-odd: the outer rectangle minus the inner one. */
-body.mpv-mini {
-  clip-path: polygon(
-    evenodd,
-    0 0,
-    var(--mini-vw) 0,
-    var(--mini-vw) var(--mini-vh),
-    0 var(--mini-vh),
-    0 0,
-    var(--mini-x) var(--mini-y),
-    var(--mini-x) calc(var(--mini-y) + var(--mini-h)),
-    calc(var(--mini-x) + var(--mini-w)) calc(var(--mini-y) + var(--mini-h)),
-    calc(var(--mini-x) + var(--mini-w)) var(--mini-y),
-    var(--mini-x) var(--mini-y)
-  );
 }

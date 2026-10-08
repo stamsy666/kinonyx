@@ -36,7 +36,7 @@ import { useChannelFavorites } from "../../store/channelFavorites";
 import { isTauri } from "../../data/io";
 import { SeekBar } from "../../components/SeekBar";
 import { useMpvReveal } from "../../components/useMpvReveal";
-import { MiniPlayerChrome, useCloseOnOutsidePress, useMiniLayout } from "../../components/MiniPlayer";
+import { MiniPlayerChrome, useCloseOnOutsidePress } from "../../components/MiniPlayer";
 import { FocusHighlight } from "../../components/FocusHighlight";
 import { VolumeSlider } from "../../components/VolumeSlider";
 import { Modal } from "../../components/Modal";
@@ -251,8 +251,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   }, [prefs.autoHideSec]);
 
   // mpv renders into a native window behind a transparent hole — see useMpvReveal.
-  const revealed = useMpvReveal(state.status, source, mini);
-  useMiniLayout(adapterRef, mini);
+  const revealed = useMpvReveal(state.status, source);
   // A press on the picture (anywhere outside the volume control) closes the volume slider.
   useCloseOnOutsidePress(volumeOpen, () => setVolumeOpen(false));
 

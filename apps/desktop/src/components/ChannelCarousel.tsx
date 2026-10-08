@@ -121,6 +121,25 @@ export function ChannelCarousel({
 }) {
   const strip = useRef<HTMLDivElement | null>(null);
   const panel = useRef<HTMLDivElement | null>(null);
+
+  // The schedule must end inside the window at any UI zoom: its height is whatever is left
+  // under the channel name (at least a few rows); beyond that it scrolls inside itself.
+  const fitPanel = useCallback(() => {
+    const el = panel.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top;
+    el.style.maxHeight = `${Math.max(132, Math.floor(window.innerHeight - top - 30))}px`;
+  }, []);
+  useLayoutEffect(() => {
+    fitPanel();
+    const ro = new ResizeObserver(fitPanel);
+    ro.observe(document.documentElement);
+    window.addEventListener("resize", fitPanel);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", fitPanel);
+    };
+  });
   const startIndex = Math.max(0, channels.findIndex((c) => `ch:${c.id}` === startKey));
   const [current, setCurrent] = useState(startIndex);
   const channel = channels[Math.min(current, channels.length - 1)];

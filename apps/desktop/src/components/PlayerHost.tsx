@@ -9,7 +9,7 @@ import { TvPlayerScreen } from "../screens/tv/TvPlayerScreen";
  */
 export function PlayerHost() {
   const route = useApp((s) => s.activePlayer);
-  const mini = useApp((s) => s.screen.name !== "player" && s.screen.name !== "tv-player");
+  const mini = useApp((s) => s.miniOn);
   if (!route) return null;
 
   if (route.name === "player") {

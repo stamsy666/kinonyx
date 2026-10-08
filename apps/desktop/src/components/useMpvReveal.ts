@@ -14,7 +14,7 @@ const REVEAL_DELAY_MS = 150;
  * black (`.player--mpv` without `.player--revealed`) until playback has actually started,
  * and goes opaque again whenever the source changes or playback stops.
  */
-export function useMpvReveal(status: PlayerStatus, source: unknown, mini = false): boolean {
+export function useMpvReveal(status: PlayerStatus, source: unknown): boolean {
   const [revealed, setRevealed] = useState(false);
 
   useEffect(() => setRevealed(false), [source]);
@@ -31,10 +31,9 @@ export function useMpvReveal(status: PlayerStatus, source: unknown, mini = false
     if (!isTauri || !revealed) return;
     // Full screen: the whole page goes transparent. Mini window: the page stays, and only a
     // rectangle of it is cut out (body.mpv-mini + the --mini-* variables, see MiniPlayer.tsx).
-    const cls = mini ? "mpv-mini" : "mpv-active";
-    document.body.classList.add(cls);
-    return () => document.body.classList.remove(cls);
-  }, [revealed, mini]);
+    document.body.classList.add("mpv-active");
+    return () => document.body.classList.remove("mpv-active");
+  }, [revealed]);
 
   return isTauri && revealed;
 }
