@@ -129,7 +129,7 @@ export function ChannelCarousel({
     const el = panel.current;
     if (!el) return;
     const top = el.getBoundingClientRect().top;
-    el.style.maxHeight = `${Math.max(132, Math.floor(window.innerHeight - top - 30))}px`;
+    el.style.maxHeight = `${Math.max(96, Math.floor(window.innerHeight - top - 30))}px`;
   }, []);
   useLayoutEffect(() => {
     fitPanel();

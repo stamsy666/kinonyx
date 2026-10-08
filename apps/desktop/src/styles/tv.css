@@ -1147,3 +1147,23 @@
   margin-left: calc(4px + var(--cover-s) + var(--cover-gap));
   margin-right: 56px;
 }
+
+/* Space between the link field and the file drop zone. */
+.dropzone-wrap {
+  margin-top: 24px;
+}
+
+/* A short window (or a large UI zoom): tighten what sits between the covers and the schedule so
+   the schedule always has room to show a few rows inside the screen. */
+@media (max-height: 800px) {
+  .ch-carousel {
+    gap: 12px;
+  }
+  .ch-carousel__group {
+    display: none;
+  }
+  .ch-carousel__name {
+    font-size: clamp(24px, 3vw, 34px);
+    margin-bottom: 4px;
+  }
+}
