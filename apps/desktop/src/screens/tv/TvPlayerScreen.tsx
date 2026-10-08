@@ -14,6 +14,8 @@ import {
 import {
   ArchiveIcon,
   MiniPlayerIcon,
+  NextEpisodeIcon,
+  PrevChannelIcon,
   BackIcon,
   FavoriteIcon,
   Focusable,
@@ -96,11 +98,20 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   const setLastArchiveFocus = useTv((s) => s.setLastArchiveFocus);
   const epgStatus = useTv((s) => s.epgStatus);
   const back = useApp((s) => s.back);
+  const replaceScreen = useApp((s) => s.replace);
   const showStreamStats = useApp((s) => s.showStreamStats);
   // The same player settings as the movie player (Settings → Плеер).
   const playerDim = useApp((s) => s.playerDim);
   const prefs = useApp((s) => s.playerPrefs);
   const channel = useMemo(() => playlist?.channels.find((c) => c.id === channelId), [playlist, channelId]);
+  // Previous / next channel: within the same group (category) when the channel has one, wrapping around.
+  const neighbours = useMemo(() => {
+    const all = playlist?.channels ?? [];
+    const list = channel?.group ? all.filter((c) => c.group === channel.group) : all;
+    const i = list.findIndex((c) => c.id === channelId);
+    if (i < 0 || list.length < 2) return null;
+    return { prev: list[(i - 1 + list.length) % list.length], next: list[(i + 1) % list.length] };
+  }, [playlist, channel, channelId]);
   const isFavChannel = useChannelFavorites(
     (s) => !!activePlaylistId && s.items.some((f) => f.playlistId === activePlaylistId && f.channel.id === channelId),
   );
@@ -567,6 +578,17 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
             </div>
 
             <div className="player__controls-center">
+              {neighbours && (
+                <Focusable
+                  as="button"
+                  className="icon-btn"
+                  focusKey="pl:prev-channel"
+                  onPress={() => replaceScreen({ name: "tv-player", channelId: neighbours.prev.id })}
+                  scroll={false}
+                >
+                  <PrevChannelIcon />
+                </Focusable>
+              )}
               <Focusable as="button" className="icon-btn" focusKey="pl:rew" onPress={() => void adapterRef.current?.seekBy(-SEEK_STEP)} scroll={false}>
                 <RewindIcon />
               </Focusable>
@@ -576,6 +598,17 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
               <Focusable as="button" className="icon-btn" focusKey="pl:fwd" onPress={() => void adapterRef.current?.seekBy(SEEK_STEP)} scroll={false}>
                 <ForwardIcon />
               </Focusable>
+              {neighbours && (
+                <Focusable
+                  as="button"
+                  className="icon-btn"
+                  focusKey="pl:next-channel"
+                  onPress={() => replaceScreen({ name: "tv-player", channelId: neighbours.next.id })}
+                  scroll={false}
+                >
+                  <NextEpisodeIcon />
+                </Focusable>
+              )}
             </div>
 
             <div className="player__controls-side player__controls-side--right">
