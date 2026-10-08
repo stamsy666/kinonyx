@@ -134,8 +134,6 @@ export function SettingsScreen() {
   const clickSparkEnabled = useApp((s) => s.clickSparkEnabled);
   const uiZoom = useApp((s) => s.uiZoom);
   const setUiZoom = useApp((s) => s.setUiZoom);
-  const liteGraphics = useApp((s) => s.liteGraphics);
-  const setLiteGraphics = useApp((s) => s.setLiteGraphics);
   const setClickSparkEnabled = useApp((s) => s.setClickSparkEnabled);
   const backgroundKind = useApp((s) => s.backgroundKind);
   const setBackgroundKind = useApp((s) => s.setBackgroundKind);
@@ -718,32 +716,6 @@ export function SettingsScreen() {
               </div>
               <div className="settings__hint">
                 Увеличивает весь интерфейс целиком — для большого телевизора или просмотра издалека. 100% — обычный размер.
-              </div>
-            </section>
-            <section className="settings__item">
-              <div className="settings__label">Упрощённая графика</div>
-              <div className="sound-options">
-                <FocusHighlight pad={6} radius={16} />
-                {(
-                  [
-                    ["auto", "Авто"],
-                    ["on", "Включена"],
-                    ["off", "Выключена"],
-                  ] as const
-                ).map(([value, label]) => (
-                  <Focusable
-                    as="button"
-                    key={value}
-                    focusKey={`settings:lite:${value}`}
-                    className={`sound-option ${liteGraphics === value ? "is-active" : ""}`}
-                    onPress={() => setLiteGraphics(value)}
-                  >
-                    {label}
-                  </Focusable>
-                ))}
-              </div>
-              <div className="settings__hint">
-                Убирает размытие окон и плавное приближение фона страницы фильма (анимированные темы остаются) — если на 4K/HDR-экране анимации рвутся или лагают. «Авто» включает её на очень плотных экранах (масштаб Windows от 250%).
               </div>
             </section>
             <section className="settings__item">
