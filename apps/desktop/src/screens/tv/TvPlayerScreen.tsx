@@ -83,7 +83,7 @@ function dayLabel(ts: number, now: number) {
   return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
 }
 
-export function TvPlayerScreen({ channelId }: { channelId: string }) {
+export function TvPlayerScreen({ channelId, programme }: { channelId: string; programme?: Programme }) {
   const playlist = useTv((s) => s.playlist);
   const activePlaylistId = useTv((s) => s.activePlaylistId);
   const programmesFor = useTv((s) => s.programmesFor);
@@ -108,7 +108,7 @@ export function TvPlayerScreen({ channelId }: { channelId: string }) {
   const [menu, setMenu] = useState<TrackKind | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [volumeOpen, setVolumeOpen] = useState(false);
-  const [archive, setArchive] = useState<{ programme: Programme } | null>(null);
+  const [archive, setArchive] = useState<{ programme: Programme } | null>(programme ? { programme } : null);
   const hideTimer = useRef<number>(0);
 
   // The guide often finishes loading after the player opens, and "now playing" must

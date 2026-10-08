@@ -254,7 +254,7 @@ export const useTv = create<TvState>()(
           id = resolveEpgChannelId(channel, epg, epgIndex);
           epgIdCache.set(channel, id);
         }
-        return id ? epg.programmes.get(id) : undefined;
+        return id ? uniqueProgrammes(epg.programmes.get(id)) : undefined;
       },
     }),
     {
@@ -263,6 +263,25 @@ export const useTv = create<TvState>()(
     },
   ),
 );
+
+/** Some guides list a programme twice (two feeds merged under one channel, the same title with and
+ *  without a trailing dot): one entry per start time is enough. Cached per list. */
+const uniqueCache = new WeakMap<Programme[], Programme[]>();
+function uniqueProgrammes(list: Programme[] | undefined): Programme[] | undefined {
+  if (!list) return list;
+  let out = uniqueCache.get(list);
+  if (!out) {
+    out = [];
+    for (const p of list) {
+      const prev = out[out.length - 1];
+      if (prev && prev.start === p.start) continue; // lists are sorted by start
+      out.push(p);
+    }
+    if (out.length === list.length) out = list; // nothing was doubled: keep the original array
+    uniqueCache.set(list, out);
+  }
+  return out;
+}
 
 function upsert(list: SavedPlaylist[], entry: SavedPlaylist) {
   const i = list.findIndex((p) => p.id === entry.id);

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { BackIcon, CloseIcon, Focusable, FocusGroup, NextIcon, Spinner, onBack } from "@kinonyx/ui";
 import { SlideViewer } from "./SlideViewer";
 import { preloadImage, proximityOrder } from "../data/imagePreload";
-import { duckMusic } from "../data/music";
+import { holdMusic } from "../data/music";
 
 export interface LightboxImage {
   full?: string;
@@ -57,8 +57,8 @@ export function Lightbox({ images, index, onIndex, onClose, getOrigin }: Props) 
   const root = () => document.querySelector<HTMLElement>(".lightbox");
   const closing = useRef(false);
 
-  // Looking at the stills: the background music sinks while the viewer is open.
-  useEffect(() => duckMusic(), []);
+  // Looking at the stills: the background music fades to nothing while the viewer is open.
+  useEffect(() => holdMusic(), []);
   const indexRef = useRef(index);
   indexRef.current = index;
 

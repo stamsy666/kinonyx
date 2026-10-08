@@ -208,12 +208,26 @@ export const EXCLUSIVE_KINDS: BgKind[] = ["ps4", "ps5"];
 
 export const ANIMATED_KINDS: BgKind[] = BG_KINDS.filter((k) => !isPlainKind(k) && !EXCLUSIVE_KINDS.includes(k));
 
+/** The logo mark is drawn in red (hue ~353°). Turn it to the theme: rotate the hue to the accent's,
+ *  or drain the colour for the grey themes. Used as a CSS filter on every logo (--logo-filter). */
+function logoFilterFor(accent: string): string {
+  const [r, g, b] = hexToRgb(accent);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  if (d < 0.12) return "grayscale(1)"; // greys: white, silver, graphite
+  let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  return `hue-rotate(${Math.round((h - 353 + 360) % 360)}deg) saturate(1.1)`;
+}
+
 export function applyBgPalette(kind: BgKind) {
   const p = BG_PALETTES[kind];
   const root = document.documentElement.style;
   root.setProperty("--accent", p.accent);
   root.setProperty("--accent-deep", p.accentDeep);
   root.setProperty("--accent-glow", p.accentGlow);
+  root.setProperty("--logo-filter", logoFilterFor(p.accent));
 
   // Plain themes swap the base colours too; every other theme goes back to the defaults.
   for (const name of ALL_PLAIN_TOKEN_NAMES) root.removeProperty(name);

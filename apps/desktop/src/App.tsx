@@ -103,7 +103,7 @@ function CurrentScreen() {
       );
     case "tv-player":
       return (
-        <TvPlayerScreen key={screen.channelId} channelId={screen.channelId} />
+        <TvPlayerScreen key={`${screen.channelId}:${screen.programme?.start ?? "live"}`} channelId={screen.channelId} programme={screen.programme} />
       );
     case "settings":
       return <SettingsScreen />;

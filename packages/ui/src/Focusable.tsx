@@ -1,5 +1,6 @@
 import { useFocusable, type UseFocusableConfig } from "@noriginmedia/norigin-spatial-navigation";
 import { useEffect, useRef, type ReactNode, type CSSProperties } from "react";
+import { cancelGlides, glideIntoView } from "./glide";
 import { emitBackSound, emitMoveSound, emitPressSound, type NavSoundGroup } from "./soundBus";
 
 interface FocusableProps extends Omit<UseFocusableConfig, "extraProps"> {
@@ -78,9 +79,17 @@ export function Focusable({
           // screen at all.
           const r = el.getBoundingClientRect();
           const visible = r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth;
+          cancelGlides();
           if (!visible) el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
         } else {
-          el?.scrollIntoView({ block: scrollBlock, inline: "nearest", behavior: "smooth" });
+          // Cards of a horizontal shelf glide (one retargetable animation, see glide.ts) so holding
+          // an arrow keeps up; everything else keeps the browser's smooth scroll.
+          const track = el?.closest(".row-scroll__track") as HTMLElement | null;
+          if (el && track) glideIntoView(el, scrollBlock, track);
+          else {
+            cancelGlides(); // a shelf glide must not pull the page back after the browser scrolled it
+            el?.scrollIntoView({ block: scrollBlock, inline: "nearest", behavior: "smooth" });
+          }
         }
       }
     },

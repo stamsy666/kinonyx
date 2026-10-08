@@ -702,3 +702,454 @@
   color: var(--text-dim);
 }
 
+
+/* ---------- Channels, "Карусель" layout (components/ChannelCarousel.tsx) ---------- */
+.ch-carousel {
+  --cover-s: 132px;
+  --cover-l: 212px;
+  --cover-gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.ch-carousel__strip {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cover-gap);
+  height: calc(var(--cover-l) + 28px);
+  padding: 14px 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.ch-carousel__strip::-webkit-scrollbar {
+  display: none;
+}
+
+/* Room after the last cover, so the last channel can slide all the way to the left edge. */
+.ch-carousel__tail {
+  flex: 0 0 100%; /* as wide as the row itself: enough room for the last channel to reach the frame */
+}
+
+.ch-cover {
+  flex: 0 0 auto;
+  width: var(--cover-s);
+  height: var(--cover-s);
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  opacity: 0.8;
+  cursor: pointer;
+  /* No size transition: the row is positioned by arithmetic, so a cover must be at its final
+     size the moment it is focused — otherwise fast stepping leaves everything half-way. */
+  transition:
+    opacity 120ms var(--ease),
+    background-color 120ms var(--ease);
+}
+
+.ch-cover.is-focused {
+  width: var(--cover-l);
+  height: var(--cover-l);
+  transform: none;
+  opacity: 1;
+  background: var(--surface-hi);
+  border-color: transparent;
+}
+
+.ch-cover img {
+  max-width: 74%;
+  max-height: 74%;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45));
+}
+
+.ch-cover__initials {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
+}
+
+.ch-carousel__info {
+  padding: 0 4px;
+  max-width: 760px;
+  animation: ch-info-in 260ms var(--ease) both;
+}
+
+@keyframes ch-info-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ch-carousel__group {
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+
+.ch-carousel__name {
+  font-family: var(--font-display);
+  font-size: clamp(30px, 3.4vw, 46px);
+  font-weight: 600;
+  line-height: 1.1;
+  margin: 0 0 16px;
+}
+
+.ch-carousel__now {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.ch-carousel__live {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.ch-carousel__time {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-dim);
+}
+
+.ch-carousel__progress {
+  height: 3px;
+  max-width: 460px;
+  margin: 12px 0;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.ch-carousel__progress i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-deep), var(--accent));
+}
+
+.ch-carousel__desc {
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ch-carousel__next {
+  font-size: 14px;
+  color: var(--text-faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ch-cover,
+  .ch-carousel__info {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* The programme panel sits right under the name, with a gap. */
+
+.ch-carousel__panel {
+  margin-top: 10px;
+  padding: 18px 22px 20px;
+  border-radius: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+  animation: ch-info-in 260ms var(--ease) both;
+}
+
+.ch-carousel__panel .ch-carousel__progress {
+  max-width: none;
+}
+
+.ch-carousel__panel .ch-carousel__desc {
+  max-width: 900px;
+}
+
+.ch-carousel__idle {
+  font-size: 15px;
+  color: var(--text-faint);
+}
+
+.ch-carousel__panel .ch-carousel__next {
+  margin-top: 4px;
+}
+
+/* Schedule rows: time on the left, title right of it; the one on air carries the progress bar. */
+.ch-carousel__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ch-sched {
+  display: flex;
+  gap: 18px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+
+.ch-sched:first-child {
+  border-top: 0;
+}
+
+.ch-sched__time {
+  flex: 0 0 58px;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.ch-sched__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.ch-sched__title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 17px;
+  color: var(--text-dim);
+}
+
+.ch-sched.is-now .ch-sched__title {
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* The strip is wrapped in a stage that carries the fixed frame; one empty slot on the left
+   (padding) puts the first channel in the frame too. */
+.ch-carousel__stage {
+  position: relative;
+}
+
+.ch-carousel__strip {
+  padding-left: calc(4px + var(--cover-s) + var(--cover-gap));
+}
+
+.ch-frame {
+  position: absolute;
+  z-index: 3;
+  top: 14px;
+  left: calc(4px + var(--cover-s) + var(--cover-gap));
+  width: var(--cover-l);
+  height: var(--cover-l);
+  border-radius: 6px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms var(--ease);
+}
+
+.ch-carousel__stage:has(.ch-cover.is-focused) .ch-frame {
+  opacity: 1;
+}
+
+/* The schedule is a scrollable list of focusable rows: aired programmes above (archive), the one
+   on air, then what is coming. */
+.ch-carousel__panel {
+  max-height: min(46vh, 380px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 6px 0;
+}
+
+.ch-carousel__panel::-webkit-scrollbar {
+  display: none;
+}
+
+.ch-sched {
+  padding: 9px 22px;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.ch-sched.is-focused {
+  transform: none;
+  background: var(--surface-hi);
+}
+
+.ch-sched.is-past .ch-sched__title {
+  color: var(--text-faint);
+}
+
+.ch-sched.is-future {
+  cursor: default;
+}
+
+.ch-sched__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ch-sched__tag {
+  margin-left: auto;
+  flex: none;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* While focus is down in the schedule the channel stays selected: its cover stays grown and the
+   frame stays on it. */
+.ch-carousel:has(.ch-sched.is-focused, .ch-zone.is-focused, .ch-zone.is-active) .ch-cover.is-current {
+  width: var(--cover-l);
+  height: var(--cover-l);
+  opacity: 1;
+  background: var(--surface-hi);
+  border-color: transparent;
+}
+
+.ch-carousel:has(.ch-sched.is-focused, .ch-zone.is-focused, .ch-zone.is-active) .ch-frame {
+  opacity: 1;
+}
+
+/* ---------- Schedule zone: one focusable block; Enter steps inside it, Back leaves ---------- */
+.ch-zone {
+  display: block;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  backdrop-filter: blur(10px);
+  margin-top: 10px;
+}
+
+.ch-zone.is-focused {
+  transform: none;
+  background: var(--surface-hi);
+}
+
+/* Stepped inside: the zone keeps a still frame while the rows carry the focus. */
+.ch-zone.is-active {
+  border-color: var(--accent);
+  background: var(--surface-hi);
+}
+
+/* The panel is the scrolling part of the zone; the zone itself supplies the frame. */
+.ch-zone .ch-carousel__panel {
+  margin-top: 0;
+  border: 0;
+  background: none;
+  backdrop-filter: none;
+  padding: 6px 0;
+}
+
+.ch-zone__hint {
+  padding: 8px 22px 10px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+
+/* No data: a calm, padded card instead of a bare line of text. */
+.ch-empty {
+  margin-top: 10px;
+  padding: 34px 28px 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  border: 1px dashed var(--line-hi);
+  background: var(--surface);
+}
+
+.ch-empty__icon {
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+
+.ch-empty__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.ch-empty__hint {
+  max-width: 460px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+/* The cover that takes the frame grows into it: the layout size changes at once (the row is placed
+   by arithmetic), the growth itself is drawn as a quick scale-up from the small size, so it is
+   animated yet can never lag behind fast stepping. */
+.ch-cover.is-current {
+  transform-origin: 0 0;
+  animation: ch-cover-grow 150ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes ch-cover-grow {
+  from {
+    transform: scale(0.623);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ch-cover.is-current {
+    animation: none;
+  }
+}
+
+/* A long channel name stays on one line and runs on to the right instead of wrapping. */
+.ch-carousel__info {
+  max-width: none;
+}
+
+.ch-carousel__name {
+  white-space: nowrap;
+}
+
+/* The selected channel keeps its grown cover and its frame wherever the focus is (header, back
+   button, search, schedule …): the frame is always there. */
+.ch-frame {
+  opacity: 1;
+}
+
+.ch-carousel .ch-cover.is-current {
+  width: var(--cover-l);
+  height: var(--cover-l);
+  opacity: 1;
+  background: var(--surface-hi);
+  border-color: transparent;
+}
+
+/* The schedule starts where the channel name starts (the left edge of the frame) and stops a bit
+   short of the screen's right edge. */
+.ch-zone,
+.ch-empty {
+  margin-left: calc(4px + var(--cover-s) + var(--cover-gap));
+  margin-right: 56px;
+}

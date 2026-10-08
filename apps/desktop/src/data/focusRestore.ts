@@ -1,4 +1,5 @@
 import { doesFocusableExist, getCurrentFocusKey, setFocus } from "@noriginmedia/norigin-spatial-navigation";
+import { cancelGlides } from "@kinonyx/ui";
 
 /**
  * "Back lands where you left". Screens remount on every navigation, so on their own they
@@ -64,6 +65,7 @@ export function takeSnapshot(): FocusSnapshot {
  *  (only their content remounts), so without this the new page inherited the old one's
  *  scroll offset — opening an actor from a film's lower "Актёры" row landed halfway down. */
 export function resetScroll() {
+  cancelGlides(); // a shelf glide from the previous screen must not drag the new page down
   for (const selector of SCROLLERS) {
     const el = document.querySelector<HTMLElement>(selector);
     if (el) el.scrollTop = 0;
@@ -73,6 +75,7 @@ export function resetScroll() {
 let cancelRunning: (() => void) | null = null;
 
 export function restoreSnapshot(snapshot: FocusSnapshot) {
+  cancelGlides();
   cameBackToSavedFocus = !!snapshot.focusKey;
   cancelRunning?.();
   const started = performance.now();

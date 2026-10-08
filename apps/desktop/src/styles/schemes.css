@@ -105,11 +105,13 @@ html[data-bg="ps4"] .lightbox {
   background: rgba(2, 10, 24, 0.97);
 }
 
-/* The logo mark is red; turn it to the theme's blue. */
-html[data-bg="ps4"] .topbar__logo-mark,
-html[data-bg="ps4"] .sidebar__brand-mark img,
-html[data-bg="ps4"] .setup__logo {
-  filter: hue-rotate(228deg) saturate(1.1);
+/* The logo mark is drawn in red; every theme turns it to its own colour (--logo-filter, set with the
+   theme in data/backgrounds.ts: hue-rotate to the accent, or grey for the grey themes). */
+.topbar__logo-mark,
+.sidebar__brand-mark img,
+.setup__logo,
+.screen__logo img {
+  filter: var(--logo-filter, none);
 }
 
 /* Cards, fields and chips: a touch more body and a bluish edge so they sit on the blue. */

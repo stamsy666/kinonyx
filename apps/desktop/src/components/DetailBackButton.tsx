@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { BackIcon, Focusable } from "@kinonyx/ui";
+import { BackIcon, Focusable, cancelGlides } from "@kinonyx/ui";
 
 /**
  * Portalled to <body> for the same reason as MovieBackdrop: `.screen-pad`'s mount
@@ -10,8 +10,23 @@ import { BackIcon, Focusable } from "@kinonyx/ui";
  * subtree is the only way to actually stay pinned to the screen while it scrolls.
  */
 export function DetailBackButton({ focusKey, onPress, autoFocus }: { focusKey: string; onPress: () => void; autoFocus?: boolean }) {
+  // The button floats at the top of the screen: landing on it (mouse or remote) brings the page
+  // back to its top, where the film's own header is.
+  const toTop = () => {
+    cancelGlides();
+    document.querySelector<HTMLElement>(".app-body")?.scrollTo({ top: 0, behavior: "smooth" });
+  };
   return createPortal(
-    <Focusable back as="button" className="icon-btn detail-back" focusKey={focusKey} onPress={onPress} scroll={false} autoFocus={autoFocus}>
+    <Focusable
+      back
+      as="button"
+      className="icon-btn detail-back"
+      focusKey={focusKey}
+      onPress={onPress}
+      onFocus={toTop}
+      scroll={false}
+      autoFocus={autoFocus}
+    >
       <BackIcon />
     </Focusable>,
     document.body,

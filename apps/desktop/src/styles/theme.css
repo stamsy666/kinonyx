@@ -993,8 +993,9 @@ img {
 
 .row-scroll__track {
   overflow-x: auto;
-  scroll-behavior: smooth;
-  scroll-snap-type: x mandatory;
+  /* No CSS smooth scroll and no snap here: both fight the focus glide (packages/ui/src/glide.ts),
+     which keeps the shelf on the focused card even while an arrow is held. The arrows' paging
+     passes behavior: "smooth" itself. */
   scroll-padding-inline: var(--hl-pad);
   scrollbar-width: none;
   margin: -6px calc(var(--hl-pad) * -1) 0;

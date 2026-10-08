@@ -32,6 +32,7 @@ import { QUALITY_OPTIONS, type QualityKey } from "../data/quality";
 import { continueLabel } from "../store/episodeProgress";
 import { Modal } from "../components/Modal";
 import { ProgressiveImg } from "../components/ProgressiveImg";
+import { holdMusic } from "../data/music";
 import { MovieBackdrop } from "../components/MovieBackdrop";
 import { DetailBackButton } from "../components/DetailBackButton";
 
@@ -106,6 +107,9 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
   const [error, setError] = useState<string | null>(null);
   const [trailerResolving, setTrailerResolving] = useState(false);
   const [trailerError, setTrailerError] = useState<{ message: string; url: string } | null>(null);
+
+  // The trailer is about to play: the background music is already fading while it is being found.
+  useEffect(() => (trailerResolving ? holdMusic() : undefined), [trailerResolving]);
   const [genreIds, setGenreIds] = useState<Map<string, number> | null>(null);
 
   useEffect(() => {

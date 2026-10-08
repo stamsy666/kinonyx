@@ -11,6 +11,7 @@ import {
   Film,
   Flame,
   FolderOpen,
+  GalleryHorizontal,
   Heart,
   History,
   Info,
@@ -95,6 +96,7 @@ export const ForwardIcon = wrap(FastForward);
 export const VolumeIcon = wrap(Volume2);
 export const MuteIcon = wrap(VolumeX);
 export const PlusIcon = wrap(Plus);
+export const CarouselIcon = wrap(GalleryHorizontal);
 export const FolderIcon = wrap(FolderOpen);
 export const TrashIcon = wrap(Trash2);
 export const ArchiveIcon = wrap(History);

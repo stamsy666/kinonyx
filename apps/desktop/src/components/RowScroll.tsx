@@ -75,12 +75,10 @@ export function RowScroll({ label, description, children, count, perView, classN
       </div>
       <div className={`row-scroll ${perView ? "row-scroll--paged" : ""}`} style={style}>
         <div className="row-scroll__track" ref={trackRef} onScroll={measure}>
-          {/* No memory of "where I left off in this row" — arriving here from another
-              row via Up/Down should always land on the first card, not wherever the
-              equivalent column happened to be in whatever row you came from (norigin's
-              default coordinate-nearest behaviour otherwise sends you to the same-ish
-              column, which reads as "the whole row shifted"). */}
-          <FocusGroup className="row-scroll__group" saveLastFocusedChild={false}>
+          {/* The row remembers which card you were on: going down and back up lands on the same card,
+              and the row stays scrolled where it was. A row you have not visited yet is entered on its
+              first card (norigin's default there), not on whichever column happened to be nearest. */}
+          <FocusGroup className="row-scroll__group" saveLastFocusedChild>
             <FocusHighlight />
             {children}
           </FocusGroup>

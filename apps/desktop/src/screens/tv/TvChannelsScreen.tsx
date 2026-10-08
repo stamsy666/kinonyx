@@ -1,16 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
-import { nowNext, type Channel } from "@kinonyx/epg";
-import { Focusable, FocusGroup, MicIcon, SearchIcon } from "@kinonyx/ui";
+import { nowNext, type Channel, type Programme } from "@kinonyx/epg";
+import { CarouselIcon, Focusable, FocusGroup, HomeIcon, MicIcon, SearchIcon } from "@kinonyx/ui";
 import { useApp } from "../../store/app";
 import { useTv, UNGROUPED } from "../../store/tv";
 import { TvScreenHeader } from "../../components/TvScreenHeader";
 import { TextField } from "../../components/TextField";
 import { ChannelTile } from "../../components/ChannelTile";
 import { FocusHighlight } from "../../components/FocusHighlight";
+import { ChannelCarousel } from "../../components/ChannelCarousel";
 import { VoiceSearchModal } from "../../components/VoiceSearchModal";
 import { digitsFromWords, looseName } from "../../data/voiceText";
 
 const TICK_MS = 30_000;
+const LAYOUT_KEY = "kinonyx.channelsLayout";
+type Layout = "grid" | "carousel";
+
+function readLayout(): Layout {
+  try {
+    return localStorage.getItem(LAYOUT_KEY) === "carousel" ? "carousel" : "grid";
+  } catch {
+    return "grid";
+  }
+}
 
 function useClock(interval: number) {
   const [now, setNow] = useState(() => Date.now());
@@ -31,6 +42,17 @@ export function TvChannelsScreen({ group }: { group?: string }) {
   const back = useApp((s) => s.back);
   const [query, setQuery] = useState("");
   const [voiceOpen, setVoiceOpen] = useState(false);
+  // "Сетка" (default) or "Карусель" — the viewer's choice, remembered.
+  const [layout, setLayout] = useState<Layout>(readLayout);
+  const toggleLayout = () => {
+    const next: Layout = layout === "grid" ? "carousel" : "grid";
+    setLayout(next);
+    try {
+      localStorage.setItem(LAYOUT_KEY, next);
+    } catch {
+      /* the choice just won't survive a restart */
+    }
+  };
   const now = useClock(TICK_MS);
   const groupKey = group ?? "*";
   const rememberedChannelFocus = lastChannelFocus[groupKey];
@@ -53,9 +75,9 @@ export function TvChannelsScreen({ group }: { group?: string }) {
   }, [epg, channels, programmesFor, now]);
 
   const title = !group ? "Все каналы" : group === UNGROUPED ? "Без категории" : group;
-  const open = (c: Channel) => {
+  const open = (c: Channel, programme?: Programme) => {
     setLastChannelFocus(groupKey, `ch:${c.id}`);
-    navigate({ name: "tv-player", channelId: c.id });
+    navigate({ name: "tv-player", channelId: c.id, programme });
   };
   const rememberedChannelExists = channels.some((c) => `ch:${c.id}` === rememberedChannelFocus);
 
@@ -75,10 +97,15 @@ export function TvChannelsScreen({ group }: { group?: string }) {
         <Focusable as="button" className="icon-btn" focusKey="ch:voice" onPress={() => setVoiceOpen(true)} scroll={false}>
           <MicIcon />
         </Focusable>
+        <Focusable as="button" className="icon-btn" focusKey="ch:layout" onPress={toggleLayout} scroll={false}>
+          {layout === "grid" ? <CarouselIcon /> : <HomeIcon />}
+        </Focusable>
       </div>
       <div className="screen__body">
         {channels.length === 0 ? (
           <div className="empty">Ничего не найдено.</div>
+        ) : layout === "carousel" ? (
+          <ChannelCarousel key={query} channels={channels} guide={guide} programmesFor={programmesFor} now={now} onOpen={open} startKey={query ? undefined : rememberedChannelFocus} />
         ) : (
           <div className="grid grid--channels">
             <FocusHighlight />

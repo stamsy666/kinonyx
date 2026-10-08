@@ -17,6 +17,7 @@ import type {
   TrailerQuality,
 } from "../data/api";
 import type { CatalogKind } from "../data/catalogs";
+import type { Programme } from "@kinonyx/epg";
 import { applyBgPalette, BG_KINDS, type BgKind } from "../data/backgrounds";
 import type { SoundCategory } from "../data/sounds";
 import type { MusicTrack } from "../data/music";
@@ -63,7 +64,8 @@ export type Screen =
   | { name: "tv" }
   | { name: "tv-categories" }
   | { name: "tv-channels"; group?: string }
-  | { name: "tv-player"; channelId: string };
+  // `programme`: an aired programme to open at (catch-up) instead of the live stream.
+  | { name: "tv-player"; channelId: string; programme?: Programme };
 
 /** The focusKey of a screen's own top-level FocusGroup — used to hand focus back to the
  *  page once the sidebar closes over it without navigating anywhere (backdrop, Back, or

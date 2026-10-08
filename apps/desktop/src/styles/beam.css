@@ -118,3 +118,35 @@
     --beam-angle: 300deg;
   }
 }
+
+/* In the carousel the focus frame is a separate, fixed element (.ch-frame) that keeps the running
+   comet; the covers themselves carry no ring. */
+.focusable.ch-cover.is-focused::after {
+  display: none;
+}
+
+.ch-frame {
+  padding: var(--beam-w);
+  background:
+    conic-gradient(from var(--beam-angle), transparent 0%, var(--accent) var(--beam-len), transparent calc(var(--beam-len) * 1.25)),
+    color-mix(in srgb, var(--accent) 30%, transparent);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: kx-beam var(--beam-speed) linear infinite;
+}
+
+/* A schedule row's ring sits inside the row (the list scrolls and would clip an outer one). */
+.focusable.ch-sched.is-focused::after {
+  inset: 0;
+}
+
+/* The schedule zone is a big block: its ring is drawn inside, so the screen's edge can't clip it. */
+.focusable.ch-zone.is-focused::after {
+  inset: 0;
+}
