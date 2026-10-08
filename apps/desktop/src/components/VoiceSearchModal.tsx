@@ -18,12 +18,11 @@ type Phase = "starting" | "listening" | "thinking" | "error";
 export function VoiceSearchModal({
   onResult,
   onClose,
-  subject = "фильма или сериала",
 }: {
   onResult: (text: string) => void;
   onClose: () => void;
   /** What the viewer is asked to name: "фильма или сериала", "канала". */
-  subject?: string;
+  subject?: string; // no longer shown (the hint was removed); callers may still pass it
 }) {
   const [phase, setPhase] = useState<Phase>("starting");
   const [message, setMessage] = useState("");
@@ -89,11 +88,7 @@ export function VoiceSearchModal({
   const title =
     phase === "listening" ? "Слушаю…" : phase === "thinking" ? "Распознаю…" : phase === "error" ? "Не получилось" : "Включаю микрофон…";
   const hint =
-    phase === "listening"
-      ? `Назовите название ${subject} — запись остановится сама, когда вы замолчите`
-      : phase === "error"
-        ? message
-        : "";
+    phase === "error" ? message : "";
 
   return (
     <Modal focusKey="voice-modal" preferredChildFocusKey="voice:cancel" className="voice-modal" onClose={onClose}>
