@@ -118,6 +118,7 @@ const OPTION_DEFAULTS: Record<string, string> = {
   deband: "no",
   "tone-mapping": "auto",
   "hdr-compute-peak": "auto",
+  "target-colorspace-hint": "no",
 };
 
 /** Audio filter a source adds (via `mpvOptions.af`) to make `setDuck` work. */
@@ -407,6 +408,14 @@ export class MpvAdapter implements PlayerAdapter {
     // The last argument names the filter inside the lavfi graph; without it mpv answers
     // "error running command".
     return this.control(() => mpvCommand("af-command", ["kxduck", "volume", gain.toFixed(3), "volume"]));
+  }
+
+  getProp(key: string) {
+    return mpvGetProperty<string>(key, "string").catch(() => undefined);
+  }
+
+  setProp(key: string, value: string) {
+    return this.control(() => softSet(key, value));
   }
 
   setVideoMargins(margins: { left: number; right: number; top: number; bottom: number } | null) {

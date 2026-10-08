@@ -18,6 +18,7 @@ import {
   ForwardIcon,
   GearIcon,
   MiniPlayerIcon,
+  PlayerSettingsIcon,
   MuteIcon,
   NextEpisodeIcon,
   OfflineIcon,
@@ -34,7 +35,7 @@ import { useApp } from "../store/app";
 import { useContinueWatching } from "../store/continueWatching";
 import { isTauri } from "../data/io";
 import { episodeKey, episodeLabel } from "../data/episodes";
-import { buildMpvOptions } from "../data/playerOptions";
+import { buildMpvOptions, liveMpvOptions } from "../data/playerOptions";
 import { trackLabel } from "../data/trackLabel";
 import { useWatchTracker } from "../components/useWatchTracker";
 import { usePresence } from "../components/usePresence";
@@ -123,6 +124,30 @@ export function PlayerScreen({
   const [volumeOpen, setVolumeOpen] = useState(false);
   const [episodesOpen, setEpisodesOpen] = useState(false);
   const [qualityOpen, setQualityOpen] = useState(false);
+  const [pictureOpen, setPictureOpen] = useState(false);
+  const [pictureInfo, setPictureInfo] = useState("");
+  const setPlayerPrefs = useApp((s) => s.setPlayerPrefs);
+
+  // What the video really is and what is being sent to the display (HDR or SDR).
+  const refreshPictureInfo = async () => {
+    const a = adapterRef.current;
+    if (!a?.getProp) return;
+    const [gamma, prim, outGamma] = await Promise.all([
+      a.getProp("video-params/gamma"),
+      a.getProp("video-params/primaries"),
+      a.getProp("video-target-params/gamma"),
+    ]);
+    const src = gamma === "pq" ? "HDR10" : gamma === "hlg" ? "HLG (HDR)" : "SDR";
+    const out = outGamma === "pq" || outGamma === "hlg" ? "HDR" : "SDR";
+    setPictureInfo(`Видео: ${src}${prim ? ` · ${prim}` : ""}. На экран идёт: ${out}.`);
+  };
+  const changePicture = (patch: Partial<typeof prefs>) => {
+    const next = { ...prefs, ...patch };
+    setPlayerPrefs(patch);
+    const a = adapterRef.current;
+    if (a?.setProp) for (const [k, v] of Object.entries(liveMpvOptions(next))) void a.setProp(k, v);
+    window.setTimeout(() => void refreshPictureInfo(), 600);
+  };
   const hideTimer = useRef<number>(0);
 
   // Trailers come with a list of qualities; switching one reloads the stream and resumes
@@ -313,6 +338,11 @@ export function PlayerScreen({
         bump();
         return true;
       }
+      if (pictureOpen) {
+        setPictureOpen(false);
+        bump();
+        return true;
+      }
       if (qualityOpen) {
         setQualityOpen(false);
         bump();
@@ -325,7 +355,7 @@ export function PlayerScreen({
       back();
       return true;
     });
-  }, [volumeOpen, menu, episodesOpen, qualityOpen, osd, back, mini]);
+  }, [volumeOpen, menu, episodesOpen, qualityOpen, pictureOpen, osd, back, mini]);
 
   useEffect(() => {
     if (mini) return; // …and does not swallow the keys of the screen the viewer is on
@@ -463,6 +493,20 @@ export function PlayerScreen({
               <Focusable as="button" className="icon-btn" focusKey="pl:subs" onPress={() => openMenu("subtitle")} scroll={false}>
                 <SubtitlesIcon />
               </Focusable>
+              {isTauri && (
+                <Focusable
+                  as="button"
+                  className={`icon-btn ${pictureOpen ? "icon-btn--active" : ""}`}
+                  focusKey="pl:picture"
+                  onPress={() => {
+                    setPictureOpen((o) => !o);
+                    void refreshPictureInfo();
+                  }}
+                  scroll={false}
+                >
+                  <PlayerSettingsIcon />
+                </Focusable>
+              )}
               {qualities && qualities.length > 1 && (
                 <Focusable
                   as="button"
@@ -579,6 +623,57 @@ export function PlayerScreen({
                 />
               ))}
             </div>
+        </Modal>
+      )}
+
+      {pictureOpen && osd && (
+        <Modal
+          focusKey="player:picture"
+          preferredChildFocusKey="pic:hdr"
+          onClose={() => {
+            setPictureOpen(false);
+            bump();
+          }}
+        >
+          <div className="modal-panel__header">
+            <h3>Картинка</h3>
+          </div>
+          {pictureInfo && <div className="settings__hint">{pictureInfo}</div>}
+          <div className="modal-panel__list">
+            <FocusHighlight pad={0} radius="var(--radius-sm)" />
+            <TrackItem
+              focusKey="pic:hdr"
+              label="HDR-вывод на экран"
+              hint={prefs.hdrOutput ? "Включён" : "Выключен"}
+              active={prefs.hdrOutput}
+              autoFocus
+              onPress={() => changePicture({ hdrOutput: !prefs.hdrOutput })}
+            />
+            <TrackItem
+              focusKey="pic:tone"
+              label="HDR на обычном экране"
+              hint={prefs.toneMapping === "auto" ? "Авто" : prefs.toneMapping === "soft" ? "Мягкий" : "Контрастный"}
+              active={prefs.toneMapping !== "auto"}
+              onPress={() =>
+                changePicture({ toneMapping: prefs.toneMapping === "auto" ? "soft" : prefs.toneMapping === "soft" ? "contrast" : "auto" })
+              }
+            />
+            <TrackItem
+              focusKey="pic:sharp"
+              label="Чёткость"
+              hint={prefs.upscale === "default" ? "Обычная" : prefs.upscale === "sharp" ? "Повышенная" : "Максимум"}
+              active={prefs.upscale !== "default"}
+              onPress={() => changePicture({ upscale: prefs.upscale === "default" ? "sharp" : prefs.upscale === "sharp" ? "max" : "default" })}
+            />
+            <TrackItem
+              focusKey="pic:deband"
+              label="Сглаживать полосы"
+              hint={prefs.deband ? "Включено" : "Выключено"}
+              active={prefs.deband}
+              onPress={() => changePicture({ deband: !prefs.deband })}
+            />
+          </div>
+          <div className="settings__hint">HDR-вывод работает, если в Windows включён HDR для этого экрана. Если картинка стала странной, выключите.</div>
         </Modal>
       )}
 

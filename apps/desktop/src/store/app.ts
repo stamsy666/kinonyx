@@ -153,6 +153,8 @@ export interface PlayerPrefs {
   deband: boolean;
   /** HDR → SDR mapping for ordinary screens (mpv `tone-mapping`). */
   toneMapping: "auto" | "soft" | "contrast";
+  /** Passes HDR through to an HDR display (mpv `target-colorspace-hint`) instead of squeezing it to SDR. */
+  hdrOutput: boolean;
 }
 
 export const DEFAULT_PLAYER_PREFS: PlayerPrefs = {
@@ -164,6 +166,7 @@ export const DEFAULT_PLAYER_PREFS: PlayerPrefs = {
   upscale: "default",
   deband: false,
   toneMapping: "auto",
+  hdrOutput: false,
 };
 
 function readPlayerPrefs(): PlayerPrefs {
@@ -185,6 +188,7 @@ function readPlayerPrefs(): PlayerPrefs {
         upscale: p.upscale === "sharp" || p.upscale === "max" ? p.upscale : "default",
         deband: p.deband === true,
         toneMapping: p.toneMapping === "soft" || p.toneMapping === "contrast" ? p.toneMapping : "auto",
+        hdrOutput: p.hdrOutput === true,
       };
     }
   } catch {

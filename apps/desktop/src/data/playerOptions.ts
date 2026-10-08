@@ -23,5 +23,21 @@ export function buildMpvOptions(prefs: PlayerPrefs): Record<string, string> {
     o["tone-mapping"] = prefs.toneMapping === "soft" ? "bt.2390" : "hable";
     o["hdr-compute-peak"] = "yes";
   }
+  if (prefs.hdrOutput) o["target-colorspace-hint"] = "yes";
   return o;
+}
+
+/** The picture options for a live change: every key with its value, or mpv's default. */
+export function liveMpvOptions(prefs: PlayerPrefs): Record<string, string> {
+  const base: Record<string, string> = {
+    scale: "bilinear",
+    cscale: "bilinear",
+    deband: "no",
+    "tone-mapping": "auto",
+    "hdr-compute-peak": "auto",
+    "target-colorspace-hint": "no",
+  };
+  const set = buildMpvOptions(prefs);
+  for (const k of Object.keys(base)) if (set[k] !== undefined) base[k] = set[k];
+  return base;
 }
