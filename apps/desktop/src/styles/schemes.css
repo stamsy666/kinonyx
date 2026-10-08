@@ -202,3 +202,20 @@ html[data-lite="1"] .movie-backdrop__slide {
   animation: none !important;
   will-change: auto;
 }
+
+/* The animated background is drawn at a quarter of the pixels (a half-size layer scaled up 2x):
+   these backgrounds are soft gradients, so nothing is visible, but the GPU does 4x less work per
+   frame on a 4K / 300% display. */
+html[data-lite="1"] .app-background {
+  inset: auto;
+  top: 0;
+  left: 0;
+  width: 50vw;
+  height: 50vh;
+  transform: scale(2);
+  transform-origin: 0 0;
+}
+
+html[data-lite="1"] .app-background__dim--blur {
+  filter: none;
+}
