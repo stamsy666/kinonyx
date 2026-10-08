@@ -202,7 +202,3 @@ html[data-lite="1"] .movie-backdrop__slide {
   animation: none !important;
   will-change: auto;
 }
-
-html[data-lite="1"] .app-background {
-  display: none;
-}
