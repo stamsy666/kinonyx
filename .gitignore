@@ -30,3 +30,7 @@ apps/desktop/src-tauri/translator/*.exe
 *.key
 *.key.pub
 .tauri/
+
+.agents/
+.claude/skills/
+skills-lock.json

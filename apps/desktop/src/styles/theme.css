@@ -2328,8 +2328,7 @@ img {
   border-radius: 22px;
   background: color-mix(in srgb, var(--accent) 14%, rgba(255, 255, 255, 0.05));
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent),
-    0 22px 44px -22px var(--accent-glow);
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
   opacity: 0;
   pointer-events: none;
   transition:
@@ -2441,8 +2440,7 @@ img {
 
 .bg-option.is-active .bg-option__swatch {
   box-shadow:
-    0 0 0 2px var(--accent),
-    0 6px 18px var(--accent-glow);
+    0 0 0 2px var(--accent);
 }
 
 .bg-option.is-focused {
@@ -3589,7 +3587,6 @@ body.mpv-active::after {
 }
 .stats-chart__bar.is-today {
   background: var(--accent);
-  box-shadow: 0 0 18px -4px var(--accent-glow);
 }
 .stats-chart__day {
   font-size: 12px;
