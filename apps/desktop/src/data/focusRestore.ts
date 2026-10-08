@@ -74,7 +74,7 @@ export function resetScroll() {
 
 let cancelRunning: (() => void) | null = null;
 
-export function restoreSnapshot(snapshot: FocusSnapshot) {
+export function restoreSnapshot(snapshot: FocusSnapshot, fallbackKey?: string) {
   cancelGlides();
   cameBackToSavedFocus = !!snapshot.focusKey;
   cancelRunning?.();
@@ -94,9 +94,20 @@ export function restoreSnapshot(snapshot: FocusSnapshot) {
   window.addEventListener("pointerdown", stop, true);
   window.addEventListener("wheel", stop, true);
 
+  // The saved card never came back (the shelf changed, the hero slide is gone): the screen's own
+  // autoFocus was held back for it, so without this the pad/gamepad is left with no focus at all.
+  const finish = () => {
+    stop();
+    const cur = getCurrentFocusKey();
+    if (fallbackKey && (!cur || cur === "SN:ROOT" || !doesFocusableExist(cur))) {
+      cameBackToSavedFocus = false;
+      setFocus(fallbackKey);
+    }
+  };
+
   const tick = () => {
     const now = performance.now();
-    if (now - started > RESTORE_WINDOW_MS || (focusedAt && now - focusedAt > SETTLE_MS)) return stop();
+    if (now - started > RESTORE_WINDOW_MS || (focusedAt && now - focusedAt > SETTLE_MS)) return finish();
 
     const key = snapshot.focusKey;
     if (key && doesFocusableExist(key)) {
@@ -116,7 +127,7 @@ export function restoreSnapshot(snapshot: FocusSnapshot) {
         const el = document.querySelector<HTMLElement>(selector);
         if (el && Math.abs(el.scrollTop - top) > 1) el.scrollTop = top;
       }
-      if (!key && now - started > 300) return stop();
+      if (!key && now - started > 300) return finish();
     }
     frame = requestAnimationFrame(tick);
   };

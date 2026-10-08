@@ -445,7 +445,7 @@ export const useApp = create<AppState>((set, get) => ({
     // Leaving a player screen ends playback — unless it was minimised, which keeps it going.
     const player = isPlayerRoute(newScreen) ? newScreen : get().miniOn ? get().activePlayer : null;
     set({ screen: newScreen, history: next, activePlayer: player });
-    if (snapshot) restoreSnapshot(snapshot);
+    if (snapshot) restoreSnapshot(snapshot, focusKeyOfScreen(newScreen));
     return true;
   },
 
