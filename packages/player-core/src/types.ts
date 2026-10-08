@@ -79,6 +79,9 @@ export interface PlayerAdapter {
   /** Voice-over ducking: scales the original audio (1 = as is) without touching `volume`.
    *  Needs the source to carry the `@kxduck` audio filter (see mpv-adapter). */
   setDuck?(gain: number): Promise<void>;
+  /** Shrinks the picture into part of the surface (mini window): each value is the share of the
+   *  surface left empty on that side (0..1). `null` = the whole surface. mpv only. */
+  setVideoMargins?(margins: { left: number; right: number; top: number; bottom: number } | null): Promise<void>;
   getState(): PlayerState;
   subscribe(listener: StateListener): () => void;
   destroy(): void;

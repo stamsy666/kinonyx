@@ -17,6 +17,7 @@ import {
   FocusGroup,
   ForwardIcon,
   GearIcon,
+  MiniPlayerIcon,
   MuteIcon,
   NextEpisodeIcon,
   OfflineIcon,
@@ -45,6 +46,7 @@ import { FocusHighlight } from "../components/FocusHighlight";
 import { Modal } from "../components/Modal";
 import { VolumeSlider } from "../components/VolumeSlider";
 import { FullscreenButton } from "../components/FullscreenButton";
+import { MiniPlayerChrome, useCloseOnOutsidePress, useMiniLayout } from "../components/MiniPlayer";
 
 const SEEK_STEP = 15;
 
@@ -73,7 +75,10 @@ export function PlayerScreen({
   film,
   poster,
   episodes,
+  mini = false,
 }: {
+  /** Minimised to a corner: only the small window is drawn, no keys or Back are taken. */
+  mini?: boolean;
   title: string;
   url: string;
   qualities?: TrailerQuality[];
@@ -86,6 +91,9 @@ export function PlayerScreen({
 }) {
   const back = useApp((s) => s.back);
   const replace = useApp((s) => s.replace);
+  const minimize = useApp((s) => s.minimize);
+  const expandPlayer = useApp((s) => s.expandPlayer);
+  const closePlayer = useApp((s) => s.closePlayer);
   const showStreamStats = useApp((s) => s.showStreamStats);
   const playerDim = useApp((s) => s.playerDim);
   const prefs = useApp((s) => s.playerPrefs);
@@ -145,7 +153,10 @@ export function PlayerScreen({
     }, prefs.autoHideSec * 1000);
   };
 
-  const revealed = useMpvReveal(state.status, source);
+  const revealed = useMpvReveal(state.status, source, mini);
+  useMiniLayout(adapterRef, mini);
+  // A press on the picture (anywhere outside the volume control) closes the volume slider.
+  useCloseOnOutsidePress(volumeOpen, () => setVolumeOpen(false));
 
   // Episode of a series pack being played — progress is kept per episode (see store/episodeProgress.ts).
   const epKey = episodes ? episodeKey(episodes.files[episodes.index]) : null;
@@ -286,6 +297,7 @@ export function PlayerScreen({
   }, [source]);
 
   useEffect(() => {
+    if (mini) return; // a minimised player does not take Back
     return onBack(() => {
       if (volumeOpen) {
         setVolumeOpen(false);
@@ -314,9 +326,10 @@ export function PlayerScreen({
       back();
       return true;
     });
-  }, [volumeOpen, menu, episodesOpen, qualityOpen, osd, back]);
+  }, [volumeOpen, menu, episodesOpen, qualityOpen, osd, back, mini]);
 
   useEffect(() => {
+    if (mini) return; // …and does not swallow the keys of the screen the viewer is on
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === "Backspace") return;
       const a = adapterRef.current;
@@ -337,7 +350,7 @@ export function PlayerScreen({
       window.removeEventListener("mousemove", bump);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [osd]);
+  }, [osd, mini]);
 
   const togglePlay = async () => {
     const a = adapterRef.current;
@@ -385,6 +398,10 @@ export function PlayerScreen({
   const progress = Number.isFinite(state.duration) && state.duration > 0 ? state.position / state.duration : 0;
   const isPlaying = state.status === "playing";
 
+  if (mini) {
+    return <MiniPlayerChrome title={title} playing={isPlaying} onToggle={() => void togglePlay()} onExpand={expandPlayer} onClose={closePlayer} />;
+  }
+
   return (
     <FocusGroup focusKey="screen:player" className={`player ${isTauri ? "player--mpv" : ""} ${revealed ? "player--revealed" : ""} ${osd ? "" : "player--idle"}`} isFocusBoundary>
       {isTauri ? <div className="player__video-hole" /> : <video ref={videoRef} playsInline autoPlay />}
@@ -412,7 +429,13 @@ export function PlayerScreen({
             <BackIcon />
           </Focusable>
           <h2 className="player__title">{title}</h2>
-          <span style={{ width: 52 }} />
+          {isTauri ? (
+            <Focusable as="button" className="icon-btn" focusKey="pl:mini" onPress={minimize} scroll={false}>
+              <MiniPlayerIcon />
+            </Focusable>
+          ) : (
+            <span style={{ width: 52 }} />
+          )}
         </div>
 
         <div className="player__bottom">

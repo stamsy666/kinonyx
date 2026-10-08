@@ -123,10 +123,10 @@ export function holdMusic(): () => void {
 /** Plays/pauses/adjusts volume to match the store's current settings — called on
  *  every relevant state change so the engine never drifts from what the UI shows. */
 function reconcile() {
-  const { musicEnabled, screen } = useApp.getState();
+  const { musicEnabled, screen, activePlayer } = useApp.getState();
   const el = getAudio();
 
-  const shouldPlay = musicEnabled && holds === 0 && !SOUND_SCREENS.has(screen.name);
+  const shouldPlay = musicEnabled && holds === 0 && !activePlayer && !SOUND_SCREENS.has(screen.name);
 
   if (shouldPlay) {
     if (!el.src) loadCurrentTrack();
@@ -153,7 +153,7 @@ export function installMusicEngine() {
     }
     if (
       state.soundChoice.buttons !== prev.soundChoice.buttons ||
-      state.musicEnabled !== prev.musicEnabled || state.musicVolume !== prev.musicVolume || state.screen.name !== prev.screen.name) {
+      state.musicEnabled !== prev.musicEnabled || state.musicVolume !== prev.musicVolume || state.screen.name !== prev.screen.name || state.activePlayer !== prev.activePlayer) {
       reconcile();
     }
   });

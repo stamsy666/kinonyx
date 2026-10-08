@@ -13,7 +13,7 @@ import {
 
 const KIND_LABEL: Record<StatKind, string> = { movie: "Фильмы", series: "Сериалы", tv: "Телеканалы" };
 const KIND_COLOR: Record<StatKind, string> = { movie: "var(--accent)", series: "var(--teal)", tv: "#e0b341" };
-const WEEKDAYS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+const dayMonth = (d: Date) => `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}`;
 
 /** Settings → Статистика: what was watched, when, and how much — all computed on this computer
  *  from the time the players actually spent playing (store/watchStats.ts). */
@@ -126,7 +126,7 @@ export function StatsPanel() {
                         style={{ height: `${Math.max(d.seconds > 0 ? 4 : 0, (d.seconds / stats.chartMax) * 100)}%` }}
                       />
                     </div>
-                    <span className="stats-chart__day">{WEEKDAYS[d.date.getDay()]}</span>
+                    <span className="stats-chart__day">{dayMonth(d.date)}</span>
                   </div>
                 );
               })}

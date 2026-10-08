@@ -32,6 +32,15 @@ import { resetScroll } from "../data/focusRestore";
 import { useUpdater } from "../store/updater";
 import { isTauri, openExternal } from "../data/io";
 
+/** Whole-program zoom steps; 100% is the design size and the default. */
+const ZOOM_OPTIONS = [
+  { value: 1, label: "100%" },
+  { value: 1.15, label: "115%" },
+  { value: 1.3, label: "130%" },
+  { value: 1.5, label: "150%" },
+  { value: 1.75, label: "175%" },
+  { value: 2, label: "200%" },
+];
 const UI_SCALE_OPTIONS = [
   { value: 0.85, label: "Мелко" },
   { value: 1, label: "Обычно" },
@@ -123,6 +132,8 @@ export function SettingsScreen() {
   const showStats = useApp((s) => s.showStreamStats);
   const setShowStats = useApp((s) => s.setShowStreamStats);
   const clickSparkEnabled = useApp((s) => s.clickSparkEnabled);
+  const uiZoom = useApp((s) => s.uiZoom);
+  const setUiZoom = useApp((s) => s.setUiZoom);
   const setClickSparkEnabled = useApp((s) => s.setClickSparkEnabled);
   const backgroundKind = useApp((s) => s.backgroundKind);
   const setBackgroundKind = useApp((s) => s.setBackgroundKind);
@@ -136,6 +147,8 @@ export function SettingsScreen() {
   const playerPrefs = useApp((s) => s.playerPrefs);
   const setPlayerPrefs = useApp((s) => s.setPlayerPrefs);
   const setMusicVolume = useApp((s) => s.setMusicVolume);
+  const soundPinned = useApp((s) => s.soundPinned);
+  const setSoundPinned = useApp((s) => s.setSoundPinned);
   const currentTrack = useApp((s) => s.currentTrack);
   const epgRefreshInterval = useApp((s) => s.epgRefreshInterval);
   const setEpgRefreshInterval = useApp((s) => s.setEpgRefreshInterval);
@@ -144,7 +157,7 @@ export function SettingsScreen() {
   const updVersion = useUpdater((s) => s.update?.version);
   const updError = useUpdater((s) => s.error);
   const autoCheck = useUpdater((s) => s.autoCheck);
-  const [appVersion, setAppVersion] = useState("1.1.4");
+  const [appVersion, setAppVersion] = useState("1.1.5");
   useEffect(() => {
     if (!isTauri) return;
     void import("@tauri-apps/api/app").then((m) => m.getVersion()).then(setAppVersion, () => undefined);
@@ -686,6 +699,26 @@ export function SettingsScreen() {
               </section>
             ))}
             <section className="settings__item">
+              <div className="settings__label">Масштаб программы</div>
+              <div className="sound-options">
+                <FocusHighlight pad={6} radius={16} />
+                {ZOOM_OPTIONS.map((o, i) => (
+                  <Focusable
+                    as="button"
+                    key={o.value}
+                    focusKey={`settings:zoom:${i}`}
+                    className={`sound-option ${uiZoom === o.value ? "is-active" : ""}`}
+                    onPress={() => setUiZoom(o.value)}
+                  >
+                    {o.label}
+                  </Focusable>
+                ))}
+              </div>
+              <div className="settings__hint">
+                Увеличивает весь интерфейс целиком — для большого телевизора или просмотра издалека. 100% — обычный размер.
+              </div>
+            </section>
+            <section className="settings__item">
               <div className="settings__label">Эффект клика мышью</div>
               <Focusable
                 as="button"
@@ -795,6 +828,31 @@ export function SettingsScreen() {
                 Влево/вправо с пульта, клик или перетаскивание мышью — громкость
                 фоновой музыки.
               </div>
+            </section>
+            <section className="settings__item">
+              <Focusable
+                as="button"
+                className="btn settings__site-btn"
+                focusKey="settings:snd:apply"
+                onPress={() => setSoundPinned(true)}
+              >
+                {soundPinned ? "Применено ✓" : "Применить"}
+              </Focusable>
+              <div className="settings__hint">
+                {soundPinned
+                  ? "Звуки, музыка и громкость закреплены — смена темы (в т.ч. PS4 и PS5) их не меняет."
+                  : "Закрепляет текущие звуки, музыку и громкость: темы PS4/PS5 больше не подменят их своими."}
+              </div>
+              {soundPinned && (
+                <Focusable
+                  as="button"
+                  className="btn settings__site-btn"
+                  focusKey="settings:snd:unpin"
+                  onPress={() => setSoundPinned(false)}
+                >
+                  Снять закрепление
+                </Focusable>
+              )}
             </section>
           </>
         )}

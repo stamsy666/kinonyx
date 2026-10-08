@@ -12,6 +12,8 @@ import {
   Flame,
   FolderOpen,
   GalleryHorizontal,
+  Maximize2,
+  PictureInPicture2,
   Heart,
   History,
   Info,
@@ -97,6 +99,8 @@ export const VolumeIcon = wrap(Volume2);
 export const MuteIcon = wrap(VolumeX);
 export const PlusIcon = wrap(Plus);
 export const CarouselIcon = wrap(GalleryHorizontal);
+export const MiniPlayerIcon = wrap(PictureInPicture2);
+export const ExpandIcon = wrap(Maximize2);
 export const FolderIcon = wrap(FolderOpen);
 export const TrashIcon = wrap(Trash2);
 export const ArchiveIcon = wrap(History);

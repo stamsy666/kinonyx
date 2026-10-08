@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useApp } from "./store/app";
 import { onBack } from "@kinonyx/ui";
 import { TopBar } from "./components/TopBar";
@@ -13,12 +13,12 @@ import { clearPresence, setPresence } from "./data/discord";
 import { UpdateModal } from "./components/UpdateModal";
 import { installSoundEngine } from "./data/sounds";
 import { installMusicEngine } from "./data/music";
+import { applyUiZoom } from "./data/uiZoom";
 import { installInputModeTracker } from "./data/inputMode";
 import { HomeScreen } from "./screens/HomeScreen";
 import { MovieScreen } from "./screens/MovieScreen";
 import { PersonScreen } from "./screens/PersonScreen";
 import { GalleryScreen } from "./screens/GalleryScreen";
-import { PlayerScreen } from "./screens/PlayerScreen";
 import { WebTrailerScreen } from "./screens/WebTrailerScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { SetupScreen } from "./screens/SetupScreen";
@@ -31,7 +31,7 @@ import { GenreScreen } from "./screens/GenreScreen";
 import { TvPlaylistsScreen } from "./screens/tv/TvPlaylistsScreen";
 import { TvCategoriesScreen } from "./screens/tv/TvCategoriesScreen";
 import { TvChannelsScreen } from "./screens/tv/TvChannelsScreen";
-import { TvPlayerScreen } from "./screens/tv/TvPlayerScreen";
+import { PlayerHost } from "./components/PlayerHost";
 
 function CurrentScreen() {
   const screen = useApp((s) => s.screen);
@@ -67,20 +67,8 @@ function CurrentScreen() {
         />
       );
     case "player":
-      return (
-        <PlayerScreen
-          key={screen.url}
-          title={screen.title}
-          url={screen.url}
-          qualities={screen.qualities}
-          qualityIndex={screen.qualityIndex}
-          hash={screen.hash}
-          filmId={screen.filmId}
-          poster={screen.poster}
-          film={screen.film}
-          episodes={screen.episodes}
-        />
-      );
+    case "tv-player":
+      return null; // drawn by PlayerHost, so it can outlive the screen (minimised player)
     case "web-trailer":
       return (
         <WebTrailerScreen
@@ -100,10 +88,6 @@ function CurrentScreen() {
     case "tv-channels":
       return (
         <TvChannelsScreen key={screen.group ?? "*"} group={screen.group} />
-      );
-    case "tv-player":
-      return (
-        <TvPlayerScreen key={`${screen.channelId}:${screen.programme?.start ?? "live"}`} channelId={screen.channelId} programme={screen.programme} />
       );
     case "settings":
       return <SettingsScreen />;
@@ -158,11 +142,12 @@ export function App() {
 
   // Discord status while browsing (players set their own while they are open).
   const discordEnabled = useApp((s) => s.discordEnabled);
+  const hasPlayer = useApp((s) => s.activePlayer !== null);
   useEffect(() => {
-    if (isPlayer) return;
+    if (isPlayer || hasPlayer) return;
     if (discordEnabled) setPresence({ details: "Выбирает, что посмотреть", state: "в KINONYX" });
     else clearPresence();
-  }, [isPlayer, discordEnabled]);
+  }, [isPlayer, hasPlayer, discordEnabled]);
 
   // A few seconds after launch, so the check never competes with the first screen's requests.
   useEffect(() => {
@@ -191,6 +176,10 @@ export function App() {
 
   useEffect(() => installSoundEngine(), []);
   useEffect(() => installMusicEngine(), []);
+  const uiZoom = useApp((s) => s.uiZoom);
+  useEffect(() => {
+    void applyUiZoom(uiZoom);
+  }, [uiZoom]);
   useEffect(() => installInputModeTracker(), []);
 
   useEffect(() => {
@@ -207,10 +196,11 @@ export function App() {
   const updateOffered = useUpdater((s) => (s.status === "available" || s.status === "downloading" || s.status === "installing" || (s.status === "error" && s.update !== null)) && !s.dismissed);
   const updateModal = updateOffered && !isPlayer ? <UpdateModal /> : null;
 
-  if (isPlayer) return <CurrentScreen />;
-
-  if (isFullScreen)
-    return (
+  let shell: ReactNode;
+  if (isPlayer) {
+    shell = <CurrentScreen />;
+  } else if (isFullScreen) {
+    shell = (
       <>
         <AppBackground key={backgroundKind} kind={backgroundKind} />
         <CurrentScreen />
@@ -219,22 +209,32 @@ export function App() {
         {updateModal}
       </>
     );
+  } else {
+    shell = (
+      <>
+        <AppBackground key={backgroundKind} kind={backgroundKind} />
+        <div className="app-shell">
+          {!ownHeader && <TopBar />}
+          <div
+            className="app-body"
+            style={ownHeader ? { paddingTop: 30 } : undefined}
+          >
+            <CurrentScreen />
+          </div>
+          <Sidebar />
+        </div>
+        <ClickSpark enabled={clickSparkEnabled} />
+        {updateModal}
+      </>
+    );
+  }
 
+  // PlayerHost is always the second child, so the player keeps its state (and keeps playing)
+  // when the screen around it changes — full screen, minimised, or while browsing.
   return (
     <>
-      <AppBackground key={backgroundKind} kind={backgroundKind} />
-      <div className="app-shell">
-        {!ownHeader && <TopBar />}
-        <div
-          className="app-body"
-          style={ownHeader ? { paddingTop: 30 } : undefined}
-        >
-          <CurrentScreen />
-        </div>
-        <Sidebar />
-      </div>
-      <ClickSpark enabled={clickSparkEnabled} />
-      {updateModal}
+      {shell}
+      <PlayerHost />
     </>
   );
 }

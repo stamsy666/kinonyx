@@ -42,14 +42,20 @@ export function ClickSpark({ enabled }: { enabled: boolean }) {
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const resize = () => {
-      canvas.width = window.innerWidth * dpr;
-      canvas.height = window.innerHeight * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Re-measured on every frame: UI zoom (webview zoom) changes the viewport and pixel ratio
+    // without a reliable resize event, and a stale buffer made the sparks drift off the cursor.
+    const sync = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = Math.max(1, Math.round(window.innerWidth * dpr));
+      const h = Math.max(1, Math.round(window.innerHeight * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+      ctx.setTransform(w / window.innerWidth, 0, 0, h / window.innerHeight, 0, 0);
     };
-    resize();
-    window.addEventListener("resize", resize);
+    sync();
+    window.addEventListener("resize", sync);
 
     const onPointerDown = (e: PointerEvent) => {
       if (e.pointerType !== "mouse") return;
@@ -67,7 +73,8 @@ export function ClickSpark({ enabled }: { enabled: boolean }) {
 
     let frame = 0;
     const draw = (timestamp: number) => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      sync();
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
       sparks.current = sparks.current.filter((spark) => {
         const elapsed = timestamp - spark.startTime;
         if (elapsed >= DURATION_MS) return false;
@@ -95,7 +102,7 @@ export function ClickSpark({ enabled }: { enabled: boolean }) {
     frame = requestAnimationFrame(draw);
 
     return () => {
-      window.removeEventListener("resize", resize);
+      window.removeEventListener("resize", sync);
       window.removeEventListener("pointerdown", onPointerDown);
       cancelAnimationFrame(frame);
       sparks.current = [];

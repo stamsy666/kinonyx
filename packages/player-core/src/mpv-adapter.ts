@@ -409,6 +409,16 @@ export class MpvAdapter implements PlayerAdapter {
     return this.control(() => mpvCommand("af-command", ["kxduck", "volume", gain.toFixed(3), "volume"]));
   }
 
+  setVideoMargins(margins: { left: number; right: number; top: number; bottom: number } | null) {
+    const m = margins ?? { left: 0, right: 0, top: 0, bottom: 0 };
+    return this.control(async () => {
+      await mpvSetProperty("video-margin-ratio-left", m.left);
+      await mpvSetProperty("video-margin-ratio-right", m.right);
+      await mpvSetProperty("video-margin-ratio-top", m.top);
+      await mpvSetProperty("video-margin-ratio-bottom", m.bottom);
+    });
+  }
+
   getState(): PlayerState {
     return this.store.get();
   }

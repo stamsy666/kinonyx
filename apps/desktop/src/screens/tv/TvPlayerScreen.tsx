@@ -13,6 +13,7 @@ import {
 } from "@kinonyx/player-core";
 import {
   ArchiveIcon,
+  MiniPlayerIcon,
   BackIcon,
   FavoriteIcon,
   Focusable,
@@ -35,6 +36,7 @@ import { useChannelFavorites } from "../../store/channelFavorites";
 import { isTauri } from "../../data/io";
 import { SeekBar } from "../../components/SeekBar";
 import { useMpvReveal } from "../../components/useMpvReveal";
+import { MiniPlayerChrome, useCloseOnOutsidePress, useMiniLayout } from "../../components/MiniPlayer";
 import { FocusHighlight } from "../../components/FocusHighlight";
 import { VolumeSlider } from "../../components/VolumeSlider";
 import { Modal } from "../../components/Modal";
@@ -83,7 +85,10 @@ function dayLabel(ts: number, now: number) {
   return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
 }
 
-export function TvPlayerScreen({ channelId, programme }: { channelId: string; programme?: Programme }) {
+export function TvPlayerScreen({ channelId, programme, mini = false }: { channelId: string; programme?: Programme; mini?: boolean }) {
+  const minimize = useApp((s) => s.minimize);
+  const expandPlayer = useApp((s) => s.expandPlayer);
+  const closePlayer = useApp((s) => s.closePlayer);
   const playlist = useTv((s) => s.playlist);
   const activePlaylistId = useTv((s) => s.activePlaylistId);
   const programmesFor = useTv((s) => s.programmesFor);
@@ -246,7 +251,10 @@ export function TvPlayerScreen({ channelId, programme }: { channelId: string; pr
   }, [prefs.autoHideSec]);
 
   // mpv renders into a native window behind a transparent hole — see useMpvReveal.
-  const revealed = useMpvReveal(state.status, source);
+  const revealed = useMpvReveal(state.status, source, mini);
+  useMiniLayout(adapterRef, mini);
+  // A press on the picture (anywhere outside the volume control) closes the volume slider.
+  useCloseOnOutsidePress(volumeOpen, () => setVolumeOpen(false));
 
   // Discord status: the channel.
   usePresence(channel ? { details: channel.name, state: "телеканал" } : null, state.status === "playing");
@@ -283,6 +291,7 @@ export function TvPlayerScreen({ channelId, programme }: { channelId: string; pr
   }, [source]);
 
   useEffect(() => {
+    if (mini) return; // a minimised player does not take Back
     return onBack(() => {
       if (volumeOpen) {
         setVolumeOpen(false);
@@ -306,9 +315,10 @@ export function TvPlayerScreen({ channelId, programme }: { channelId: string; pr
       back();
       return true;
     });
-  }, [volumeOpen, archiveOpen, menu, osd, back, bump]);
+  }, [volumeOpen, archiveOpen, menu, osd, back, bump, mini]);
 
   useEffect(() => {
+    if (mini) return; // …and does not swallow the keys of the screen the viewer is on
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === "Backspace") return;
       const a = adapterRef.current;
@@ -329,7 +339,7 @@ export function TvPlayerScreen({ channelId, programme }: { channelId: string; pr
       window.removeEventListener("mousemove", bump);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [osd, bump]);
+  }, [osd, bump, mini]);
 
   const togglePlay = async () => {
     const a = adapterRef.current;
@@ -460,6 +470,10 @@ export function TvPlayerScreen({ channelId, programme }: { channelId: string; pr
   const isPlaying = state.status === "playing";
   const nowInfo = archive ? archive.programme : guide.now;
 
+  if (mini) {
+    return <MiniPlayerChrome title={channel.name} playing={isPlaying} onToggle={() => void togglePlay()} onExpand={expandPlayer} onClose={closePlayer} />;
+  }
+
   return (
     <FocusGroup focusKey="screen:player" className={`player ${isTauri ? "player--mpv" : ""} ${revealed ? "player--revealed" : ""} ${osd ? "" : "player--idle"}`} isFocusBoundary>
       {isTauri ? <div className="player__video-hole" /> : <video ref={videoRef} playsInline autoPlay />}
@@ -498,6 +512,11 @@ export function TvPlayerScreen({ channelId, programme }: { channelId: string; pr
             <h2 className="player__channel">{channel.name}</h2>
           </div>
           <div className="player__status">
+            {isTauri && (
+              <Focusable as="button" className="icon-btn" focusKey="pl:mini" onPress={minimize} scroll={false}>
+                <MiniPlayerIcon />
+              </Focusable>
+            )}
             {archive ? (
               <Focusable as="button" className="btn btn--ghost archive-badge" focusKey="pl:live" onPress={resumeLive} scroll={false}>
                 В эфир

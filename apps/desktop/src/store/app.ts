@@ -120,10 +120,15 @@ const snapshots: FocusSnapshot[] = [];
 const STATS_KEY = "kinonyx.showStreamStats";
 const BG_KEY = "kinonyx.background";
 const SOUND_KEY = "kinonyx.soundChoice";
+
+export type PlayerRoute = Extract<Screen, { name: "player" | "tv-player" }>;
+export const isPlayerRoute = (s: Screen): s is PlayerRoute => s.name === "player" || s.name === "tv-player";
+const UI_ZOOM_KEY = "kinonyx.uiZoom";
 const VOLUME_KEY = "kinonyx.sfxVolume";
 const MUSIC_ENABLED_KEY = "kinonyx.musicEnabled";
 const CLICK_SPARK_KEY = "kinonyx.clickSpark";
 const MUSIC_VOLUME_KEY = "kinonyx.musicVolume";
+const SOUND_PINNED_KEY = "kinonyx.soundPinned";
 const EPG_REFRESH_KEY = "kinonyx.epgRefreshInterval";
 const PLAYER_DIM_KEY = "kinonyx.playerDim";
 const PLAYER_PREFS_KEY = "kinonyx.playerPrefs";
@@ -215,6 +220,16 @@ function readBgKind(): BgKind {
   return "mono";
 }
 
+function readUiZoom(): number {
+  try {
+    const v = parseFloat(localStorage.getItem(UI_ZOOM_KEY) ?? "");
+    if (v >= 0.75 && v <= 3) return v;
+  } catch {
+    /* default */
+  }
+  return 1;
+}
+
 function readSoundChoice(): Record<SoundCategory, string | null> {
   try {
     const raw = localStorage.getItem(SOUND_KEY);
@@ -275,6 +290,8 @@ interface AppState {
   /** Small spark lines radiating from the cursor on a real mouse click (never remote/
    *  keyboard/gamepad — those call a Focusable's `onPress` directly, no click event). */
   clickSparkEnabled: boolean;
+  /** Whole-program zoom (1 = as designed); for big TVs. Applied by data/uiZoom.ts. */
+  uiZoom: number;
   backgroundKind: BgKind;
   soundChoice: Record<SoundCategory, string | null>;
   sfxVolume: number;
@@ -300,6 +317,17 @@ interface AppState {
    *  (remote/keyboard already have one; see `data/inputMode.ts`). Defaults to "keys",
    *  the project's remote-first default. */
   inputMode: "mouse" | "keys";
+  /** The player (film/trailer or channel) that is playing — full screen, or minimised to a corner
+   *  while the viewer browses (`miniOn`). Rendered by PlayerHost, not by the router, so it survives
+   *  navigation. */
+  activePlayer: PlayerRoute | null;
+  miniOn: boolean;
+  /** Sends the playing player to the corner and goes back one screen. */
+  minimize: () => void;
+  /** Brings the minimised player back to full screen. */
+  expandPlayer: () => void;
+  /** Stops and closes the minimised player. */
+  closePlayer: () => void;
   navigate: (screen: Screen) => void;
   /** Swaps the current screen without touching history — for moving between screens of
    *  the same "session" (e.g. switching episodes inside the player) where Back should
@@ -312,11 +340,15 @@ interface AppState {
   toggleFullscreen: () => Promise<void>;
   setShowStreamStats: (on: boolean) => void;
   setClickSparkEnabled: (on: boolean) => void;
+  setUiZoom: (zoom: number) => void;
   setBackgroundKind: (kind: BgKind) => void;
   setSoundChoice: (category: SoundCategory, id: string | null) => void;
   setSfxVolume: (v: number) => void;
   setMusicEnabled: (on: boolean) => void;
   setMusicVolume: (v: number) => void;
+  /** After "Применить" in Settings → Sound: themes no longer replace the sounds/music/volumes. */
+  soundPinned: boolean;
+  setSoundPinned: (on: boolean) => void;
   setCurrentTrack: (track: MusicTrack | null) => void;
   setInputMode: (mode: "mouse" | "keys") => void;
   setEpgRefreshInterval: (interval: EpgRefreshInterval) => void;
@@ -332,11 +364,13 @@ export const useApp = create<AppState>((set, get) => ({
   fullscreen: false,
   showStreamStats: readBool(STATS_KEY),
   clickSparkEnabled: readBool(CLICK_SPARK_KEY, true),
+  uiZoom: readUiZoom(),
   backgroundKind: initialBgKind,
   soundChoice: readSoundChoice(),
   sfxVolume: readVolume(VOLUME_KEY, 0.7),
   musicEnabled: readBool(MUSIC_ENABLED_KEY),
   musicVolume: readVolume(MUSIC_VOLUME_KEY, 0.5),
+  soundPinned: readBool(SOUND_PINNED_KEY),
   playerDim: readVolume(PLAYER_DIM_KEY, 0.5),
   discordEnabled: (() => {
     try {
@@ -360,16 +394,40 @@ export const useApp = create<AppState>((set, get) => ({
   inputMode: "keys",
   epgRefreshInterval: readEpgRefreshInterval(),
 
+  activePlayer: null,
+  miniOn: false,
+
   navigate(screen) {
     const { screen: current, history } = get();
     snapshots.length = history.length;
     snapshots.push(takeSnapshot());
     resetScroll();
-    set({ screen, history: [...history, current], sidebarOpen: false });
+    set({
+      screen,
+      history: [...history, current],
+      sidebarOpen: false,
+      // Opening a player (any) makes it the active one, full screen; it replaces a minimised one.
+      ...(isPlayerRoute(screen) ? { activePlayer: screen, miniOn: false } : {}),
+    });
   },
 
   replace(screen) {
-    set({ screen, sidebarOpen: false });
+    set({ screen, sidebarOpen: false, ...(isPlayerRoute(screen) ? { activePlayer: screen, miniOn: false } : {}) });
+  },
+
+  minimize() {
+    if (!isPlayerRoute(get().screen)) return;
+    set({ miniOn: true });
+    if (!get().back()) set({ miniOn: false });
+  },
+
+  expandPlayer() {
+    const route = get().activePlayer;
+    if (route) get().navigate(route);
+  },
+
+  closePlayer() {
+    set({ activePlayer: null, miniOn: false });
   },
 
   back() {
@@ -384,7 +442,9 @@ export const useApp = create<AppState>((set, get) => ({
     const newScreen = next.pop()!;
     const snapshot = snapshots.length === history.length ? snapshots.pop() : undefined;
     snapshots.length = next.length;
-    set({ screen: newScreen, history: next });
+    // Leaving a player screen ends playback — unless it was minimised, which keeps it going.
+    const player = isPlayerRoute(newScreen) ? newScreen : get().miniOn ? get().activePlayer : null;
+    set({ screen: newScreen, history: next, activePlayer: player });
     if (snapshot) restoreSnapshot(snapshot);
     return true;
   },
@@ -443,6 +503,15 @@ export const useApp = create<AppState>((set, get) => ({
     }
   },
 
+  setUiZoom(zoom) {
+    set({ uiZoom: zoom });
+    try {
+      localStorage.setItem(UI_ZOOM_KEY, String(zoom));
+    } catch {
+      /* the choice just won't survive a restart */
+    }
+  },
+
   setSoundChoice(category, id) {
     const next = { ...get().soundChoice, [category]: id };
     set({ soundChoice: next });
@@ -487,6 +556,15 @@ export const useApp = create<AppState>((set, get) => ({
     set({ musicEnabled: on });
     try {
       localStorage.setItem(MUSIC_ENABLED_KEY, on ? "1" : "0");
+    } catch {
+      /* preference just won't survive a restart */
+    }
+  },
+
+  setSoundPinned(on) {
+    set({ soundPinned: on });
+    try {
+      localStorage.setItem(SOUND_PINNED_KEY, on ? "1" : "0");
     } catch {
       /* preference just won't survive a restart */
     }

@@ -106,6 +106,7 @@ export function applySoundKit(kitId: string | null) {
 const THEME_KITS: Record<string, string> = { ps4: "ps4", ps5: "ps5" };
 
 export function applyThemeKit(theme: string) {
+  if (useApp.getState().soundPinned) return; // the viewer pressed "Применить": their mix stays
   const kit = THEME_KITS[theme];
   if (kit) applySoundKit(kit);
 }
