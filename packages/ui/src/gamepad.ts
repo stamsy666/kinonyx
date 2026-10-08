@@ -11,7 +11,9 @@ const STANDARD = {
   y: 3,
   lb: 4,
   rb: 5,
+  select: 8,
   start: 9,
+  guide: 16, // the PS / Xbox button
   up: 12,
   down: 13,
   left: 14,
@@ -26,6 +28,8 @@ const BUTTON_TO_KEY: Record<number, string> = {
   [STANDARD.lb]: "MediaRewind",
   [STANDARD.rb]: "MediaFastForward",
   [STANDARD.start]: "p",
+  [STANDARD.select]: "GamepadGuide",
+  [STANDARD.guide]: "GamepadGuide",
   [STANDARD.up]: "ArrowUp",
   [STANDARD.down]: "ArrowDown",
   [STANDARD.left]: "ArrowLeft",

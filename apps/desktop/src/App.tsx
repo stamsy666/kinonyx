@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { useApp } from "./store/app";
+import { isPlayerRoute, useApp } from "./store/app";
 import { onBack } from "@kinonyx/ui";
 import { TopBar } from "./components/TopBar";
 import { Sidebar } from "./components/Sidebar";
@@ -126,6 +126,18 @@ export function App() {
   );
 
   useEffect(() => onBack(() => back()), [back]);
+
+  // PS / Xbox button (or View/Select) on a gamepad opens and closes the menu.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "GamepadGuide") return;
+      const s = useApp.getState();
+      if (isPlayerRoute(s.screen)) return;
+      s.toggleSidebar();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     void configStatus()
