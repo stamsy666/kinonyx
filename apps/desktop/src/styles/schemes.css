@@ -138,7 +138,7 @@ html[data-bg="netflix"] body:not(.mpv-active)::before {
 
 .btn--primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent, #fff);
 }
 
 .btn--primary.is-focused {

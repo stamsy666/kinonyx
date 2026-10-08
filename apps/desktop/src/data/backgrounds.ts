@@ -254,6 +254,9 @@ export function applyBgPalette(kind: BgKind) {
   root.setProperty("--accent-deep", p.accentDeep);
   root.setProperty("--accent-glow", p.accentGlow);
   root.setProperty("--logo-filter", logoFilterFor(p.accent));
+  // Text on an accent-filled surface (primary button): dark on light accents (greys, silver), white otherwise.
+  const [ar, ag, ab] = hexToRgb(p.accent);
+  root.setProperty("--on-accent", 0.2126 * ar + 0.7152 * ag + 0.0722 * ab > 0.55 ? "#111111" : "#ffffff");
 
   // Plain themes swap the base colours too; every other theme goes back to the defaults.
   for (const name of ALL_PLAIN_TOKEN_NAMES) root.removeProperty(name);
