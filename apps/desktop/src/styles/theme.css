@@ -5090,3 +5090,17 @@ body .sidebar__item.is-focused::after {
 body .sidebar__item.is-focused .sidebar__icon {
   background: rgba(0, 0, 0, 0.12);
 }
+
+/* The films / series / cartoons pages: the section's name next to the menu button. */
+.home__chrome-left {
+  display: flex;
+  align-items: center;
+  gap: calc(14 * var(--u));
+}
+
+.home__section {
+  font-size: calc(22 * var(--u));
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px calc(10 * var(--u)) rgba(0, 0, 0, 0.5);
+}

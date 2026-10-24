@@ -12,6 +12,7 @@ import { useTv } from "../store/tv";
 import type { Channel } from "@kinonyx/epg";
 import { kpCollection, kpSimilars, KP_COLLECTIONS, type KpCollectionItem } from "../data/api";
 import { HeroCarousel } from "../components/HeroCarousel";
+import { useHomeFeel } from "../components/useHomeFeel";
 import { LazyShelf } from "../components/LazyShelf";
 import { RowScroll } from "../components/RowScroll";
 import { MovieCard } from "../components/MovieCard";
@@ -157,29 +158,7 @@ export function HomeScreen() {
   const [wtwOpen, setWtwOpen] = useState(false);
   const toggleSidebar = useApp((s) => s.toggleSidebar);
 
-  // Scrolling down: the banner drifts up slower than the page, the sheet under the shelves fades in
-  // and the chip at the top fades out — the Apple TV home's move from the banner to the rows.
-  useEffect(() => {
-    const body = document.querySelector<HTMLElement>(".app-body");
-    const page = document.querySelector<HTMLElement>(".home--tv");
-    if (!body || !page) return;
-    let frame = 0;
-    const update = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const y = body.scrollTop;
-        const h = body.clientHeight || 1;
-        page.style.setProperty("--sheet", String(Math.min(1, Math.max(0, (y - h * 0.03) / (h * 0.2)))));
-        page.style.setProperty("--parallax", `${Math.round(y * 0.4)}px`);
-      });
-    };
-    update();
-    body.addEventListener("scroll", update, { passive: true });
-    return () => {
-      body.removeEventListener("scroll", update);
-      cancelAnimationFrame(frame);
-    };
-  }, [hero]);
+  useHomeFeel(hero);
   const seeds = favorites
     .filter((f) => (f.source ?? "kinopoisk") === metadataSource)
     .slice(0, SIMILAR_SEEDS)
@@ -218,20 +197,6 @@ export function HomeScreen() {
     if (current.id !== saved.id) useChannelFavorites.getState().relink(playlistId, saved.id, current);
     navigate({ name: "tv-player", channelId: current.id });
   };
-
-  // Up from the first shelf goes to the banner's buttons (the nearest-neighbour search would pick a
-  // round button in the corner, off screen while the rows are up), and the page scrolls back to the top.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "ArrowUp" || document.querySelector(".modal, [role=dialog]")) return;
-      if (!document.querySelector(".home__rows > :first-child .is-focused")) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      setFocusSafe("hero:details");
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, []);
 
   return (
     <FocusGroup focusKey="home" className="screen-pad home home--tv">
