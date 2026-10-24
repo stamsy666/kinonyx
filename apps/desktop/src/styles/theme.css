@@ -5500,3 +5500,107 @@ body .sidebar__item.is-focused .sidebar__icon {
 .sx .cats__tile {
   aspect-ratio: 4 / 3;
 }
+
+/* ---------- Settings, after the tvOS settings page: a big picture and a few words on the left, the list of
+   sections (or the open section's cards) on the right ---------- */
+.settings--tv {
+  max-width: none;
+  margin: 0;
+}
+
+.stx {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: calc(70 * var(--u));
+  padding: calc(120 * var(--u)) 0 calc(40 * var(--u));
+  align-items: start;
+}
+
+.stx__stage {
+  position: sticky;
+  top: calc(120 * var(--u));
+  display: grid;
+  justify-items: center;
+  gap: calc(34 * var(--u));
+  padding-top: calc(40 * var(--u));
+}
+
+.stx__art {
+  color: rgba(240, 240, 244, 0.92);
+  animation: fade-in 260ms var(--ease) both;
+}
+
+.stx__art svg {
+  width: calc(300 * var(--u));
+  height: calc(300 * var(--u));
+}
+
+.stx__desc {
+  margin: 0;
+  max-width: calc(440 * var(--u));
+  text-align: center;
+  font-size: calc(19 * var(--u));
+  font-weight: 700;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.stx__group + .stx__group {
+  margin-top: calc(34 * var(--u));
+}
+
+.stx__heading {
+  margin: 0 0 calc(12 * var(--u)) calc(20 * var(--u));
+  font-size: calc(15 * var(--u));
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.stx__row {
+  display: flex;
+  align-items: center;
+  gap: calc(16 * var(--u));
+  width: 100%;
+  height: calc(62 * var(--u));
+  margin-bottom: calc(10 * var(--u));
+  padding: 0 calc(24 * var(--u));
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: calc(19 * var(--u));
+  font-weight: 700;
+  text-align: left;
+  transition:
+    background-color 160ms var(--ease),
+    color 160ms var(--ease);
+}
+
+.stx__row-icon {
+  display: grid;
+  place-items: center;
+  opacity: 0.85;
+}
+
+.stx__row-label {
+  flex: 1;
+}
+
+.home--tv .stx__row.is-focused {
+  background: rgba(244, 244, 247, 0.95);
+  color: #1d1d20;
+  box-shadow:
+    0 0 0 calc(3 * var(--u)) rgba(255, 255, 255, 0.95),
+    inset 0 0 0 calc(2 * var(--u)) rgba(0, 0, 0, 0.18);
+}
+
+.home--tv .stx__row.is-focused::after {
+  content: none;
+}
+
+/* An open section: its settings as soft cards in the same column. */
+.settings--tv .settings-pane .settings__item {
+  border-radius: calc(26 * var(--u));
+  background: rgba(255, 255, 255, 0.1);
+  border: 0;
+}

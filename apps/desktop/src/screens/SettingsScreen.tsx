@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { getCurrentFocusKey, setFocus } from "@noriginmedia/norigin-spatial-navigation";
-import { BackIcon, Focusable, FocusGroup } from "@kinonyx/ui";
+import { doesFocusableExist, setFocus } from "@noriginmedia/norigin-spatial-navigation";
+import { Focusable, FocusGroup, NextIcon, onBack } from "@kinonyx/ui";
+import { HomeChrome } from "../components/HomeChrome";
 import { useApp } from "../store/app";
 import {
   configStatus,
@@ -20,7 +21,6 @@ import { applyThemeKit, SOUND_CATEGORIES, SOUND_CATEGORY_LABELS } from "../data/
 import { SoundCategoryRow } from "../components/SoundCategoryRow";
 import { SoundKitRow } from "../components/SoundKitRow";
 import { MUSIC_CREDITS } from "../data/music";
-import { FullscreenButton } from "../components/FullscreenButton";
 import { VolumeRow } from "../components/VolumeRow";
 import { TranslatorSettings } from "../components/TranslatorSettings";
 import { FocusHighlight } from "../components/FocusHighlight";
@@ -117,19 +117,25 @@ const TMDB_KEY_URL = "https://www.themoviedb.org/settings/api";
 
 type TabKey = "sources" | "player" | "channels" | "look" | "sound" | "remote" | "stats" | "about";
 
-const TABS: { key: TabKey; label: string; icon: ReactNode }[] = [
-  { key: "sources", label: "Источники", icon: <SourcesIcon size={20} /> },
-  { key: "player", label: "Плеер", icon: <PlayerSettingsIcon size={20} /> },
-  { key: "channels", label: "Каналы", icon: <ChannelsIcon size={20} /> },
-  { key: "look", label: "Оформление", icon: <ThemeIcon size={20} /> },
-  { key: "sound", label: "Звук", icon: <VolumeIcon size={20} /> },
-  { key: "remote", label: "Пульт", icon: <PhoneIcon size={20} /> },
-  { key: "stats", label: "Статистика", icon: <StatsIcon size={20} /> },
-  { key: "about", label: "О программе", icon: <AboutIcon size={20} /> },
+const BIG = { size: 300, strokeWidth: 1 } as const;
+const TABS: { key: TabKey; label: string; desc: string; icon: ReactNode; bigIcon: ReactNode }[] = [
+  { key: "sources", label: "Источники", desc: "Ключи Кинопоиска и TMDB, адрес TorAPI и откуда брать каталог.", icon: <SourcesIcon size={22} />, bigIcon: <SourcesIcon {...BIG} /> },
+  { key: "player", label: "Плеер", desc: "Затемнение, кнопки, субтитры, звук и картинка при просмотре.", icon: <PlayerSettingsIcon size={22} />, bigIcon: <PlayerSettingsIcon {...BIG} /> },
+  { key: "channels", label: "Каналы", desc: "Программа передач и локальный перевод эфира.", icon: <ChannelsIcon size={22} />, bigIcon: <ChannelsIcon {...BIG} /> },
+  { key: "look", label: "Оформление", desc: "Тема, масштаб программы и эффекты.", icon: <ThemeIcon size={22} />, bigIcon: <ThemeIcon {...BIG} /> },
+  { key: "sound", label: "Звук", desc: "Звуки интерфейса, их громкость и фоновая музыка.", icon: <VolumeIcon size={22} />, bigIcon: <VolumeIcon {...BIG} /> },
+  { key: "remote", label: "Пульт", desc: "Управление приложением с телефона по QR-коду.", icon: <PhoneIcon size={22} />, bigIcon: <PhoneIcon {...BIG} /> },
+  { key: "stats", label: "Статистика", desc: "Сколько и что вы смотрели.", icon: <StatsIcon size={22} />, bigIcon: <StatsIcon {...BIG} /> },
+  { key: "about", label: "О программе", desc: "Обновления, диагностика, Discord и авторы.", icon: <AboutIcon size={22} />, bigIcon: <AboutIcon {...BIG} /> },
+];
+
+const GROUPS: { title: string; keys: TabKey[] }[] = [
+  { title: "ОСНОВНЫЕ", keys: ["sources", "player", "channels"] },
+  { title: "ВНЕШНИЙ ВИД И ЗВУК", keys: ["look", "sound"] },
+  { title: "ПРИЛОЖЕНИЕ", keys: ["remote", "stats", "about"] },
 ];
 
 export function SettingsScreen() {
-  const back = useApp((s) => s.back);
   const navigate = useApp((s) => s.navigate);
   const showStats = useApp((s) => s.showStreamStats);
   const setShowStats = useApp((s) => s.setShowStreamStats);
@@ -168,36 +174,35 @@ export function SettingsScreen() {
   // No section is open at first: moving over the list only highlights, pressing (Enter / click)
   // opens one — until then the right side just says to pick a category.
   const [tab, setTab] = useState<TabKey | null>(null);
+  // The big picture on the left follows the row you are on (or the open section).
+  const [hovered, setHovered] = useState<TabKey | null>(null);
+  const stageTab = tab ?? hovered;
+  const stageKey = stageTab ?? "gear";
+  const lastTab = useRef<TabKey>("sources");
   const selectTab = (key: TabKey) => {
+    lastTab.current = key;
     setTab(key);
     // A new section starts at its top, whatever the previous one's scroll position was.
     resetScroll();
   };
 
-  // An arrow press that lands on the list from outside (Left from the cards, Down from the
-  // header) goes to the OPEN section rather than whichever tab is geometrically nearest.
-  // Remember where an arrow press started (capture phase = before the navigation library moves
-  // anything). Moves inside the list and mouse hover just highlight, as usual.
-  const arrow = useRef<{ from: string | null; at: number }>({ from: null, at: 0 });
-  const tabRef = useRef(tab);
-  tabRef.current = tab;
+  // Back from an open section returns to the list of sections (and to the row it was opened from).
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key.startsWith("Arrow")) arrow.current = { from: getCurrentFocusKey(), at: Date.now() };
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, []);
-  const onTabFocus = (key: TabKey) => {
-    const { from, at } = arrow.current;
-    arrow.current = { from: null, at: 0 };
-    const open = tabRef.current;
-    const cameFromOutside = from !== null && Date.now() - at < 300 && !from.startsWith("settings:tab:");
-    if (cameFromOutside && open && key !== open) {
-      arrow.current = { from: `settings:tab:${open}`, at: Date.now() };
-      setFocus(`settings:tab:${open}`);
+    if (tab === null) {
+      requestAnimationFrame(() => {
+        if (doesFocusableExist(`settings:tab:${lastTab.current}`)) setFocus(`settings:tab:${lastTab.current}`);
+      });
+      return;
     }
-  };
+    requestAnimationFrame(() => {
+      const first = document.querySelector<HTMLElement>(".settings-pane [data-fk]");
+      if (first?.dataset.fk) setFocus(first.dataset.fk);
+    });
+    return onBack(() => {
+      setTab(null);
+      return true;
+    });
+  }, [tab]);
 
   const [status, setStatus] = useState<ConfigStatus | null>(null);
   const [torapi, setTorapi] = useState("");
@@ -266,49 +271,46 @@ export function SettingsScreen() {
   };
 
   return (
-    <FocusGroup focusKey="settings" className="settings screen-pad">
-      <header className="settings__head">
-        <Focusable back
-          as="button"
-          className="back-btn"
-          focusKey="settings:back"
-          onPress={() => back() || navigate({ name: "home" })}
-          scrollBlock="start"
-        >
-          <BackIcon size={18} />
-          Назад
-        </Focusable>
-        <h1 className="settings__title">Настройки</h1>
-        <FullscreenButton focusKey="settings:fullscreen" />
-      </header>
+    <FocusGroup focusKey="settings" className="settings screen-pad home home--tv home--nohero settings--tv">
+      <HomeChrome id="settings" label="Настройки" hideSearch />
 
-      <div className="settings__layout">
-        <nav className="settings-nav" aria-label="Разделы настроек">
-          <FocusHighlight pad={4} radius={16} />
-          {TABS.map((t) => (
-            <Focusable
-              as="button"
-              key={t.key}
-              focusKey={`settings:tab:${t.key}`}
-              autoFocus={t.key === TABS[0].key}
-              scroll={false}
-              className={`settings-nav__item ${tab === t.key ? "is-active" : ""}`}
-              onFocus={() => onTabFocus(t.key)}
-              onPress={() => selectTab(t.key)}
-            >
-              {t.icon}
-              {t.label}
-            </Focusable>
-          ))}
-        </nav>
-        <div className="settings-pane" key={tab ?? "none"}>
-        {tab === null && (
-          <div className="settings-empty">
-            <GearIcon size={44} />
-            <p>Выберите категорию</p>
-            <span>Нажмите на раздел слева, чтобы увидеть его настройки.</span>
+      <div className="stx">
+        <div className="stx__stage">
+          <div className="stx__art" key={stageKey}>
+            {stageTab ? TABS.find((t) => t.key === stageTab)!.bigIcon : <GearIcon size={300} strokeWidth={1} />}
           </div>
+          <p className="stx__desc">{stageTab ? TABS.find((t) => t.key === stageTab)!.desc : "Источники, плеер, оформление и звук."}</p>
+        </div>
+
+        <div className="stx__list">
+        {tab === null && (
+          <nav aria-label="Разделы настроек">
+            {GROUPS.map((g) => (
+              <div className="stx__group" key={g.title}>
+                <div className="stx__heading">{g.title}</div>
+                {g.keys.map((k) => {
+                  const t = TABS.find((x) => x.key === k)!;
+                  return (
+                    <Focusable
+                      as="button"
+                      key={t.key}
+                      focusKey={`settings:tab:${t.key}`}
+                      autoFocus={t.key === TABS[0].key}
+                      className="stx__row"
+                      onFocus={() => setHovered(t.key)}
+                      onPress={() => selectTab(t.key)}
+                    >
+                      <span className="stx__row-icon">{t.icon}</span>
+                      <span className="stx__row-label">{t.label}</span>
+                      <NextIcon size={22} />
+                    </Focusable>
+                  );
+                })}
+              </div>
+            ))}
+          </nav>
         )}
+        <div className="settings-pane" key={tab ?? "none"}>
         {tab === "sources" && (
           <>
             <section className="settings__item">
@@ -954,6 +956,7 @@ export function SettingsScreen() {
             </footer>
           </>
         )}
+        </div>
         </div>
       </div>
 
