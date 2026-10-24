@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Focusable } from "@kinonyx/ui";
+import { cancelGlides, Focusable } from "@kinonyx/ui";
 import { SearchLensIcon } from "./AnimatedIcons";
 import { FullscreenButton } from "./FullscreenButton";
 import { useApp } from "../store/app";
@@ -21,7 +21,11 @@ export function HomeChrome({ id, label, extra, hideSearch }: { id: string; label
           className="home-round"
           focusKey="home:menu"
           scroll={false}
-          onFocus={() => document.querySelector(".app-body")?.scrollTo({ top: 0, behavior: "smooth" })}
+          onFocus={() => {
+            // A glide still following the last card would pull the page back down.
+            cancelGlides();
+            document.querySelector(".app-body")?.scrollTo({ top: 0, behavior: "smooth" });
+          }}
           onPress={toggleSidebar}
         >
           <svg className="menu-icon" width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
