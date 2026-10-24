@@ -4698,7 +4698,7 @@ body:not(.mpv-active) .mini-player {
 
 .home--tv .movie-card.is-focused .movie-card__poster {
   transform: scale(1.1);
-  box-shadow: 0 calc(30 * var(--u)) calc(50 * var(--u)) calc(-16 * var(--u)) rgba(0, 0, 0, 0.7);
+  box-shadow: none;
 }
 
 .home--tv .movie-card.is-focused .movie-card__poster::after {
@@ -4836,7 +4836,7 @@ body:not(.mpv-active) .mini-player {
 
 .feature-card.is-focused {
   transform: scale(1.045);
-  box-shadow: 0 calc(34 * var(--u)) calc(60 * var(--u)) calc(-20 * var(--u)) rgba(0, 0, 0, 0.75);
+  box-shadow: none;
 }
 
 .home--tv .feature-card.is-focused::after,
@@ -4915,7 +4915,7 @@ body:not(.mpv-active) .mini-player {
 
 .home-banner.is-focused {
   transform: scale(1.015);
-  box-shadow: 0 calc(34 * var(--u)) calc(60 * var(--u)) calc(-20 * var(--u)) rgba(0, 0, 0, 0.75);
+  box-shadow: none;
 }
 
 .home--tv .shelf--under-banner {
@@ -4977,7 +4977,7 @@ body:not(.mpv-active) .mini-player {
 
 .home--tv .row-scroll__track .channel-tile.is-focused {
   transform: scale(1.1);
-  box-shadow: 0 calc(30 * var(--u)) calc(50 * var(--u)) calc(-16 * var(--u)) rgba(0, 0, 0, 0.7);
+  box-shadow: none;
 }
 
 .home--tv .row-scroll__track .channel-tile.is-focused::after {
