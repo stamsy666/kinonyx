@@ -6989,3 +6989,57 @@ body .sidebar__item.is-focused .sidebar__icon {
 .settings--tv .settings-pane .cycle-row.is-over {
   background: rgba(255, 255, 255, 0.28);
 }
+/* the link field sits apart from the row under it; the drop zone in the page's look: a dashed rounded box that
+   fills with light when chosen, and brightens while a file is over the window */
+.settings--tv .settings-pane .field + .cycle-row {
+  margin-top: calc(10 * var(--u));
+}
+
+.settings--tv .settings-pane .dropzone-wrap {
+  margin-top: calc(6 * var(--u));
+}
+
+.settings--tv .settings-pane .dropzone {
+  gap: calc(8 * var(--u));
+  padding: calc(34 * var(--u)) calc(24 * var(--u));
+  border: calc(2 * var(--u)) dashed rgba(255, 255, 255, 0.4);
+  border-radius: calc(30 * var(--u));
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.settings--tv .settings-pane .dropzone__title {
+  font-size: calc(18 * var(--u));
+  font-weight: 700;
+  color: inherit;
+}
+
+.settings--tv .settings-pane .dropzone__hint {
+  font-size: calc(14 * var(--u));
+  font-weight: 600;
+  color: inherit;
+  opacity: 0.65;
+}
+
+.settings--tv .settings-pane .dropzone__icon {
+  width: calc(40 * var(--u));
+  height: calc(40 * var(--u));
+}
+
+.home--tv.settings--tv .settings-pane .dropzone.is-focused {
+  background: rgba(244, 244, 247, 0.95);
+  color: #1d1d20;
+  border-color: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 calc(3 * var(--u)) rgba(255, 255, 255, 0.95);
+}
+
+.home--tv.settings--tv .settings-pane .dropzone.is-over {
+  transform: scale(1.02);
+  background: rgba(255, 255, 255, 0.24);
+  border-color: #fff;
+  color: #fff;
+}
+
+.home--tv.settings--tv .settings-pane .dropzone.is-over .dropzone__icon {
+  color: #fff;
+}

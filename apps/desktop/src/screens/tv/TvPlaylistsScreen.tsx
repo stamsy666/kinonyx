@@ -64,7 +64,6 @@ export function TvPlaylistsScreen() {
                 <NextIcon size={20} />
               </Focusable>
               <FileDropZone
-                row
                 focusKey="pl:file"
                 hint="M3U · M3U8 · TXT"
                 extensions={["m3u", "m3u8", "txt"]}
