@@ -7275,3 +7275,11 @@ body .sidebar__item.is-focused .sidebar__icon {
 .home--tv.ctv .ch-empty__hint {
   color: rgba(255, 255, 255, 0.7);
 }
+/* the search field in focus: the hint and the lens read dark on the light pill */
+.home--tv .ctv__search .field.is-focused input::placeholder {
+  color: rgba(29, 29, 32, 0.55);
+}
+
+.home--tv .ctv__search .field.is-focused svg {
+  color: #1d1d20;
+}

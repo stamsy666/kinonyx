@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type R
 import { cleanGroupName } from "../data/groupName";
 import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { isWithinCatchupWindow, type Channel, type NowNext, type Programme } from "@kinonyx/epg";
-import { Focusable, onBack } from "@kinonyx/ui";
+import { Focusable, FocusGroup, onBack } from "@kinonyx/ui";
 
 // Keep in sync with --cover-s / --cover-gap in tv.css: the strip is positioned by arithmetic
 // (the focused cover is wider than the rest, so measuring would chase a moving target).
@@ -287,7 +287,7 @@ export function ChannelCarousel({
   };
 
   return (
-    <div className="ch-carousel">
+    <FocusGroup focusKey="ch:carousel" className="ch-carousel" preferredChildFocusKey={coverKey}>
       <div className="ch-carousel__stage">
         {/* The fixed frame: it never moves, the covers slide into it. */}
         <div className="ch-frame" aria-hidden="true" />
@@ -354,6 +354,6 @@ export function ChannelCarousel({
           </div>
         </Focusable>
       )}
-    </div>
+    </FocusGroup>
   );
 }
