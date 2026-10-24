@@ -5161,9 +5161,9 @@ body .sidebar__item.is-focused .sidebar__icon {
 
 /* The favourites grid in the home page's unit. */
 .home--tv .grid-cards {
-  /* Cards of one size (the unit), the same gap at any window size: only the number per row changes. */
-  grid-template-columns: repeat(auto-fill, calc(230 * var(--u)));
-  justify-content: start;
+  /* The gap is fixed by the unit; the number of cards per row follows the width, and the cards share
+     the row evenly (about the size of the shelves' posters) so no empty strip is left at the right. */
+  grid-template-columns: repeat(auto-fill, minmax(calc(200 * var(--u)), 1fr));
   gap: calc(44 * var(--u)) calc(22 * var(--u));
   margin-top: 0;
 }
@@ -5175,5 +5175,5 @@ body .sidebar__item.is-focused .sidebar__icon {
 
 .home--tv .grid-cards .movie-card,
 .home--tv .grid-cards .movie-card__poster {
-  width: calc(230 * var(--u));
+  width: 100%;
 }
