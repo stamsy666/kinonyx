@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { FullscreenButton } from "../components/FullscreenButton";
 import { WhatToWatchModal } from "../components/WhatToWatchModal";
 import { PopcornIcon } from "../components/AnimatedIcons";
-import { CategoriesIcon, Focusable, FocusGroup, SearchIcon, Spinner } from "@kinonyx/ui";
+import { Focusable, FocusGroup, SearchIcon, Spinner } from "@kinonyx/ui";
 import { useApp } from "../store/app";
 import { useFavorites } from "../store/favorites";
 import { useChannelFavorites } from "../store/channelFavorites";
@@ -353,24 +353,6 @@ export function HomeScreen() {
             onOpen={open}
           />
         ))}
-        {/* The page's last word: nothing left to scroll to, so a few ways on. */}
-        <div className="home-end">
-          <h2 className="home-end__title">Не нашли, что посмотреть?</h2>
-          <div className="home-end__row">
-            <Focusable as="button" className="home-end__btn" focusKey="home:end-wtw" onPress={() => setWtwOpen(true)}>
-              <PopcornIcon />
-              Что посмотреть
-            </Focusable>
-            <Focusable as="button" className="home-end__btn" focusKey="home:end-search" onPress={() => navigate({ name: "search" })}>
-              <SearchIcon size={22} />
-              Поиск
-            </Focusable>
-            <Focusable as="button" className="home-end__btn" focusKey="home:end-cats" onPress={() => navigate({ name: "categories-hub" })}>
-              <CategoriesIcon size={22} />
-              Категории
-            </Focusable>
-          </div>
-        </div>
         </div>
       )}
       {wtwOpen && (
