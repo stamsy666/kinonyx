@@ -7524,3 +7524,9 @@ body .sidebar__item.is-focused .sidebar__icon {
 .spinner {
   --dot: #fff;
 }
+
+/* A film in the favourites: its heart is red (also while the button is chosen and filled with light). */
+.home--tv .hero__btn.is-on,
+.home--tv .hero__btn.is-on.is-focused {
+  color: #ff3b57;
+}
