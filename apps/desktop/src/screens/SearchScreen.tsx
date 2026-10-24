@@ -41,6 +41,10 @@ export function SearchScreen() {
   // The right side is its own focus group: while the focus is in it the keyboard slides out of the way.
   const side = useFocusable<HTMLDivElement>({ focusKey: "search:side", trackChildren: true, saveLastFocusedChild: true });
   const wide = side.hasFocusedChild;
+  // The keyboard never scrolls the page: back on it, the page returns to the top.
+  useEffect(() => {
+    if (!wide) document.querySelector(".app-body")?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [wide]);
   const kbd = useFocusable<HTMLDivElement>({ focusKey: "search:kbd", trackChildren: true, saveLastFocusedChild: true });
 
   // Right off the keyboard's last column goes to the right side, Left off the side's first column comes back to the
@@ -191,34 +195,34 @@ export function SearchScreen() {
               <Focusable
                 as="button"
                 className="sx__mode sx__mode--globe"
-                focusKey="search:lang"
+                focusKey="search:lang" scroll={false}
                 autoFocus
                 onPress={() => setMode((m) => (m === "ru" ? "en" : "ru"))}
               >
                 <GlobeIcon size={26} />
               </Focusable>
-              <Focusable as="button" className={`sx__mode ${mode !== "sym" ? "is-active" : ""}`} focusKey="search:letters" onPress={() => setMode((m) => (m === "sym" ? "ru" : m))}>
+              <Focusable as="button" className={`sx__mode ${mode !== "sym" ? "is-active" : ""}`} focusKey="search:letters" scroll={false} onPress={() => setMode((m) => (m === "sym" ? "ru" : m))}>
                 {MODE_LABEL[mode === "sym" ? "ru" : mode]}
               </Focusable>
-              <Focusable as="button" className={`sx__mode ${mode === "sym" ? "is-active" : ""}`} focusKey="search:symbols" onPress={() => setMode("sym")}>
+              <Focusable as="button" className={`sx__mode ${mode === "sym" ? "is-active" : ""}`} focusKey="search:symbols" scroll={false} onPress={() => setMode("sym")}>
                 123
               </Focusable>
             </div>
             <div className="sx__keys">
               {KEYS[mode].map((k, i) => (
-                <Focusable key={`${mode}:${k}`} as="button" className="sx__key" focusKey={`search:key:${i}`} mute onPress={() => type(k)}>
+                <Focusable key={`${mode}:${k}`} as="button" className="sx__key" focusKey={`search:key:${i}`} scroll={false} mute onPress={() => type(k)}>
                   {k}
                 </Focusable>
               ))}
             </div>
             <div className="sx__actions">
-              <Focusable as="button" className="sx__action" focusKey="search:space" mute onPress={() => type(" ")}>
+              <Focusable as="button" className="sx__action" focusKey="search:space" scroll={false} mute onPress={() => type(" ")}>
                 ПРОБЕЛ
               </Focusable>
               <Focusable
                 as="button"
                 className="sx__action sx__action--icon"
-                focusKey="search:erase"
+                focusKey="search:erase" scroll={false}
                 mute
                 onPress={() => {
                   playCategorySound("typing");
@@ -230,7 +234,7 @@ export function SearchScreen() {
                   <path d="M16 8l8 8M24 8l-8 8" />
                 </svg>
               </Focusable>
-              <Focusable as="button" className="sx__action" focusKey="search:clear" onPress={() => setQuery("")}>
+              <Focusable as="button" className="sx__action" focusKey="search:clear" scroll={false} onPress={() => setQuery("")}>
                 ОЧИСТИТЬ
               </Focusable>
             </div>
