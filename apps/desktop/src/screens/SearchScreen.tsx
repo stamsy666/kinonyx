@@ -35,6 +35,9 @@ export function SearchScreen() {
   // Enter is usually pressed the instant typing stops — well before the debounce even starts the request.
   // This waits for results and focuses the first one once they're actually there.
   const wantsResultFocus = useRef(false);
+  // Whether the letters came from a real keyboard. Only then does Enter mean "show me the first result": with a
+  // remote Enter is the OK button, and pressing it on an on-screen key must just type that letter.
+  const typedOnKeyboard = useRef(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
   const history = useSearchHistory((s) => s.items);
   useHomeFeel(null);
@@ -136,17 +139,20 @@ export function SearchScreen() {
     const onKey = (e: KeyboardEvent) => {
       if (document.querySelector(".modal, [role=dialog]")) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key.startsWith("Arrow")) typedOnKeyboard.current = false; // moving about with the remote
       if (e.key === "Backspace" && queryRef.current) {
+        typedOnKeyboard.current = true;
         e.preventDefault();
         e.stopImmediatePropagation();
         playCategorySound("typing");
         setQuery((q) => q.slice(0, -1));
       } else if (e.key.length === 1) {
+        typedOnKeyboard.current = true;
         e.preventDefault();
         e.stopImmediatePropagation();
         playCategorySound("typing");
         setQuery((q) => q + e.key);
-      } else if (e.key === "Enter" && queryRef.current.trim()) {
+      } else if (e.key === "Enter" && typedOnKeyboard.current && queryRef.current.trim()) {
         useSearchHistory.getState().add(queryRef.current);
         wantsResultFocus.current = true;
         setResults((r) => (r ? [...r] : r)); // re-run the "focus the first result" effect if results are already in
@@ -157,6 +163,7 @@ export function SearchScreen() {
   }, []);
 
   const type = (ch: string) => {
+    typedOnKeyboard.current = false;
     playCategorySound("typing");
     setQuery((q) => q + ch);
   };

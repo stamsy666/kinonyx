@@ -3,6 +3,29 @@ import { useEffect, useRef, type ReactNode, type CSSProperties } from "react";
 import { cancelGlides, glideIntoView } from "./glide";
 import { emitBackSound, emitMoveSound, emitPressSound, type NavSoundGroup } from "./soundBus";
 
+/**
+ * When the viewer's hand last really moved the mouse (or turned the wheel, or pressed). A mouse that lies still
+ * over a spot where something new appears (results arriving while a letter is typed, a row being rebuilt) makes
+ * the browser report "entered" for it all the same — and the focus must not jump there then.
+ */
+let lastRealPointer = 0;
+if (typeof window !== "undefined") {
+  const touch = () => {
+    lastRealPointer = performance.now();
+  };
+  window.addEventListener(
+    "pointermove",
+    (e) => {
+      if (e.movementX !== 0 || e.movementY !== 0 || e.pointerType !== "mouse") touch();
+    },
+    { passive: true, capture: true },
+  );
+  window.addEventListener("wheel", touch, { passive: true, capture: true });
+  window.addEventListener("pointerdown", touch, { passive: true, capture: true });
+}
+/** A "mouse entered" this long after the last real movement is not the viewer's doing. */
+const HOVER_WINDOW_MS = 160;
+
 interface FocusableProps extends Omit<UseFocusableConfig, "extraProps"> {
   className?: string;
   style?: CSSProperties;
@@ -103,7 +126,14 @@ export function Focusable({
       data-fk={focusKey}
       className={`focusable ${focused ? "is-focused" : ""} ${className}`}
       style={style}
-      onMouseEnter={hoverFocus ? () => focusSelf({ byMouse: true }) : undefined}
+      onMouseEnter={
+        hoverFocus
+          ? () => {
+              if (performance.now() - lastRealPointer > HOVER_WINDOW_MS) return;
+              focusSelf({ byMouse: true });
+            }
+          : undefined
+      }
       onClick={(e: React.MouseEvent) => {
         e.stopPropagation();
         if (!focused) suppressNextMoveSound.current = true;
