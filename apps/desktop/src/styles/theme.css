@@ -5422,15 +5422,11 @@ body .sidebar__item.is-focused .sidebar__icon {
     color 160ms var(--ease);
 }
 
+/* No enlarging on focus here: the keys touch each other, and a grown key covers its neighbour in the
+   spatial-navigation measuring, so Right skipped a letter. A light pill is the whole highlight. */
 .home--tv .sx__key.is-focused,
-.home--tv .sx__action.is-focused {
-  transform: scale(1.16);
-  background: rgba(255, 255, 255, 0.94);
-  color: #111;
-}
-
+.home--tv .sx__action.is-focused,
 .home--tv .sx__mode.is-focused {
-  transform: scale(1.06);
   background: rgba(255, 255, 255, 0.94);
   color: #111;
 }
