@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { BackIcon, FocusGroup, NextIcon } from "@kinonyx/ui";
 import { FocusHighlight } from "./FocusHighlight";
 
@@ -17,6 +18,25 @@ interface Props {
 
 // The part of a card the arrows should sit on — not the caption underneath it.
 const MEDIA = ".movie-card__poster, .actor-card__avatar, .still-card";
+
+/**
+ * Down from a shelf enters the next shelf on its FIRST card (not on whichever column is nearest);
+ * Up back into a shelf lands on the card it was left from (the group remembers its last child).
+ * One listener for all shelves, installed while any is on the screen.
+ */
+let shelves = 0;
+function onShelfKey(e: KeyboardEvent) {
+  if (e.key !== "ArrowDown" || document.querySelector(".modal, [role=dialog]")) return;
+  const group = document.querySelector<HTMLElement>(".row-scroll__group .is-focused")?.closest<HTMLElement>(".row-scroll__group");
+  if (!group) return;
+  const all = [...document.querySelectorAll<HTMLElement>(".row-scroll__group")];
+  const next = all[all.indexOf(group) + 1];
+  const first = next?.querySelector<HTMLElement>("[data-fk]");
+  if (!next || !first || next.getBoundingClientRect().top <= group.getBoundingClientRect().top) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  setFocus(first.dataset.fk!);
+}
 
 /**
  * Horizontal shelf with ← / → overlaid on the pictures at either edge (mouse targets;
@@ -41,6 +61,13 @@ export function RowScroll({ label, children, count, perView, className = "", hea
       const m = media.getBoundingClientRect();
       setArrowTop(m.top - row.top + m.height / 2);
     }
+  }, []);
+
+  useEffect(() => {
+    if (shelves++ === 0) window.addEventListener("keydown", onShelfKey, true);
+    return () => {
+      if (--shelves === 0) window.removeEventListener("keydown", onShelfKey, true);
+    };
   }, []);
 
   useEffect(() => {

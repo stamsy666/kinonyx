@@ -49,7 +49,7 @@ export function Focusable({
   // the scheduler actually gets to it), so only the click's own sound plays.
   const suppressNextMoveSound = useRef(false);
 
-  const { ref, focused, focusSelf } = useFocusable<HTMLElement>({
+  const { ref, focused, focusSelf, focusKey } = useFocusable<HTMLElement>({
     ...config,
     onEnterPress: (props, details) => {
       onEnterPress?.(props, details);
@@ -104,6 +104,7 @@ export function Focusable({
   return (
     <Tag
       ref={ref as never}
+      data-fk={focusKey}
       className={`focusable ${focused ? "is-focused" : ""} ${className}`}
       style={style}
       onMouseEnter={hoverFocus ? () => focusSelf({ byMouse: true }) : undefined}
