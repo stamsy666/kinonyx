@@ -5,7 +5,15 @@ import { kpFilmsFilter, type KpCollectionItem, type KpFilter } from "../data/api
 import { HomeChrome } from "../components/HomeChrome";
 import { useHomeFeel } from "../components/useHomeFeel";
 import { MovieCard } from "../components/MovieCard";
+import { LazyShelf } from "../components/LazyShelf";
 import { FocusHighlight } from "../components/FocusHighlight";
+
+const thisYear = new Date().getFullYear();
+const SHELVES: { title: string; text: string; variant: "posters" | "feature" | "banner"; filter: Partial<KpFilter> }[] = [
+  { title: "Самое популярное", text: "Что чаще всего смотрят в этом жанре.", variant: "posters", filter: { order: "NUM_VOTE" } },
+  { title: "Лучшее по рейтингу", text: "Самые высокие оценки зрителей.", variant: "feature", filter: { order: "RATING", ratingFrom: 7 } },
+  { title: "Новинки", text: "Свежие фильмы жанра.", variant: "banner", filter: { order: "NUM_VOTE", yearFrom: thisYear - 1 } },
+];
 
 /** Full poster grid for one genre, opened from CategoriesScreen — paginated the same way
  *  as the LazyShelf placeholder fix: a trailing focusable tile gives keyboard/remote users
@@ -71,6 +79,24 @@ export function GenreScreen({ title, filter }: { title: string; filter: KpFilter
     <FocusGroup focusKey="genre" className="screen-pad home home--tv home--nohero">
       <HomeChrome id="genre" label={title} />
       <div className="home__rows">
+        {/* What is worth a look in this genre, in the home page's looks — then everything of it below. */}
+        {SHELVES.map((s, i) => (
+          <LazyShelf
+            key={s.title}
+            title={s.title}
+            text={s.text}
+            load={() => kpFilmsFilter({ ...filter, ...s.filter }).then((r) => (r.items ?? []).filter((f) => f.posterUrlPreview))}
+            focusPrefix={`genre-shelf${i}`}
+            ranked={i === 0}
+            limit={i === 0 ? 10 : undefined}
+            variant={s.variant}
+            autoFocusFirst={i === 0}
+            onOpen={open}
+          />
+        ))}
+        <div className="shelf__head genre__all">
+          <h2 className="shelf__title">Все</h2>
+        </div>
         {films.length === 0 && loading && (
           // Focusable (not a plain div): without it nothing is focused while the first
           // page is loading, so the initial remote/keyboard press lands on nothing.
@@ -83,7 +109,7 @@ export function GenreScreen({ title, filter }: { title: string; filter: KpFilter
           <div className="grid-cards">
             <FocusHighlight />
             {films.map((film, i) => (
-              <MovieCard key={`${film.kinopoiskId}-${i}`} film={film} focusKey={`genre:${i}`} autoFocus={i === 0} onPress={() => open(film)} />
+              <MovieCard key={`${film.kinopoiskId}-${i}`} film={film} focusKey={`genre:${i}`} onPress={() => open(film)} />
             ))}
           </div>
         )}

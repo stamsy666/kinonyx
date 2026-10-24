@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Focusable, FocusGroup } from "@kinonyx/ui";
 import { useApp } from "../store/app";
 import { CATALOGS, categoryListsFor, type CatalogKind, type CategoryDef } from "../data/catalogs";
-import { kpFilmsFilter } from "../data/api";
-import { img } from "../data/images";
+import { kpFilmsFilter, kpImages } from "../data/api";
+import { img, stillLarge } from "../data/images";
 import { useHomeFeel } from "../components/useHomeFeel";
 import { HomeChrome } from "../components/HomeChrome";
 
@@ -35,9 +35,12 @@ function CategoryTile({
         if (!entries.some((e) => e.isIntersecting)) return;
         io.disconnect();
         kpFilmsFilter(cat.filter)
-          .then((r) => {
+          .then(async (r) => {
             const film = (r.items ?? []).find((f) => f.posterUrlPreview);
-            if (!cancelled && film) setArt(img(film.posterUrl || film.posterUrlPreview));
+            if (!film) return;
+            // A frame of the film fits a wide tile far better than the portrait poster; the poster is the fallback.
+            const still = await kpImages(film.kinopoiskId, "STILL", 1).then((x) => x.items?.[0]?.imageUrl).catch(() => undefined);
+            if (!cancelled) setArt(img(still ? stillLarge(still) : film.posterUrl || film.posterUrlPreview));
           })
           .catch(() => undefined);
       },

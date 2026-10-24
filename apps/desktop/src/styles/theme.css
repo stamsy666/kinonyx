@@ -5114,7 +5114,7 @@ body .sidebar__item.is-focused .sidebar__icon {
 /* "Категории": glass pills under a heading per kind. */
 .home--tv .cats {
   display: grid;
-  gap: calc(54 * var(--u));
+  gap: calc(12 * var(--u));
   align-content: start;
 }
 
@@ -5210,8 +5210,7 @@ body .sidebar__item.is-focused .sidebar__icon {
   height: 100%;
   object-fit: cover;
   object-position: center 22%;
-  opacity: 0.62;
-  mix-blend-mode: luminosity;
+  opacity: 0.8;
   animation: fade-in 500ms var(--ease) both;
 }
 
@@ -5246,4 +5245,8 @@ body .sidebar__item.is-focused .sidebar__icon {
 
 .home--tv .cats__tile.is-focused::after {
   content: none;
+}
+
+.genre__all {
+  margin-top: calc(10 * var(--u));
 }
