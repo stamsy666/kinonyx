@@ -5307,7 +5307,10 @@ body .sidebar__item.is-focused .sidebar__icon {
    cards jump): the right side always has the full width and is only pushed along (transform), the keyboard
    floats at the left; in the narrow state the right side simply runs off the edge, like on the tvOS page. */
 .sx {
+  /* The clip is wider than the content by a margin, so a focused (enlarged, ringed) card at the edge is not cut. */
   overflow-x: clip;
+  margin-inline: calc(-22 * var(--u));
+  padding-inline: calc(22 * var(--u));
 }
 
 .sx__cols {
@@ -5493,4 +5496,8 @@ body .sidebar__item.is-focused .sidebar__icon {
 
 .sx .cats__tiles {
   grid-template-columns: repeat(auto-fill, minmax(calc(230 * var(--u)), 1fr));
+}
+
+.sx .cats__tile {
+  aspect-ratio: 4 / 3;
 }
