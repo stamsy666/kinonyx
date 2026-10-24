@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Focusable, FocusGroup, Spinner } from "@kinonyx/ui";
 import { useApp } from "../store/app";
 import { kpFilmsFilter, type KpCollectionItem, type KpFilter } from "../data/api";
-import { TvScreenHeader } from "../components/TvScreenHeader";
+import { HomeChrome } from "../components/HomeChrome";
+import { useHomeFeel } from "../components/useHomeFeel";
 import { MovieCard } from "../components/MovieCard";
 import { FocusHighlight } from "../components/FocusHighlight";
 
@@ -11,13 +12,13 @@ import { FocusHighlight } from "../components/FocusHighlight";
  *  somewhere to land so Down keeps loading pages, not just the mouse wheel. */
 export function GenreScreen({ title, filter }: { title: string; filter: KpFilter }) {
   const navigate = useApp((s) => s.navigate);
-  const back = useApp((s) => s.back);
   const [films, setFilms] = useState<KpCollectionItem[]>([]);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  useHomeFeel(null);
 
   const loadMore = useCallback(() => {
     setLoading((already) => {
@@ -67,9 +68,9 @@ export function GenreScreen({ title, filter }: { title: string; filter: KpFilter
   const open = (film: KpCollectionItem) => navigate({ name: "movie", id: film.kinopoiskId, preview: film });
 
   return (
-    <FocusGroup focusKey="genre" className="screen">
-      <TvScreenHeader title={title} onBack={() => back()} onSettings={() => navigate({ name: "settings" })} />
-      <div className="screen__body">
+    <FocusGroup focusKey="genre" className="screen-pad home home--tv home--nohero">
+      <HomeChrome id="genre" label={title} />
+      <div className="home__rows">
         {films.length === 0 && loading && (
           // Focusable (not a plain div): without it nothing is focused while the first
           // page is loading, so the initial remote/keyboard press lands on nothing.
