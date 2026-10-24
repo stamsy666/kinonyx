@@ -8,6 +8,7 @@ import {
   type TranslatorItem,
 } from "../data/translator";
 import { isTauri } from "../data/io";
+import { CycleRow } from "./CycleRow";
 import { Switch } from "./Switch";
 import { FocusHighlight } from "./FocusHighlight";
 
@@ -43,75 +44,47 @@ export function TranslatorSettings() {
   ) => {
     const p = t.progress[item.id];
     const downloading = item.downloading || (p != null && !p.error);
+    const status = item.installed
+      ? onSelect
+        ? selected
+          ? "Выбрано"
+          : "Установлено"
+        : "Установлено"
+      : downloading
+        ? p?.stage
+          ? `${p.stage} ${p.total ? Math.floor((p.received / p.total) * 100) + "%" : ""}`
+          : p && p.total
+            ? `${Math.floor((p.received / p.total) * 100)}%`
+            : "Загрузка…"
+        : `Скачать · ${formatSize(item.size)}`;
     return (
       <div className="tr-item" key={item.id}>
         <Focusable
           as="button"
           focusKey={`settings:tr:${item.id}`}
-          className={`tr-item__main ${selected ? "is-active" : ""} ${onSelect ? "" : "tr-item__main--static"}`}
-          onPress={() => onSelect?.()}
+          className={`tr-item__main ${selected ? "is-active" : ""}`}
+          onPress={() => {
+            if (item.installed) onSelect?.();
+            else if (!downloading) void t.download(item.id).catch((e) => setError(String(e)));
+          }}
         >
-          {onSelect && (
-            <span className={`tr-item__radio ${selected ? "is-on" : ""}`} />
-          )}
           <span className="tr-item__text">
             <span className="tr-item__title">{item.title}</span>
-            <span className="tr-item__note">{item.note}</span>
-            {p?.error && <span className="tr-item__error">{p.error}</span>}
+            <span className="tr-item__note">{p?.error ?? item.note}</span>
           </span>
+          <span className="tr-item__state">{status}</span>
         </Focusable>
-        <div className="tr-item__side">
-          {item.installed ? (
-            <>
-              <span className="tr-item__badge">Установлено</span>
-              <Focusable
-                as="button"
-                className="icon-btn"
-                focusKey={`settings:tr:${item.id}:del`}
-                onPress={async () => setError(await t.remove(item.id))}
-                scroll={false}
-              >
-                <TrashIcon size={18} />
-              </Focusable>
-            </>
-          ) : downloading ? (
-            <>
-              <span className="tr-item__progress">
-                <i
-                  style={{
-                    width: `${p && p.total ? Math.min(100, (p.received / p.total) * 100) : 0}%`,
-                  }}
-                />
-                <b>
-                  {p?.stage
-                    ? `${p.stage} ${p.total ? Math.floor((p.received / p.total) * 100) + "%" : ""}`
-                    : p && p.total
-                      ? `${formatSize(p.received)} из ${formatSize(p.total)}`
-                      : "Загрузка…"}
-                </b>
-              </span>
-              <Focusable
-                as="button"
-                className="btn btn--ghost"
-                focusKey={`settings:tr:${item.id}:cancel`}
-                onPress={() => void t.cancel(item.id)}
-              >
-                Отмена
-              </Focusable>
-            </>
-          ) : (
-            <Focusable
-              as="button"
-              className="btn"
-              focusKey={`settings:tr:${item.id}:get`}
-              onPress={() =>
-                void t.download(item.id).catch((e) => setError(String(e)))
-              }
-            >
-              Скачать · {formatSize(item.size)}
-            </Focusable>
-          )}
-        </div>
+        {(item.installed || downloading) && (
+          <Focusable
+            as="button"
+            className="icon-btn tr-item__action"
+            focusKey={`settings:tr:${item.id}:act`}
+            onPress={async () => (item.installed ? setError(await t.remove(item.id)) : void t.cancel(item.id))}
+            scroll={false}
+          >
+            {item.installed ? <TrashIcon size={18} /> : "×"}
+          </Focusable>
+        )}
       </div>
     );
   };
@@ -121,9 +94,7 @@ export function TranslatorSettings() {
       <section className="settings__item">
         <div className="settings__label">Локальный перевод</div>
         <div className="settings__hint">
-          Перевод речи иностранных каналов на русский прямо на этом компьютере —
-          без интернета и сервисов. Включается в плеере каналов: «Субтитры» →
-          «Локальный перевод». Нужна видеокарта NVIDIA (RTX 20xx и новее).
+          Перевод речи каналов на русский прямо на этом компьютере. Включается в плеере: «Субтитры» → «Локальный перевод». Нужна видеокарта NVIDIA.
         </div>
         {!t.bundled && (
           <div className="settings__hint settings__hint--error">
@@ -140,14 +111,11 @@ export function TranslatorSettings() {
       </section>
 
       <section className="settings__item">
-        <div className="settings__label">
-          Распознавание речи
-          <Switch focusKey="settings:tr:asr:on" on={t.asrEnabled} onChange={t.setAsrEnabled} />
-        </div>
+        <div className="settings__label">Распознавание речи</div>
+        <Switch focusKey="settings:tr:asr:on" on={t.asrEnabled} onChange={t.setAsrEnabled} />
         {!t.asrEnabled && (
           <div className="settings__hint">
-            Выключено — перевод и закадровый голос в плеере недоступны, модели
-            остаются на диске.
+            Выключено — в плеере недоступно, модели остаются на диске.
           </div>
         )}
         <div className={`tr-list ${t.asrEnabled ? "" : "tr-list--off"}`}>
@@ -159,14 +127,11 @@ export function TranslatorSettings() {
       </section>
 
       <section className="settings__item">
-        <div className="settings__label">
-          Модель перевода
-          <Switch focusKey="settings:tr:mt:on" on={t.mtEnabled} onChange={t.setMtEnabled} />
-        </div>
+        <div className="settings__label">Модель перевода</div>
+        <Switch focusKey="settings:tr:mt:on" on={t.mtEnabled} onChange={t.setMtEnabled} />
         {!t.mtEnabled && (
           <div className="settings__hint">
-            Выключено — перевод и закадровый голос в плеере недоступны, модели
-            остаются на диске.
+            Выключено — в плеере недоступно, модели остаются на диске.
           </div>
         )}
         <div className={`tr-list ${t.mtEnabled ? "" : "tr-list--off"}`}>
@@ -181,14 +146,10 @@ export function TranslatorSettings() {
       </section>
 
       <section className="settings__item">
-        <div className="settings__label">
-          Закадровый голос
-          <Switch focusKey="settings:tr:voice:on" on={t.voiceEnabled} onChange={t.setVoiceEnabled} />
-        </div>
+        <div className="settings__label">Закадровый голос</div>
+        <Switch focusKey="settings:tr:voice:on" on={t.voiceEnabled} onChange={t.setVoiceEnabled} />
         <div className="settings__hint">
-          Перевод звучит голосом того, кто говорит, поверх приглушённого
-          оригинала. Включается в плеере: «Субтитры» → «Закадровый голос» —
-          отдельно от субтитров. Нужны и распознавание, и перевод выше.
+          Перевод звучит голосом поверх приглушённого оригинала. Включается в плеере. Нужны распознавание и перевод.
           {!t.voiceEnabled && " Сейчас выключен — в плеере его не будет."}
         </div>
         {t.vramMb != null && t.vramMb < 10000 && (
@@ -206,47 +167,29 @@ export function TranslatorSettings() {
 
       <section className="settings__item">
         <div className="settings__label">Задержка эфира при переводе</div>
-        <div className="sound-options">
-          <FocusHighlight pad={6} radius={16} />
-          {DELAY_OPTIONS.map((s) => (
-            <Focusable
-              as="button"
-              key={s}
-              focusKey={`settings:tr:delay:${s}`}
-              className={`sound-option ${t.delay === s ? "is-active" : ""}`}
-              onPress={() => t.setDelay(s)}
-            >
-              {s} с
-            </Focusable>
-          ))}
-        </div>
+        <CycleRow
+          label="Задержка"
+          focusKey="settings:tr:delay"
+          options={DELAY_OPTIONS.map((d) => ({ value: d, label: `${d} с` }))}
+          value={t.delay}
+          onChange={(v) => t.setDelay(v)}
+        />
         <div className="settings__hint">
-          Эфир идёт с отставанием, а переводчик слушает его заранее — поэтому
-          субтитр появляется ровно в момент фразы и целиком. Чем больше
-          задержка, тем точнее и полнее перевод длинных фраз; 20 с — хороший
-          баланс.
+          Чем больше задержка, тем точнее перевод длинных фраз. 20 с — хороший баланс.
         </div>
       </section>
 
       <section className="settings__item">
         <div className="settings__label">Язык эфира</div>
-        <div className="sound-options">
-          <FocusHighlight pad={6} radius={16} />
-          {SOURCE_LANGS.map((l) => (
-            <Focusable
-              as="button"
-              key={l.code ?? "auto"}
-              focusKey={`settings:tr:lang:${l.code ?? "auto"}`}
-              className={`sound-option ${t.sourceLang === l.code ? "is-active" : ""}`}
-              onPress={() => t.setSourceLang(l.code)}
-            >
-              {l.label}
-            </Focusable>
-          ))}
-        </div>
+        <CycleRow
+          label="Язык"
+          focusKey="settings:tr:lang"
+          options={SOURCE_LANGS.map((l) => ({ value: l.code, label: l.label }))}
+          value={t.sourceLang}
+          onChange={(v) => t.setSourceLang(v)}
+        />
         <div className="settings__hint">
-          Если язык известен, укажите его — так распознавание не спутает его с
-          другим на шумных фрагментах.
+          Если язык эфира известен, укажите его — так точнее.
         </div>
       </section>
     </>

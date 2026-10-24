@@ -5826,3 +5826,58 @@ body .sidebar__item.is-focused .sidebar__icon {
 .stx__back {
   margin-bottom: calc(26 * var(--u));
 }
+
+/* the translator's models: one pill each — name and note on the left, the state on the right; the small round
+   button beside it removes the model (or cancels the download) */
+.settings--tv .settings-pane .tr-item {
+  gap: calc(12 * var(--u));
+  margin-bottom: calc(10 * var(--u));
+}
+
+.settings--tv .settings-pane .tr-item__main {
+  min-height: calc(72 * var(--u));
+  padding: calc(8 * var(--u)) calc(26 * var(--u));
+}
+
+.settings--tv .settings-pane .tr-item__text {
+  flex: 1;
+  display: grid;
+  gap: calc(2 * var(--u));
+  min-width: 0;
+}
+
+.settings--tv .settings-pane .tr-item__title {
+  font-size: calc(19 * var(--u));
+  font-weight: 700;
+}
+
+.settings--tv .settings-pane .tr-item__note {
+  font-size: calc(14 * var(--u));
+  font-weight: 500;
+  opacity: 0.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tr-item__state {
+  flex-shrink: 0;
+  font-size: calc(16 * var(--u));
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.settings--tv .settings-pane .tr-item__action {
+  flex-shrink: 0;
+  width: calc(56 * var(--u));
+  height: calc(56 * var(--u));
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.home--tv.settings--tv .settings-pane .tr-item__action.is-focused {
+  background: rgba(244, 244, 247, 0.95);
+  color: #1d1d20;
+  box-shadow: 0 0 0 calc(3 * var(--u)) rgba(255, 255, 255, 0.95);
+}
