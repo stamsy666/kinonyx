@@ -4492,7 +4492,7 @@ body:not(.mpv-active) .mini-player {
 .home--tv .hero {
   /* Scrolling down, the rows come up over the banner's lower part (its buttons and dots stay in view above
      them, as on the Apple TV); the banner only dims a little. */
-  opacity: calc(1 - var(--sheet) * 0.4);
+  opacity: calc(1 - var(--sheet) * 0.7);
   height: 100vh;
   margin: calc(-4 * var(--u)) calc(-1 * var(--page-x)) 0;
   border: 0;
@@ -4665,7 +4665,7 @@ body:not(.mpv-active) .mini-player {
 }
 
 .home--tv .home__rows > * + * {
-  margin-top: calc(64 * var(--u));
+  margin-top: calc(100 * var(--u));
 }
 
 .home--tv .shelf__head {
@@ -4945,8 +4945,7 @@ body:not(.mpv-active) .mini-player {
 }
 
 /* The banner's lower edge dissolves into the theme's background instead of ending in a line. */
-.home--tv .hero__backdrop,
-.home--tv .hero__slide::after {
-  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 24vh), transparent 100%);
-  mask-image: linear-gradient(180deg, #000 calc(100% - 24vh), transparent 100%);
+.home--tv .hero {
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 26vh), transparent 100%);
+  mask-image: linear-gradient(180deg, #000 calc(100% - 26vh), transparent 100%);
 }
