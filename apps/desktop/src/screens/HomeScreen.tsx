@@ -217,6 +217,20 @@ export function HomeScreen() {
     navigate({ name: "tv-player", channelId: current.id });
   };
 
+  // Up from the first shelf goes to the banner's buttons (the nearest-neighbour search would pick a
+  // round button in the corner, off screen while the rows are up), and the page scrolls back to the top.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowUp" || document.querySelector(".modal, [role=dialog]")) return;
+      if (!document.querySelector(".home__rows > :first-child .is-focused")) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      setFocusSafe("hero:details");
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+
   return (
     <FocusGroup focusKey="home" className="screen-pad home home--tv">
       {/* The page's own top: a round glass button that opens the menu on the left, and two small

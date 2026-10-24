@@ -4518,8 +4518,10 @@ body:not(.mpv-active) .mini-player {
 .home--tv .hero__info {
   left: var(--page-x);
   right: var(--page-x);
-  bottom: calc(17vh + calc(160 * var(--u)));
+  bottom: calc(17vh + calc(214 * var(--u)));
   max-width: calc(600 * var(--u));
+  /* The title and its lines go out as the rows come up, so they are never cut by the window's edge. */
+  opacity: calc(1 - var(--sheet) * 1.3);
   display: flex;
   flex-direction: column;
 }
@@ -4567,7 +4569,7 @@ body:not(.mpv-active) .mini-player {
   position: absolute;
   z-index: 3;
   left: var(--page-x);
-  bottom: calc(17vh + calc(88 * var(--u)));
+  bottom: calc(17vh + calc(142 * var(--u)));
   display: flex;
   align-items: center;
   gap: calc(10 * var(--u));
@@ -4628,7 +4630,7 @@ body:not(.mpv-active) .mini-player {
 }
 
 .home--tv .hero__dots {
-  bottom: calc(17vh + calc(32 * var(--u)));
+  bottom: calc(17vh + calc(70 * var(--u)));
   gap: calc(8 * var(--u));
   padding: calc(8 * var(--u)) calc(13 * var(--u));
   border-radius: calc(13 * var(--u));
