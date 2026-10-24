@@ -120,9 +120,11 @@ export function App() {
       s.screen.name,
     ),
   );
+  const isHome = useApp((s) => s.screen.name === "home");
   // Per the sketches, these pages carry their own header instead of the app top bar.
   const ownHeader = useApp(
     (s) =>
+      s.screen.name === "home" ||
       s.screen.name === "settings" ||
       s.screen.name === "setup" ||
       s.screen.name === "diagnostics" ||
@@ -236,7 +238,7 @@ export function App() {
           {!ownHeader && <TopBar />}
           <div
             className="app-body"
-            style={ownHeader ? { paddingTop: 30 } : undefined}
+            style={ownHeader ? { paddingTop: isHome ? 0 : 30 } : undefined}
           >
             <CurrentScreen />
           </div>

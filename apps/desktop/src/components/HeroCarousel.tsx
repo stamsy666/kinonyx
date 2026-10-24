@@ -71,17 +71,17 @@ export function HeroCarousel({ films, onOpen }: { films: KpCollectionItem[]; onO
     return raw <= slides.length / 2 ? "right" : "left";
   };
 
-  // Up from any button goes to the top bar; the narrow icons up there are not found by the nearest-neighbour search.
+  // Up from any button goes to the menu chip at the top left (the nearest-neighbour search would miss it).
   const common = (extra?: (dir: string) => boolean | void) => (direction: string) => {
     if (direction === "up") {
-      setFocus("hdr:search");
+      setFocus("home:menu");
       return false;
     }
     return extra?.(direction) ?? true;
   };
 
   return (
-    <FocusGroup focusKey="hero" className="hero" preferredChildFocusKey="hero:details">
+    <div className="hero">
       {slides.map((film, i) => {
         const title = film.nameRu || film.nameOriginal || "Без названия";
         const preview = img(film.posterUrlPreview);
@@ -109,7 +109,9 @@ export function HeroCarousel({ films, onOpen }: { films: KpCollectionItem[]; onO
         );
       })}
 
-      <div className="hero__actions">
+      {/* The buttons are their own group: the banner reaches under the first row, so measured as a
+          whole it would not count as "above" it, and Up from the row would miss the buttons. */}
+      <FocusGroup focusKey="hero" className="hero__actions" preferredChildFocusKey="hero:details">
         <Focusable
           as="button"
           className="hero__btn hero__btn--pill"
@@ -153,13 +155,13 @@ export function HeroCarousel({ films, onOpen }: { films: KpCollectionItem[]; onO
         >
           <NextIcon size={26} />
         </Focusable>
-      </div>
+      </FocusGroup>
 
       <div className="hero__dots">
         {slides.map((film, i) => (
           <i key={film.kinopoiskId} className={`hero__dot ${i === index ? "is-active" : ""}`} />
         ))}
       </div>
-    </FocusGroup>
+    </div>
   );
 }

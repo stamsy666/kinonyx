@@ -1,4 +1,8 @@
 import { useEffect, useState } from "react";
+import { BackIcon, HomeIcon } from "@kinonyx/ui";
+import { FullscreenButton } from "../components/FullscreenButton";
+import { WhatToWatchModal } from "../components/WhatToWatchModal";
+import { PopcornIcon } from "../components/AnimatedIcons";
 import { Focusable, FocusGroup, Spinner } from "@kinonyx/ui";
 import { useApp } from "../store/app";
 import { useFavorites } from "../store/favorites";
@@ -20,6 +24,8 @@ interface ShelfDef {
   text: string;
   limit?: number;
   ranked?: boolean;
+  /** How the shelf looks on the page (see LazyShelf). */
+  variant?: "posters" | "feature" | "banner";
 }
 
 // Kinopoisk collection types, see /api/v2.2/films/collections. Each costs one request per
@@ -33,29 +39,33 @@ const SHELVES: ShelfDef[] = [
     ranked: true,
   },
   {
-    kind: "TOP_250_MOVIES",
-    title: "Лучшие фильмы всех времён",
-    text: "Классика с самым высоким рейтингом зрителей Кинопоиска — то, что стоит увидеть хотя бы раз.",
-  },
-  {
     kind: "TOP_100_GREATEST_MOVIES_XXI",
     title: "Великие фильмы XXI века",
-    text: "Главное кино нового века по версии критиков: авторские шедевры, которые уже стали классикой.",
+    text: "Главное кино нового века по версии критиков.",
+    variant: "feature",
+  },
+  {
+    kind: "TOP_250_MOVIES",
+    title: "Лучшие фильмы всех времён",
+    text: "Классика с самым высоким рейтингом зрителей Кинопоиска.",
   },
   {
     kind: "COMICS_THEME",
     title: "Вселенные комиксов",
     text: "Супергерои, антигерои и целые киновселенные — от первых экранизаций до новейших блокбастеров.",
+    variant: "banner",
   },
   {
     kind: "CATASTROPHE_THEME",
     title: "Когда рушится мир",
     text: "Фильмы-катастрофы: стихия, выживание и люди, которые не сдаются.",
+    variant: "feature",
   },
   {
     kind: "FAMILY",
     title: "Для всей семьи",
     text: "Добрые и смешные истории, которые можно смотреть вместе — и детям, и взрослым.",
+    variant: "banner",
   },
 ];
 
@@ -73,6 +83,7 @@ const HOME_SHELVES_TMDB: ShelfDef[] = [
     kind: "TMDB_TRENDING_MOVIE",
     title: "В тренде за неделю",
     text: "Фильмы, о которых больше всего говорили за последние дни.",
+    variant: "feature",
   },
   {
     kind: "TMDB_MOVIE_NOW_PLAYING",
@@ -83,16 +94,18 @@ const HOME_SHELVES_TMDB: ShelfDef[] = [
     kind: "TMDB_TV_POPULAR",
     title: "Популярные сериалы",
     text: "Новые и долгие истории, которые смотрят прямо сейчас.",
+    variant: "banner",
   },
   {
     kind: "TMDB_MOVIE_TOP_RATED",
     title: "Лучшие фильмы всех времён",
-    text: "Классика с самым высоким рейтингом зрителей TMDB — то, что стоит увидеть хотя бы раз.",
+    text: "Классика с самым высоким рейтингом зрителей TMDB.",
   },
   {
     kind: "TMDB_MOVIE_UPCOMING",
     title: "Скоро в кино",
     text: "Премьеры, которых ждут.",
+    variant: "feature",
   },
 ];
 
@@ -141,6 +154,32 @@ export function HomeScreen() {
   const [hero, setHero] = useState<KpCollectionItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [channelError, setChannelError] = useState<string | null>(null);
+  const [wtwOpen, setWtwOpen] = useState(false);
+  const toggleSidebar = useApp((s) => s.toggleSidebar);
+
+  // Scrolling down: the banner drifts up slower than the page, the sheet under the shelves fades in
+  // and the chip at the top fades out — the Apple TV home's move from the banner to the rows.
+  useEffect(() => {
+    const body = document.querySelector<HTMLElement>(".app-body");
+    const page = document.querySelector<HTMLElement>(".home--tv");
+    if (!body || !page) return;
+    let frame = 0;
+    const update = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const y = body.scrollTop;
+        const h = body.clientHeight || 1;
+        page.style.setProperty("--sheet", String(Math.min(1, Math.max(0, (y - h * 0.06) / (h * 0.22)))));
+        page.style.setProperty("--parallax", `${Math.round(y * 0.4)}px`);
+      });
+    };
+    update();
+    body.addEventListener("scroll", update, { passive: true });
+    return () => {
+      body.removeEventListener("scroll", update);
+      cancelAnimationFrame(frame);
+    };
+  }, [hero]);
   const seeds = favorites
     .filter((f) => (f.source ?? "kinopoisk") === metadataSource)
     .slice(0, SIMILAR_SEEDS)
@@ -181,6 +220,31 @@ export function HomeScreen() {
 
   return (
     <FocusGroup focusKey="home" className="screen-pad home home--tv">
+      {/* The page's own top: a glass chip that opens the menu (like the Apple TV's "‹ Магазин"), and
+          two small buttons on the right. It fades away as the page scrolls. */}
+      <div className="home__chrome">
+        <Focusable
+          as="button"
+          className="home-chip"
+          focusKey="home:menu"
+          scroll={false}
+          onFocus={() => document.querySelector(".app-body")?.scrollTo({ top: 0, behavior: "smooth" })}
+          onArrowPress={(dir) => (dir === "down" ? (setFocusSafe("hero:details"), false) : true)}
+          onPress={toggleSidebar}
+        >
+          <BackIcon size={18} />
+          <span className="home-chip__icon">
+            <HomeIcon size={15} />
+          </span>
+          Главная
+        </Focusable>
+        <div className="home__chrome-right">
+          <Focusable as="button" className="home-round" focusKey="home:wtw" scroll={false} onPress={() => setWtwOpen(true)}>
+            <PopcornIcon />
+          </Focusable>
+          <FullscreenButton focusKey="home:fullscreen" className="home-round" />
+        </div>
+      </div>
       {error && <p className="empty">Не удалось загрузить подборку: {error}</p>}
       {!hero && !error && (
         <div style={{ display: "grid", placeItems: "center", height: 300 }}>
@@ -265,10 +329,20 @@ export function HomeScreen() {
             focusPrefix={`shelf${i + 1}`}
             limit={shelf.limit}
             ranked={shelf.ranked}
+            variant={shelf.variant}
             onOpen={open}
           />
         ))}
         </div>
+      )}
+      {wtwOpen && (
+        <WhatToWatchModal
+          onClose={() => setWtwOpen(false)}
+          onOpenFilm={(film) => {
+            setWtwOpen(false);
+            open(film);
+          }}
+        />
       )}
       {channelError && (
         <Modal focusKey="channel-error" preferredChildFocusKey="channel-err:close" onClose={() => setChannelError(null)}>
@@ -285,4 +359,11 @@ export function HomeScreen() {
       )}
     </FocusGroup>
   );
+}
+
+/** Moves the focus if the target exists (the banner may still be loading). */
+function setFocusSafe(key: string) {
+  void import("@noriginmedia/norigin-spatial-navigation").then(({ doesFocusableExist, setFocus }) => {
+    if (doesFocusableExist(key)) setFocus(key);
+  });
 }

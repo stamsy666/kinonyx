@@ -9,6 +9,7 @@ import {
   GearIcon,
   HomeIcon,
   MoviesIcon,
+  SearchIcon,
   SeriesIcon,
   onBack,
 } from "@kinonyx/ui";
@@ -25,6 +26,7 @@ interface Item {
 }
 
 const ITEMS: Item[] = [
+  { label: "Поиск", icon: SearchIcon, section: "search", screen: { name: "search" } },
   { label: "Главная", icon: HomeIcon, section: "home", screen: { name: "home" } },
   { label: "Фильмы", icon: MoviesIcon, section: "films", screen: { name: "catalog", kind: "films" } },
   { label: "Сериалы", icon: SeriesIcon, section: "series", screen: { name: "catalog", kind: "series" } },

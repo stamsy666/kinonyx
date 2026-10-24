@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { KpCollectionItem } from "../data/api";
+import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { Focusable, Spinner } from "@kinonyx/ui";
+import { CollectionBanner, FeatureCard } from "./HomeBlocks";
 import { RowScroll } from "./RowScroll";
 import { MovieCard } from "./MovieCard";
 
@@ -15,6 +17,8 @@ interface Props {
   ranked?: boolean;
   /** Give the first card focus once loaded (first shelf of a page, for remote users). */
   autoFocusFirst?: boolean;
+  /** How the shelf looks: posters (default), big featured cards, or a wide banner over a row of posters. */
+  variant?: "posters" | "feature" | "banner";
 }
 
 /**
@@ -23,7 +27,7 @@ interface Props {
  * visits never scroll to the bottom ones. Keeps its height reserved while empty so the
  * page doesn't jump as shelves fill in.
  */
-export function LazyShelf({ title, text, load, focusPrefix, onOpen, perView, limit = 20, ranked, autoFocusFirst }: Props) {
+export function LazyShelf({ title, text, load, focusPrefix, onOpen, perView, limit = 20, ranked, autoFocusFirst, variant = "posters" }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [near, setNear] = useState(false);
   const [films, setFilms] = useState<KpCollectionItem[] | null>(null);
@@ -87,8 +91,38 @@ export function LazyShelf({ title, text, load, focusPrefix, onOpen, perView, lim
           )}
         </Focusable>
       )}
-      {films && (
-        <RowScroll label={title} description={text} count={films.length} perView={perView}>
+      {films && variant === "feature" && (
+        <RowScroll label={title} count={films.length} className="shelf--feature">
+          {films.slice(0, 10).map((film, i) => (
+            <FeatureCard
+              key={film.kinopoiskId}
+              film={film}
+              focusKey={`${focusPrefix}:${i}`}
+              autoFocus={(autoFocusFirst || wantsFocusRef.current) && i === 0}
+              onPress={() => onOpen(film)}
+            />
+          ))}
+        </RowScroll>
+      )}
+      {films && variant === "banner" && (
+        <section className="shelf shelf--banner">
+          <CollectionBanner
+            film={films[0]}
+            title={title}
+            text={text}
+            focusKey={`${focusPrefix}:banner`}
+            onPress={() => setFocus(`${focusPrefix}:0`)}
+          />
+        </section>
+      )}
+      {films && variant !== "feature" && (
+        <RowScroll
+          label={title}
+          description={text}
+          count={films.length}
+          perView={perView}
+          className={variant === "banner" ? "shelf--under-banner" : ""}
+        >
           {films.map((film, i) => (
             <MovieCard
               key={film.kinopoiskId}
