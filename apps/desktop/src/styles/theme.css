@@ -5822,3 +5822,7 @@ body .sidebar__item.is-focused .sidebar__icon {
 .home--tv.settings--tv .settings-pane .cycle-row.is-focused::after {
   content: none;
 }
+
+.stx__back {
+  margin-bottom: calc(26 * var(--u));
+}

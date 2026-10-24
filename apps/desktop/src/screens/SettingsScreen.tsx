@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { doesFocusableExist, setFocus } from "@noriginmedia/norigin-spatial-navigation";
-import { Focusable, FocusGroup, NextIcon, onBack } from "@kinonyx/ui";
+import { BackIcon, Focusable, FocusGroup, NextIcon, onBack } from "@kinonyx/ui";
 import { HomeChrome } from "../components/HomeChrome";
 import { CycleRow } from "../components/CycleRow";
 import { useApp } from "../store/app";
@@ -196,7 +196,7 @@ export function SettingsScreen() {
       return;
     }
     requestAnimationFrame(() => {
-      const first = document.querySelector<HTMLElement>(".settings-pane [data-fk]");
+      const first = document.querySelectorAll<HTMLElement>(".settings-pane [data-fk]")[1] ?? document.querySelector<HTMLElement>(".settings-pane [data-fk]");
       if (first?.dataset.fk) setFocus(first.dataset.fk);
     });
     return onBack(() => {
@@ -312,6 +312,14 @@ export function SettingsScreen() {
           </nav>
         )}
         <div className="settings-pane" key={tab ?? "none"}>
+        {tab !== null && (
+          <Focusable as="button" back focusKey="settings:pane-back" className="stx__row stx__back" onPress={() => setTab(null)}>
+            <span className="stx__row-icon">
+              <BackIcon size={22} />
+            </span>
+            <span className="stx__row-label">Назад к настройкам</span>
+          </Focusable>
+        )}
         {tab === "sources" && (
           <>
             <section className="settings__item">
