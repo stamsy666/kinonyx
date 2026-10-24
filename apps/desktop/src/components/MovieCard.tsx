@@ -13,9 +13,11 @@ interface Props {
   /** 0–1 — a thin bar across the bottom of the poster, "continue watching" style. */
   progress?: number;
   autoFocus?: boolean;
+  /** `false` — focusing this card does not scroll the page (a card focused on arrival). */
+  scroll?: boolean;
 }
 
-export function MovieCard({ film, focusKey, onPress, rank, progress, autoFocus }: Props) {
+export function MovieCard({ film, focusKey, onPress, rank, progress, autoFocus, scroll }: Props) {
   const title = film.nameRu || film.nameOriginal || "Без названия";
   const genre = film.genres?.[0]?.genre;
   const poster = img(film.posterUrlPreview);
@@ -24,7 +26,7 @@ export function MovieCard({ film, focusKey, onPress, rank, progress, autoFocus }
   // the "no cover" placeholder instead of a broken-image icon.
   const [broken, setBroken] = useState(false);
   return (
-    <Focusable focusKey={focusKey} className="movie-card" onPress={onPress} autoFocus={autoFocus}>
+    <Focusable focusKey={focusKey} className="movie-card" onPress={onPress} autoFocus={autoFocus} scroll={scroll}>
       <div className="movie-card__poster">
         {poster && !broken ? (
           <img src={poster} alt={title} loading="lazy" decoding="async" onError={() => setBroken(true)} />

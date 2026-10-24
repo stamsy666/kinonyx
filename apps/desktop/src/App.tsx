@@ -106,7 +106,7 @@ export function App() {
   const miniOn = useApp((s) => s.miniOn);
   // On a film page (and its stills) the slideshow backdrop covers the theme anyway, so the animated
   // background is not even running there — it is what made scrolling stutter on 4K screens.
-  const stillBackdrop = useApp((s) => s.screen.name === "movie" || s.screen.name === "gallery");
+  const stillBackdrop = useApp((s) => s.screen.name === "gallery");
   const isPlayer = useApp(
     (s) =>
       s.screen.name === "player" ||
@@ -120,7 +120,7 @@ export function App() {
       s.screen.name,
     ),
   );
-  const isHome = useApp((s) => s.screen.name === "home" || s.screen.name === "catalog" || s.screen.name === "categories-hub" || s.screen.name === "favorites" || s.screen.name === "genre" || s.screen.name === "search" || s.screen.name === "settings" || s.screen.name === "setup" || s.screen.name === "diagnostics" || s.screen.name === "movie");
+  const isHome = useApp((s) => s.screen.name === "home" || s.screen.name === "catalog" || s.screen.name === "categories-hub" || s.screen.name === "favorites" || s.screen.name === "genre" || s.screen.name === "search" || s.screen.name === "settings" || s.screen.name === "setup" || s.screen.name === "diagnostics" || s.screen.name === "movie" || s.screen.name === "person");
   // Per the sketches, these pages carry their own header instead of the app top bar.
   const ownHeader = useApp(
     (s) =>
@@ -129,6 +129,7 @@ export function App() {
       s.screen.name === "setup" ||
       s.screen.name === "diagnostics" ||
       s.screen.name === "movie" ||
+      s.screen.name === "person" ||
       s.screen.name === "catalog" ||
       s.screen.name === "categories-hub" ||
       s.screen.name === "favorites" ||

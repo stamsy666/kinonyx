@@ -1,22 +1,27 @@
 import { useEffect, useRef, useState } from "react";
-import { BackIcon, Focusable, FocusGroup, Spinner } from "@kinonyx/ui";
-import { SearchLensIcon } from "../components/AnimatedIcons";
+import { FocusGroup, Spinner } from "@kinonyx/ui";
 import { useApp } from "../store/app";
 import { kpFilm, kpPerson, type KpPerson, type KpPersonFilm, type KpStaffPerson } from "../data/api";
 import { img } from "../data/images";
 import { ProgressiveImg } from "../components/ProgressiveImg";
 import { RowScroll } from "../components/RowScroll";
 import { MovieCard } from "../components/MovieCard";
-import { DetailBackButton } from "../components/DetailBackButton";
+import { HomeChrome } from "../components/HomeChrome";
+import { useHomeFeel } from "../components/useHomeFeel";
 
-const FILMS_PER_VIEW = 5;
+/** Text from the sources sometimes carries emoji (trophies, flags, stars) — they have no place on the page. */
+const clean = (text: string) =>
+  text
+    .replace(/[\p{Extended_Pictographic}\p{Regional_Indicator}\uFE0F\u200D\u20E3]/gu, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\s+([.,;:!?])/g, "$1")
+    .trim();
 
 /** An actor/crew member's own page, opened from a film's "Актёры" row — photo, bio facts
  *  and every film they're credited on. Matches the user's sketch: static page title (not
  *  the person's name — that's in the body), profession/city above the name, then the
  *  filmography as a poster shelf like everywhere else in the app. */
 export function PersonScreen({ id, preview }: { id: number; preview?: KpStaffPerson }) {
-  const back = useApp((s) => s.back);
   const navigate = useApp((s) => s.navigate);
   const [person, setPerson] = useState<KpPerson | null>(
     preview ? { personId: preview.staffId, nameRu: preview.nameRu, nameEn: preview.nameEn, posterUrl: preview.posterUrl } : null,
@@ -34,36 +39,22 @@ export function PersonScreen({ id, preview }: { id: number; preview?: KpStaffPer
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // See MovieScreen.tsx for why this is mode-dependent.
-  const useFloatingBack = useApp((s) => s.inputMode) === "mouse";
-  const onBackPress = () => back() || navigate({ name: "home" });
-  const header = (
-    <>
-      {useFloatingBack && <DetailBackButton focusKey="person:back" onPress={onBackPress} autoFocus />}
-      <header className="catalog__head">
-        {useFloatingBack ? (
-          <span />
-        ) : (
-          <Focusable back as="button" className="icon-btn" focusKey="person:back" onPress={onBackPress} scroll={false} autoFocus>
-            <BackIcon />
-          </Focusable>
-        )}
-        <h1 className="catalog__title">Информация об актере</h1>
-        <Focusable as="button" className="icon-btn" focusKey="person:search" onPress={() => navigate({ name: "search" })} scrollBlock="start">
-          <SearchLensIcon />
-        </Focusable>
-      </header>
-    </>
-  );
+  useHomeFeel(person);
+  // The first film takes the focus on arrival without moving the page (the top of it — photo and name — stays in view).
+  const [arrived, setArrived] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => setArrived(true), 600);
+    return () => window.clearTimeout(t);
+  }, []);
 
   if (!person) {
     return (
-      <FocusGroup focusKey="person" className="catalog screen-pad">
-        {header}
+      <FocusGroup focusKey="person" className="screen-pad home home--tv home--nohero ptv">
+        <HomeChrome id="person" label="Актёр" />
         {error ? (
-          <p className="empty">Не удалось загрузить: {error}</p>
+          <p className="empty" style={{ paddingTop: 140 }}>Не удалось загрузить: {error}</p>
         ) : (
-          <div style={{ display: "grid", placeItems: "center", height: 300 }}>
+          <div style={{ display: "grid", placeItems: "center", height: "100vh" }}>
             <Spinner />
           </div>
         )}
@@ -71,8 +62,9 @@ export function PersonScreen({ id, preview }: { id: number; preview?: KpStaffPer
     );
   }
 
-  const title = person.nameRu || person.nameEn || "Без имени";
-  const metaParts = [person.profession, person.age != null ? `${person.age} лет` : undefined, person.birthplace].filter(Boolean);
+  const title = clean(person.nameRu || person.nameEn || "") || "Без имени";
+  const metaParts = [person.profession, person.age != null ? `${person.age} лет` : undefined, person.birthplace].filter((x): x is string => !!x).map(clean).filter(Boolean);
+  const facts = (person.facts ?? []).map(clean).filter(Boolean).slice(0, 5);
   // Kinopoisk repeats a film once per department the person worked in (e.g. actor AND
   // producer on the same title) — one card per film, not per credit.
   const seenFilmIds = new Set<number>();
@@ -84,27 +76,29 @@ export function PersonScreen({ id, preview }: { id: number; preview?: KpStaffPer
   const open = (filmId: number) => navigate({ name: "movie", id: filmId });
 
   return (
-    <FocusGroup focusKey="person" className="catalog screen-pad">
-      {header}
+    <FocusGroup focusKey="person" className="screen-pad home home--tv home--nohero ptv">
+      <HomeChrome id="person" label="Актёр" />
 
-      <div className="movie-head">
-        <div className="movie-head__poster">
+      <div className="ptv__top">
+        <div className="ptv__photo">
           <ProgressiveImg src={img(person.posterUrl)} placeholder={img(preview?.posterUrl)} alt={title} />
         </div>
-        <div className="movie-head__info">
-          {metaParts.length > 0 && <p className="movie-head__category">{metaParts.join(" · ")}</p>}
-          <h2 className="movie-head__title">{title}</h2>
-          {person.facts?.map((f, i) => (
-            <p key={i} className="person-facts">
-              {f}
-            </p>
-          ))}
+        <div className="ptv__info">
+          {metaParts.length > 0 && <p className="ptv__meta">{metaParts.join(" · ")}</p>}
+          <h1 className="ptv__name">{title}</h1>
+          {facts.length > 0 && (
+            <div className="ptv__facts">
+              {facts.map((f, i) => (
+                <p key={i}>{f}</p>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      <RowScroll label="Фильмография" count={films.length} perView={FILMS_PER_VIEW}>
+      <RowScroll label="Фильмография" count={films.length}>
         {films.map((f, i) => (
-          <FilmographyCard key={`${f.filmId}-${i}`} film={f} focusKey={`person:film:${i}`} onPress={() => open(f.filmId)} />
+          <FilmographyCard key={`${f.filmId}-${i}`} film={f} focusKey={`person:film:${i}`} autoFocus={i === 0} scroll={i === 0 ? arrived : undefined} onPress={() => open(f.filmId)} />
         ))}
       </RowScroll>
     </FocusGroup>
@@ -119,7 +113,7 @@ export function PersonScreen({ id, preview }: { id: number; preview?: KpStaffPer
  *  scroll clipping, so a card sitting off to the right of the row doesn't fire early.
  *  MovieCard itself falls back to the "no cover" placeholder when there's no URL or the
  *  URL 404s, so nothing extra to do here for that case. */
-function FilmographyCard({ film, focusKey, autoFocus, onPress }: { film: KpPersonFilm; focusKey: string; autoFocus?: boolean; onPress: () => void }) {
+function FilmographyCard({ film, focusKey, autoFocus, scroll, onPress }: { film: KpPersonFilm; focusKey: string; autoFocus?: boolean; scroll?: boolean; onPress: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [poster, setPoster] = useState<{ posterUrlPreview?: string; ratingKinopoisk?: number } | null>(null);
 
@@ -153,6 +147,7 @@ function FilmographyCard({ film, focusKey, autoFocus, onPress }: { film: KpPerso
         }}
         focusKey={focusKey}
         autoFocus={autoFocus}
+        scroll={scroll}
         onPress={onPress}
       />
     </div>
