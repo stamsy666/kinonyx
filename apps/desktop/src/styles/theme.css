@@ -5881,3 +5881,159 @@ body .sidebar__item.is-focused .sidebar__icon {
   color: #1d1d20;
   box-shadow: 0 0 0 calc(3 * var(--u)) rgba(255, 255, 255, 0.95);
 }
+
+/* ----- Statistics and the phone remote in the same look: flat panels (the pill rows' colour), no borders or
+   glows, a white ring on the one in focus, a list of titles as pill rows. ----- */
+.settings--tv .settings-pane .stats-hero,
+.settings--tv .settings-pane .stats-tiles,
+.settings--tv .settings-pane .stats-focus.settings__item {
+  margin: 0 0 calc(16 * var(--u));
+  padding: calc(24 * var(--u)) calc(28 * var(--u));
+  border: 0;
+  border-radius: calc(30 * var(--u));
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.settings--tv .settings-pane .stats-hero {
+  align-items: center;
+}
+
+.settings--tv .settings-pane .stats-hero__label {
+  font-size: calc(15 * var(--u));
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.settings--tv .settings-pane .stats-hero__value {
+  font-size: calc(54 * var(--u));
+}
+
+.settings--tv .settings-pane .stats-hero__sub,
+.settings--tv .settings-pane .stats-tile span,
+.settings--tv .settings-pane .stats-streak span {
+  font-size: calc(15 * var(--u));
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.settings--tv .settings-pane .stats-streak {
+  min-width: calc(120 * var(--u));
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: calc(24 * var(--u));
+}
+
+.settings--tv .settings-pane .stats-tiles {
+  gap: calc(14 * var(--u));
+}
+
+.settings--tv .settings-pane .stats-tile {
+  padding: 0 calc(8 * var(--u));
+  border: 0;
+  background: none;
+}
+
+.settings--tv .settings-pane .stats-tile b {
+  font-size: calc(24 * var(--u));
+  white-space: nowrap;
+}
+
+.settings--tv .settings-pane .stats-chart {
+  height: calc(170 * var(--u));
+}
+
+.settings--tv .settings-pane .stats-chart__bar {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.settings--tv .settings-pane .stats-chart__bar.is-today {
+  background: #fff;
+}
+
+.settings--tv .settings-pane .stats-chart__day {
+  font-size: calc(12 * var(--u));
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.settings--tv .settings-pane .stats-bars__track {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.settings--tv .settings-pane .stats-bars__track i {
+  background: #fff;
+}
+
+.settings--tv .settings-pane .stats-two {
+  display: block;
+}
+
+.settings--tv .settings-pane .stats-two .settings__item {
+  margin-bottom: calc(16 * var(--u));
+}
+
+.settings--tv .settings-pane .stats-focus .settings__label {
+  margin-left: 0;
+}
+
+.home--tv.settings--tv .settings-pane .stats-focus.is-focused {
+  box-shadow: 0 0 0 calc(3 * var(--u)) rgba(255, 255, 255, 0.95);
+}
+
+.settings--tv .settings-pane .stats-top {
+  gap: calc(10 * var(--u));
+}
+
+.settings--tv .settings-pane .stats-top__item {
+  min-height: var(--row-h);
+  padding: calc(8 * var(--u)) calc(24 * var(--u)) calc(8 * var(--u)) calc(14 * var(--u));
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: calc(19 * var(--u));
+}
+
+.settings--tv .settings-pane .stats-top__rank {
+  color: inherit;
+}
+
+.settings--tv .settings-pane .stats-top__item img,
+.settings--tv .settings-pane .stats-top__noimg {
+  width: calc(32 * var(--u));
+  height: calc(46 * var(--u));
+  border-radius: calc(6 * var(--u));
+}
+
+.settings--tv .settings-pane .stats-top__sub {
+  font-size: calc(14 * var(--u));
+  color: inherit;
+  opacity: 0.65;
+}
+
+.home--tv.settings--tv .settings-pane .stats-top__item.is-focused {
+  background: rgba(244, 244, 247, 0.95);
+  color: #1d1d20;
+  box-shadow:
+    0 0 0 calc(3 * var(--u)) rgba(255, 255, 255, 0.95),
+    inset 0 0 0 calc(2 * var(--u)) rgba(0, 0, 0, 0.18);
+}
+
+.settings--tv .settings-pane .stats-footer {
+  display: block;
+  padding: 0;
+}
+
+.settings--tv .settings-pane .settings-empty {
+  padding: calc(40 * var(--u)) calc(28 * var(--u));
+  border-radius: calc(30 * var(--u));
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* the phone remote: the code on a flat panel in the middle */
+.settings--tv .settings-pane .remote-qr {
+  width: calc(240 * var(--u));
+  height: calc(240 * var(--u));
+  margin: 0 auto calc(16 * var(--u));
+  border-radius: calc(24 * var(--u));
+}
+
+.settings--tv .settings-pane .remote-urls {
+  text-align: center;
+  margin-top: 0;
+}

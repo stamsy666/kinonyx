@@ -935,8 +935,7 @@ function RemotePane() {
           Включить пульт
         </Focusable>
         <div className="settings__hint">
-          Телефон и компьютер должны быть в одной сети Wi-Fi. Наведите камеру телефона на код: откроется страница с кнопками.
-          Windows может один раз спросить разрешение для сети — разрешите частные сети.
+          Телефон и компьютер — в одной сети Wi-Fi. Наведите камеру на код, откроется страница с кнопками.
         </div>
         {error && <div className="settings__hint settings__hint--error">{error}</div>}
       </section>
@@ -957,7 +956,7 @@ function RemotePane() {
           <Focusable as="button" className="btn settings__site-btn" focusKey="settings:remote:renew" onPress={() => void renew()}>
             Сменить код
           </Focusable>
-          <div className="settings__hint">После смены кода телефоны, которые уже открывали пульт, перестанут работать — отсканируйте новый код.</div>
+          <div className="settings__hint">После смены кода прежние телефоны перестанут работать — отсканируйте новый.</div>
         </section>
       )}
     </>
