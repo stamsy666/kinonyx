@@ -38,18 +38,20 @@ function onShelfKey(e: KeyboardEvent) {
   remember(current);
   const down = e.key === "ArrowDown";
   if ((!down && e.key !== "ArrowUp") || !current || document.querySelector(".modal, [role=dialog]")) return;
-  const group = current.closest<HTMLElement>(".row-scroll__group");
-  const all = [...document.querySelectorAll<HTMLElement>(".row-scroll__group")];
+  // The stops of the page, in order: every shelf and every wide collection banner between them.
+  const stop = current.closest<HTMLElement>(".row-scroll__group, .home-banner");
+  const all = [...document.querySelectorAll<HTMLElement>(".row-scroll__group, .home-banner")];
   let next: HTMLElement | undefined;
-  if (group) next = all[all.indexOf(group) + (down ? 1 : -1)];
+  if (stop) next = all[all.indexOf(stop) + (down ? 1 : -1)];
   else if (down) next = all.find((g) => current.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING);
   if (!next) return;
-  const origin = (group ?? current).getBoundingClientRect().top;
+  const origin = (stop ?? current).getBoundingClientRect().top;
   const there = next.getBoundingClientRect().top;
   if (down ? there <= origin : there >= origin) return;
   const key = remembered.get(next);
-  const target =
-    (key && next.querySelector<HTMLElement>(`[data-fk="${CSS.escape(key)}"]`)) || next.querySelector<HTMLElement>("[data-fk]");
+  const target = next.classList.contains("home-banner")
+    ? next
+    : (key && next.querySelector<HTMLElement>(`[data-fk="${CSS.escape(key)}"]`)) || next.querySelector<HTMLElement>("[data-fk]");
   if (!target) return;
   e.preventDefault();
   e.stopImmediatePropagation();
