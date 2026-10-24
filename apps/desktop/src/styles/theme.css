@@ -4660,7 +4660,7 @@ body:not(.mpv-active) .mini-player {
 }
 
 /* The rows' own spacing: between the blocks (each shelf sits in a wrapper), not inside them. */
-.home--tv .home__rows .shelf {
+.home--tv .home__rows > * > .shelf {
   margin-top: 0;
 }
 
@@ -4669,7 +4669,7 @@ body:not(.mpv-active) .mini-player {
 }
 
 .home--tv .shelf__head {
-  margin-bottom: calc(16 * var(--u));
+  margin-bottom: calc(30 * var(--u));
 }
 
 .home--tv .shelf__title {
