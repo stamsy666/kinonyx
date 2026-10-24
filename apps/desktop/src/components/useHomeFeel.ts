@@ -34,7 +34,21 @@ export function useHomeFeel(ready: unknown) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "ArrowUp" || document.querySelector(".modal, [role=dialog]")) return;
-      if (!document.querySelector(".home__rows > :first-child .is-focused") || !doesFocusableExist("hero:details")) return;
+      if (document.querySelector(".sx")) return; // the search page has its own moves
+      if (!doesFocusableExist("hero:details")) {
+        // No banner: Up from the topmost content goes to the menu button, not to whichever corner button is nearest.
+        const focused = document.querySelector<HTMLElement>(".home--tv .is-focused[data-fk]");
+        if (!focused || focused.closest(".home__chrome") || !doesFocusableExist("home:menu")) return;
+        const tops = [...document.querySelectorAll<HTMLElement>(".home--tv [data-fk]")]
+          .filter((x) => !x.closest(".home__chrome"))
+          .map((x) => x.getBoundingClientRect().top);
+        if (focused.getBoundingClientRect().top > Math.min(...tops) + 40) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setFocus("home:menu");
+        return;
+      }
+      if (!document.querySelector(".home__rows > :first-child .is-focused")) return;
       e.preventDefault();
       e.stopImmediatePropagation();
       setFocus("hero:details");
