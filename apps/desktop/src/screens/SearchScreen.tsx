@@ -9,9 +9,14 @@ import { MovieCard } from "../components/MovieCard";
 import { HomeChrome } from "../components/HomeChrome";
 import { CategoryGroups } from "../components/CategoryBrowse";
 import { useHomeFeel } from "../components/useHomeFeel";
+import { returnedToSavedFocus } from "../data/focusRestore";
 import { VoiceSearchModal } from "../components/VoiceSearchModal";
 
 const DEBOUNCE_MS = 450;
+
+/** What was typed, kept while a film is open: coming back with "Назад" finds the same results (and the focus
+ *  and the scroll put back on the film left from), a fresh opening starts empty. */
+const kept = { query: "", mode: "ru" as "ru" | "en" | "sym" };
 
 /** The on-screen keyboard (six keys a row, like the tvOS one). */
 type Mode = "ru" | "en" | "sym";
@@ -26,8 +31,12 @@ const MODE_LABEL: Record<Mode, string> = { ru: "абв", en: "abc", sym: "123" }
  *  on the right. Moving right off the keyboard slides it away and gives the whole width to the right side. */
 export function SearchScreen() {
   const navigate = useApp((s) => s.navigate);
-  const [query, setQuery] = useState("");
-  const [mode, setMode] = useState<Mode>("ru");
+  // Reached by "Назад" from a film: the search is as it was left.
+  const comingBack = useRef(returnedToSavedFocus()).current;
+  const [query, setQuery] = useState(() => (comingBack ? kept.query : ""));
+  const [mode, setMode] = useState<Mode>(() => (comingBack ? kept.mode : "ru"));
+  kept.query = query;
+  kept.mode = mode;
   const [results, setResults] = useState<KpCollectionItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +54,11 @@ export function SearchScreen() {
   const side = useFocusable<HTMLDivElement>({ focusKey: "search:side", trackChildren: true, saveLastFocusedChild: true });
   const wide = side.hasFocusedChild;
   // The keyboard never scrolls the page: back on it, the page returns to the top.
+  const firstTop = useRef(true);
   useEffect(() => {
+    const first = firstTop.current;
+    firstTop.current = false;
+    if (first && comingBack) return; // the page is being put back where it was left
     if (!wide) document.querySelector(".app-body")?.scrollTo({ top: 0, behavior: "smooth" });
   }, [wide]);
   const kbd = useFocusable<HTMLDivElement>({ focusKey: "search:kbd", trackChildren: true, saveLastFocusedChild: true });
@@ -203,7 +216,7 @@ export function SearchScreen() {
                 as="button"
                 className="sx__mode sx__mode--globe"
                 focusKey="search:lang" scroll={false}
-                autoFocus
+                autoFocus={!comingBack}
                 onPress={() => setMode((m) => (m === "ru" ? "en" : "ru"))}
               >
                 <GlobeIcon size={26} />
