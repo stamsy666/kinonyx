@@ -6448,7 +6448,7 @@ body .sidebar__item.is-focused .sidebar__icon {
   border-radius: calc(16 * var(--u));
 }
 
-.home--tv .mtv .still-card.is-focused {
+.home--tv.mtv .still-card.is-focused {
   transform: scale(1.06);
 }
 
@@ -6564,11 +6564,11 @@ body .sidebar__item.is-focused .sidebar__icon {
   color: rgba(255, 255, 255, 0.72);
 }
 
-.home--tv .mtv .actor-card.is-focused {
+.home--tv.mtv .actor-card.is-focused {
   transform: scale(1.06);
 }
 
-.home--tv .mtv .actor-card.is-focused::after {
+.home--tv.mtv .actor-card.is-focused::after {
   content: "";
   position: absolute;
   inset: 0;
