@@ -5161,7 +5161,9 @@ body .sidebar__item.is-focused .sidebar__icon {
 
 /* The favourites grid in the home page's unit. */
 .home--tv .grid-cards {
-  grid-template-columns: repeat(auto-fill, minmax(calc(210 * var(--u)), 1fr));
+  /* Cards of one size (the unit), the same gap at any window size: only the number per row changes. */
+  grid-template-columns: repeat(auto-fill, calc(230 * var(--u)));
+  justify-content: space-between;
   gap: calc(44 * var(--u)) calc(22 * var(--u));
   margin-top: 0;
 }
@@ -5169,4 +5171,9 @@ body .sidebar__item.is-focused .sidebar__icon {
 .favorites__empty {
   text-align: center;
   padding: calc(120 * var(--u)) 0;
+}
+
+.home--tv .grid-cards .movie-card,
+.home--tv .grid-cards .movie-card__poster {
+  width: calc(230 * var(--u));
 }
