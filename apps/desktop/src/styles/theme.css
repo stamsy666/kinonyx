@@ -4983,3 +4983,8 @@ body:not(.mpv-active) .mini-player {
 .home--tv .row-scroll__track .channel-tile.is-focused::after {
   box-shadow: inset 0 0 0 calc(4 * var(--u)) rgba(255, 255, 255, 0.95);
 }
+
+/* A collection banner sits as far from the shelf above as from the shelf under it. */
+.home--tv .home__rows > :has(.shelf--banner) {
+  margin-top: calc(25 * var(--u));
+}
