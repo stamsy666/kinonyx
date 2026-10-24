@@ -5104,3 +5104,8 @@ body .sidebar__item.is-focused .sidebar__icon {
   color: #fff;
   text-shadow: 0 1px calc(10 * var(--u)) rgba(0, 0, 0, 0.5);
 }
+
+/* No banner on these pages: the shelves start under the top row. */
+.home--nohero .home__rows {
+  margin-top: calc(96 * var(--u));
+}

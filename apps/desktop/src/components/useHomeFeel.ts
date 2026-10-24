@@ -34,10 +34,10 @@ export function useHomeFeel(ready: unknown) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "ArrowUp" || document.querySelector(".modal, [role=dialog]")) return;
-      if (!document.querySelector(".home__rows > :first-child .is-focused")) return;
+      if (!document.querySelector(".home__rows > :first-child .is-focused") || !doesFocusableExist("hero:details")) return;
       e.preventDefault();
       e.stopImmediatePropagation();
-      if (doesFocusableExist("hero:details")) setFocus("hero:details");
+      setFocus("hero:details");
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
