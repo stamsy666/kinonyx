@@ -6881,3 +6881,53 @@ body .sidebar__item.is-focused .sidebar__icon {
 .lightbox::before {
   background: #030203;
 }
+
+/* The viewer's buttons (previous, next, close) as the page's round glass buttons: a pale glass disc, and a
+   white one with a slight growth when chosen. The viewer lives in <body>, so it carries its own unit. */
+.lightbox {
+  --mu: clamp(0.8px, 100vh / 720, 1.35px);
+}
+
+.lightbox .lightbox__btn {
+  display: grid;
+  place-items: center;
+  width: calc(54 * var(--mu));
+  height: calc(54 * var(--mu));
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(40, 40, 46, 0.5);
+  -webkit-backdrop-filter: blur(calc(20 * var(--mu)));
+  backdrop-filter: blur(calc(20 * var(--mu)));
+  color: #fff;
+  transition:
+    transform 200ms var(--ease),
+    background-color 200ms var(--ease),
+    color 200ms var(--ease);
+}
+
+.lightbox .lightbox__btn--prev {
+  top: calc(50% - 27 * var(--mu));
+  left: calc(36 * var(--mu));
+}
+
+.lightbox .lightbox__btn--next {
+  top: calc(50% - 27 * var(--mu));
+  right: calc(36 * var(--mu));
+}
+
+.lightbox .lightbox__btn--close {
+  top: calc(30 * var(--mu));
+  right: calc(36 * var(--mu));
+}
+
+.lightbox .lightbox__btn.is-focused {
+  transform: scale(1.08);
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+  box-shadow: none;
+}
+
+.lightbox .lightbox__btn.is-focused::after {
+  content: none;
+}
