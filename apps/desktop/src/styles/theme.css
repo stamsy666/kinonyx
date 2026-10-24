@@ -5163,7 +5163,7 @@ body .sidebar__item.is-focused .sidebar__icon {
 .home--tv .grid-cards {
   /* Cards of one size (the unit), the same gap at any window size: only the number per row changes. */
   grid-template-columns: repeat(auto-fill, calc(230 * var(--u)));
-  justify-content: space-between;
+  justify-content: start;
   gap: calc(44 * var(--u)) calc(22 * var(--u));
   margin-top: 0;
 }
