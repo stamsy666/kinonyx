@@ -6037,3 +6037,18 @@ body .sidebar__item.is-focused .sidebar__icon {
   text-align: center;
   margin-top: 0;
 }
+
+.settings--tv .settings-pane .settings__version {
+  display: block;
+  margin: calc(14 * var(--u)) calc(20 * var(--u)) 0;
+  padding: 0;
+  font-size: calc(14 * var(--u));
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.settings--tv .settings-pane .cycle-row__value {
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

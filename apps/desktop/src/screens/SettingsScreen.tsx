@@ -24,7 +24,6 @@ import { SoundKitRow } from "../components/SoundKitRow";
 import { MUSIC_CREDITS } from "../data/music";
 import { VolumeRow } from "../components/VolumeRow";
 import { TranslatorSettings } from "../components/TranslatorSettings";
-import { FocusHighlight } from "../components/FocusHighlight";
 import type { EpgRefreshInterval } from "../store/app";
 import { rematchAll } from "../data/rematch";
 import { AboutIcon, ChannelsIcon, GearIcon, PhoneIcon, PlayerSettingsIcon, SourcesIcon, StatsIcon, ThemeIcon, VolumeIcon } from "@kinonyx/ui";
@@ -782,39 +781,48 @@ export function SettingsScreen() {
           <>
             <section className="settings__item">
               <div className="settings__label">Обновления</div>
-              <div className="sound-options">
-                <FocusHighlight pad={6} radius={16} />
-                <Focusable
-                  as="button"
-                  focusKey="settings:update-check"
-                  className="sound-option"
-                  onPress={() => {
-                    const u = useUpdater.getState();
-                    if (u.status === "available") useUpdater.setState({ dismissed: false });
-                    else void u.check(true);
-                  }}
-                >
-                  {updStatus === "checking" ? "Проверяю…" : updStatus === "available" ? `Установить ${updVersion}` : "Проверить обновления"}
-                </Focusable>
-                <Focusable
-                  as="button"
-                  focusKey="settings:update-auto"
-                  className={`sound-option ${autoCheck ? "is-active" : ""}`}
-                  onPress={() => useUpdater.getState().setAutoCheck(!autoCheck)}
-                >
-                  Автопроверка: {autoCheck ? "вкл" : "выкл"}
-                </Focusable>
-              </div>
-              <div className={`settings__hint ${updStatus === "error" ? "settings__hint--error" : updStatus === "uptodate" ? "settings__hint--ok" : ""}`}>
-                {updStatus === "uptodate" && `У вас последняя версия (${appVersion}).`}
-                {updStatus === "available" && `Доступна версия ${updVersion}.`}
-                {updStatus === "error" && updError}
-                {(updStatus === "idle" || updStatus === "checking") && `Сейчас установлена версия ${appVersion}. Проверка — раз в сутки при запуске.`}
-              </div>
+              <Focusable
+                as="button"
+                focusKey="settings:update-check"
+                className="cycle-row"
+                onPress={() => {
+                  const u = useUpdater.getState();
+                  if (u.status === "available") useUpdater.setState({ dismissed: false });
+                  else void u.check(true);
+                }}
+              >
+                <span className="cycle-row__label">
+                  {updStatus === "available" ? `Установить ${updVersion}` : "Проверить обновления"}
+                </span>
+                <span className="cycle-row__value">
+                  {updStatus === "checking" ? "Проверяю…" : updStatus === "uptodate" ? "Последняя версия" : appVersion}
+                </span>
+                <NextIcon size={20} />
+              </Focusable>
+              <Focusable
+                as="button"
+                className={`checkbox ${autoCheck ? "is-on" : ""}`}
+                focusKey="settings:update-auto"
+                onPress={() => useUpdater.getState().setAutoCheck(!autoCheck)}
+              >
+                <span className="checkbox__box">
+                  {autoCheck && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </span>
+                Проверять при запуске
+              </Focusable>
+              {(updStatus === "error" || updStatus === "available") && (
+                <div className={`settings__hint ${updStatus === "error" ? "settings__hint--error" : ""}`}>
+                  {updStatus === "error" ? updError : `Доступна версия ${updVersion}.`}
+                </div>
+              )}
             </section>
 
             <section className="settings__item">
-              <div className="settings__label">Статус в Discord</div>
+              <div className="settings__label">Discord</div>
               <Focusable
                 as="button"
                 className={`checkbox ${discordEnabled ? "is-on" : ""}`}
@@ -830,46 +838,31 @@ export function SettingsScreen() {
                 </span>
                 Показывать, что я смотрю
               </Focusable>
-              <div className="settings__hint">
-                Друзья в Discord увидят «Смотрит KINONYX», название фильма или канала и время просмотра. Нужен запущенный Discord на этом компьютере.
-              </div>
+              <div className="settings__hint">Друзья увидят «Смотрит KINONYX» и название. Нужен запущенный Discord.</div>
             </section>
 
-            <footer className="settings__footer">
-              <Focusable
-                as="button"
-                className="credit"
-                focusKey="settings:credit"
-                onPress={() => setCreditOpen(true)}
-              >
-                Разработчик — <b>kidencedev</b>
+            <section className="settings__item">
+              <div className="settings__label">Программа</div>
+              <Focusable as="button" className="cycle-row" focusKey="settings:diagnostics" onPress={() => navigate({ name: "diagnostics" })}>
+                <span className="cycle-row__label">Диагностика</span>
+                <NextIcon size={20} />
               </Focusable>
-              <Focusable
-                as="button"
-                className="credit"
-                focusKey="settings:music-credit"
-                onPress={() => setMusicCreditOpen(true)}
-              >
-                Музыка — <b>NCMFYT, C152, Affection Core</b>
+              <Focusable as="button" className="cycle-row" focusKey="settings:rerun-setup" onPress={() => navigate({ name: "setup" })}>
+                <span className="cycle-row__label">Пройти настройку заново</span>
+                <NextIcon size={20} />
               </Focusable>
-              <Focusable
-                as="button"
-                className="credit"
-                focusKey="settings:diagnostics"
-                onPress={() => navigate({ name: "diagnostics" })}
-              >
-                <b>Диагностика</b>
+              <Focusable as="button" className="cycle-row" focusKey="settings:credit" onPress={() => setCreditOpen(true)}>
+                <span className="cycle-row__label">Разработчик</span>
+                <span className="cycle-row__value">kidencedev</span>
+                <NextIcon size={20} />
               </Focusable>
-              <Focusable
-                as="button"
-                className="credit"
-                focusKey="settings:rerun-setup"
-                onPress={() => navigate({ name: "setup" })}
-              >
-                Пройти настройку заново
+              <Focusable as="button" className="cycle-row" focusKey="settings:music-credit" onPress={() => setMusicCreditOpen(true)}>
+                <span className="cycle-row__label">Музыка</span>
+                <span className="cycle-row__value">NCMFYT, C152, Affection Core</span>
+                <NextIcon size={20} />
               </Focusable>
               <span className="settings__version">KINONYX {appVersion}</span>
-            </footer>
+            </section>
           </>
         )}
         </div>
