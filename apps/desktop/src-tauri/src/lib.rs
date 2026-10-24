@@ -5,6 +5,7 @@ mod epg;
 mod http;
 mod images;
 mod kinopoisk;
+mod remote;
 mod rutube;
 mod tmdb;
 mod torapi;
@@ -69,6 +70,7 @@ pub fn run() {
         .manage(TorrserveProcess(std::sync::Mutex::new(None)))
         .manage(translator::Translator::default())
         .manage(discord::Discord::default())
+        .manage(remote::Remote::default())
         .setup(|app| {
             app.manage(AppConfig::load(app.path().app_config_dir().ok(), app.path().app_cache_dir().ok()));
             torrserve::spawn(app.handle());
@@ -127,6 +129,9 @@ pub fn run() {
             translator::translator_film_start,
             translator::translator_release,
             translator::translator_position,
+            remote::remote_start,
+            remote::remote_stop,
+            remote::remote_info,
             translator::translator_transcribe,
             translator::translator_voice,
         ])

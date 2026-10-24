@@ -26,7 +26,8 @@ import { TranslatorSettings } from "../components/TranslatorSettings";
 import { FocusHighlight } from "../components/FocusHighlight";
 import type { EpgRefreshInterval } from "../store/app";
 import { rematchAll } from "../data/rematch";
-import { AboutIcon, ChannelsIcon, GearIcon, PlayerSettingsIcon, SourcesIcon, StatsIcon, ThemeIcon, VolumeIcon } from "@kinonyx/ui";
+import { AboutIcon, ChannelsIcon, GearIcon, PhoneIcon, PlayerSettingsIcon, SourcesIcon, StatsIcon, ThemeIcon, VolumeIcon } from "@kinonyx/ui";
+import { refreshRemoteInfo, useRemote } from "../store/remote";
 import { StatsPanel } from "../components/StatsPanel";
 import { resetScroll } from "../data/focusRestore";
 import { useUpdater } from "../store/updater";
@@ -114,7 +115,7 @@ const SOURCE_OPTIONS: { key: MetadataSource; label: string }[] = [
 const KP_KEY_URL = "https://kinopoiskapiunofficial.tech/profile";
 const TMDB_KEY_URL = "https://www.themoviedb.org/settings/api";
 
-type TabKey = "sources" | "player" | "channels" | "look" | "sound" | "stats" | "about";
+type TabKey = "sources" | "player" | "channels" | "look" | "sound" | "remote" | "stats" | "about";
 
 const TABS: { key: TabKey; label: string; icon: ReactNode }[] = [
   { key: "sources", label: "Источники", icon: <SourcesIcon size={20} /> },
@@ -122,6 +123,7 @@ const TABS: { key: TabKey; label: string; icon: ReactNode }[] = [
   { key: "channels", label: "Каналы", icon: <ChannelsIcon size={20} /> },
   { key: "look", label: "Оформление", icon: <ThemeIcon size={20} /> },
   { key: "sound", label: "Звук", icon: <VolumeIcon size={20} /> },
+  { key: "remote", label: "Пульт", icon: <PhoneIcon size={20} /> },
   { key: "stats", label: "Статистика", icon: <StatsIcon size={20} /> },
   { key: "about", label: "О программе", icon: <AboutIcon size={20} /> },
 ];
@@ -856,6 +858,7 @@ export function SettingsScreen() {
             </section>
           </>
         )}
+        {tab === "remote" && <RemotePane />}
         {tab === "stats" && <StatsPanel />}
         {tab === "about" && (
           <>
@@ -980,5 +983,64 @@ function Hint({ note, fallback }: { note: Note; fallback: string }) {
     <div className={`settings__hint settings__hint--${note.kind}`}>
       {note.text}
     </div>
+  );
+}
+
+/** Settings → Пульт: the phone as a remote control (a QR code to scan, one switch). */
+function RemotePane() {
+  const enabled = useRemote((s) => s.enabled);
+  const info = useRemote((s) => s.info);
+  const error = useRemote((s) => s.error);
+  const setEnabled = useRemote((s) => s.setEnabled);
+  const renew = useRemote((s) => s.renew);
+  useEffect(() => {
+    void refreshRemoteInfo();
+  }, []);
+  return (
+    <>
+      <section className="settings__item">
+        <div className="settings__label">Пульт с телефона</div>
+        <Focusable
+          as="button"
+          className={`checkbox ${enabled ? "is-on" : ""}`}
+          focusKey="settings:remote"
+          onPress={() => void setEnabled(!enabled)}
+        >
+          <span className="checkbox__box">
+            {enabled && (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            )}
+          </span>
+          Включить пульт
+        </Focusable>
+        <div className="settings__hint">
+          Телефон и компьютер должны быть в одной сети Wi-Fi. Наведите камеру телефона на код: откроется страница с кнопками.
+          Windows может один раз спросить разрешение для сети — разрешите частные сети.
+        </div>
+        {error && <div className="settings__hint settings__hint--error">{error}</div>}
+      </section>
+
+      {enabled && info && (
+        <section className="settings__item">
+          <div className="settings__label">Код для телефона</div>
+          <div className="remote-qr" dangerouslySetInnerHTML={{ __html: info.qr }} aria-label="QR-код пульта" />
+          {info.urls.length === 0 ? (
+            <div className="settings__hint settings__hint--error">Не нашёл адрес компьютера в домашней сети. Проверьте подключение к Wi-Fi.</div>
+          ) : (
+            <div className="settings__hint remote-urls">
+              {info.urls.map((u) => (
+                <div key={u}>{u.replace(/\?t=.*/, "")}</div>
+              ))}
+            </div>
+          )}
+          <Focusable as="button" className="btn settings__site-btn" focusKey="settings:remote:renew" onPress={() => void renew()}>
+            Сменить код
+          </Focusable>
+          <div className="settings__hint">После смены кода телефоны, которые уже открывали пульт, перестанут работать — отсканируйте новый код.</div>
+        </section>
+      )}
+    </>
   );
 }

@@ -5,6 +5,7 @@ import { TopBar } from "./components/TopBar";
 import { Sidebar } from "./components/Sidebar";
 import { AppBackground } from "./components/backgrounds/AppBackground";
 import { ClickSpark } from "./components/ClickSpark";
+import { RemoteBridge } from "./components/RemoteBridge";
 import { configStatus } from "./data/api";
 import { isTauri } from "./data/io";
 import { rematchAll } from "./data/rematch";
@@ -253,6 +254,7 @@ export function App() {
     <>
       {shell}
       <PlayerHost />
+      <RemoteBridge />
     </>
   );
 }

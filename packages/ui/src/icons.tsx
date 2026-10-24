@@ -14,6 +14,7 @@ import {
   GalleryHorizontal,
   Maximize2,
   PictureInPicture2,
+  Smartphone,
   Heart,
   History,
   Info,
@@ -116,6 +117,7 @@ export const SourcesIcon = wrap(Database);
 export const PlayerSettingsIcon = wrap(MonitorPlay);
 export const ThemeIcon = wrap(Palette);
 export const AboutIcon = wrap(Info);
+export const PhoneIcon = wrap(Smartphone);
 
 export const StatsIcon = wrap(ChartColumn);
 export const FlameIcon = wrap(Flame);

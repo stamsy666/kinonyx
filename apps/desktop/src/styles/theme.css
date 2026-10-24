@@ -4414,3 +4414,23 @@ body:not(.mpv-active) .mini-player {
   background: rgba(255, 255, 255, 0.22);
   color: #fff;
 }
+
+/* Settings → Пульт: the QR code of the phone remote. */
+.remote-qr {
+  width: 220px;
+  height: 220px;
+  margin: 14px 0 10px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.remote-qr svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.remote-urls {
+  word-break: break-all;
+}
