@@ -5107,5 +5107,6 @@ body .sidebar__item.is-focused .sidebar__icon {
 
 /* No banner on these pages: the shelves start under the top row. */
 .home--nohero .home__rows {
-  margin-top: calc(96 * var(--u));
+  margin-top: 0;
+  padding-top: calc(96 * var(--u));
 }
