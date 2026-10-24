@@ -4444,6 +4444,9 @@ body:not(.mpv-active) .mini-player {
 
 .home--tv {
   position: relative;
+  /* One unit for the whole page: 1px at a 720-high window (the app at 150%), growing and shrinking with the
+     window between 0.8 and 1.35, so the page fits any zoom and screen without things landing in the wrong place. */
+  --u: clamp(0.8px, calc(100vh / 720), 1.35px);
   --sheet: 0;
   --parallax: 0px;
 }
@@ -4452,7 +4455,7 @@ body:not(.mpv-active) .mini-player {
 .home__chrome {
   position: absolute;
   z-index: 5;
-  top: 26px;
+  top: calc(26 * var(--u));
   left: 0;
   right: 0;
   display: flex;
@@ -4469,19 +4472,19 @@ body:not(.mpv-active) .mini-player {
 
 .home__chrome-right {
   display: flex;
-  gap: 12px;
+  gap: calc(12 * var(--u));
 }
 
 .home-round {
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
+  width: calc(46 * var(--u));
+  height: calc(46 * var(--u));
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.24);
   background: rgba(40, 40, 46, 0.42);
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(calc(20 * var(--u)));
+  backdrop-filter: blur(calc(20 * var(--u)));
   color: #fff;
 }
 
@@ -4490,25 +4493,15 @@ body:not(.mpv-active) .mini-player {
   /* Scrolling down, the banner fades out as the rows come up, and the theme's own background shows behind them. */
   opacity: calc(1 - var(--sheet));
   height: 100vh;
-  margin: -4px calc(-1 * var(--page-x)) 0;
+  margin: calc(-4 * var(--u)) calc(-1 * var(--page-x)) 0;
   border: 0;
   background: transparent;
   overflow: hidden;
 }
 
-.home--tv .hero__slide {
-  transform: translate(0, var(--parallax));
-}
-
-.home--tv .hero__slide--offset-left {
-  transform: translate(-6%, var(--parallax));
-}
-
-.home--tv .hero__slide--offset-right {
-  transform: translate(6%, var(--parallax));
-}
-
 .home--tv .hero__backdrop {
+  /* Only the picture drifts (slower than the page); the text and buttons move exactly with it. */
+  transform: translateY(var(--parallax));
   inset: 0;
   width: 100%;
   height: 100%;
@@ -4524,72 +4517,72 @@ body:not(.mpv-active) .mini-player {
 .home--tv .hero__info {
   left: var(--page-x);
   right: var(--page-x);
-  bottom: calc(17vh + 160px);
-  max-width: 600px;
+  bottom: calc(17vh + calc(160 * var(--u)));
+  max-width: calc(600 * var(--u));
   display: flex;
   flex-direction: column;
 }
 
 .home--tv .hero__title {
   order: 1;
-  font-size: clamp(40px, 4.8vw, 84px);
+  font-size: clamp(calc(40 * var(--u)), 4.8vw, calc(84 * var(--u)));
   font-weight: 800;
   line-height: 0.98;
   letter-spacing: -0.025em;
-  margin: 0 0 16px;
+  margin: 0 0 calc(16 * var(--u));
   color: #fff;
-  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.55);
+  text-shadow: 0 calc(4 * var(--u)) calc(30 * var(--u)) rgba(0, 0, 0, 0.55);
 }
 
 .home--tv .hero__meta {
   order: 2;
-  gap: 10px;
-  margin: 0 0 8px;
+  gap: calc(10 * var(--u));
+  margin: 0 0 calc(8 * var(--u));
   font-weight: 600;
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 1px calc(10 * var(--u)) rgba(0, 0, 0, 0.6);
 }
 
 .home--tv .hero__category,
 .home--tv .hero__year {
   color: rgba(255, 255, 255, 0.82);
-  font-size: 15px;
+  font-size: calc(15 * var(--u));
 }
 
 .home--tv .hero__rating {
-  font-size: 15px;
+  font-size: calc(15 * var(--u));
 }
 
 .home--tv .hero__desc {
   order: 3;
-  max-width: 520px;
-  font-size: 16px;
+  max-width: calc(520 * var(--u));
+  font-size: calc(16 * var(--u));
   line-height: 1.38;
   color: rgba(255, 255, 255, 0.86);
   -webkit-line-clamp: 2;
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 1px calc(10 * var(--u)) rgba(0, 0, 0, 0.6);
 }
 
 .hero__actions {
   position: absolute;
   z-index: 3;
   left: var(--page-x);
-  bottom: calc(17vh + 88px);
+  bottom: calc(17vh + calc(88 * var(--u)));
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: calc(10 * var(--u));
 }
 
 .hero__btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  height: 54px;
-  border-radius: 27px;
+  gap: calc(10 * var(--u));
+  height: calc(54 * var(--u));
+  border-radius: calc(27 * var(--u));
   border: 1px solid transparent;
   background: transparent;
   color: #fff;
-  font: 600 18px var(--font-body);
+  font: 600 calc(18 * var(--u)) var(--font-body);
   transition:
     transform 200ms var(--ease),
     background-color 200ms var(--ease),
@@ -4598,15 +4591,15 @@ body:not(.mpv-active) .mini-player {
 }
 
 .hero__btn--pill {
-  padding: 0 28px 0 22px;
+  padding: 0 calc(28 * var(--u)) 0 calc(22 * var(--u));
   border-color: rgba(255, 255, 255, 0.26);
   background: rgba(40, 40, 46, 0.42);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(calc(20 * var(--u))) saturate(1.4);
+  backdrop-filter: blur(calc(20 * var(--u))) saturate(1.4);
 }
 
 .hero__btn--round {
-  width: 54px;
+  width: calc(54 * var(--u));
   padding: 0;
 }
 
@@ -4615,7 +4608,7 @@ body:not(.mpv-active) .mini-player {
   transform: scale(1.07);
   background: rgba(255, 255, 255, 0.92);
   color: #111;
-  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 calc(12 * var(--u)) calc(30 * var(--u)) calc(-10 * var(--u)) rgba(0, 0, 0, 0.6);
 }
 
 .home--tv .hero__btn.is-focused::after,
@@ -4634,24 +4627,24 @@ body:not(.mpv-active) .mini-player {
 }
 
 .home--tv .hero__dots {
-  bottom: calc(17vh + 32px);
-  gap: 8px;
-  padding: 8px 13px;
-  border-radius: 13px;
+  bottom: calc(17vh + calc(32 * var(--u)));
+  gap: calc(8 * var(--u));
+  padding: calc(8 * var(--u)) calc(13 * var(--u));
+  border-radius: calc(13 * var(--u));
   background: rgba(40, 40, 46, 0.42);
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(calc(20 * var(--u)));
+  backdrop-filter: blur(calc(20 * var(--u)));
 }
 
 .home--tv .hero__dot {
-  width: 6px;
-  height: 6px;
+  width: calc(6 * var(--u));
+  height: calc(6 * var(--u));
   background: rgba(255, 255, 255, 0.5);
 }
 
 .home--tv .hero__dot.is-active {
-  width: 22px;
-  border-radius: 3px;
+  width: calc(22 * var(--u));
+  border-radius: calc(3 * var(--u));
   background: #fff;
 }
 
@@ -4660,7 +4653,7 @@ body:not(.mpv-active) .mini-player {
   position: relative;
   z-index: 2;
   margin: -17vh calc(-1 * var(--page-x)) 0;
-  padding: 0 var(--page-x) 80px;
+  padding: 0 var(--page-x) calc(80 * var(--u));
 }
 
 /* The rows' own spacing: between the blocks (each shelf sits in a wrapper), not inside them. */
@@ -4669,15 +4662,15 @@ body:not(.mpv-active) .mini-player {
 }
 
 .home--tv .home__rows > * + * {
-  margin-top: 64px;
+  margin-top: calc(64 * var(--u));
 }
 
 .home--tv .shelf__head {
-  margin-bottom: 16px;
+  margin-bottom: calc(16 * var(--u));
 }
 
 .home--tv .shelf__title {
-  font-size: 21px;
+  font-size: calc(21 * var(--u));
   font-weight: 700;
   color: var(--text);
   opacity: 0.8;
@@ -4685,13 +4678,13 @@ body:not(.mpv-active) .mini-player {
 
 /* Room for the lifted cards (the scrolling row would clip them). */
 .home--tv .row-scroll__track {
-  padding: 30px 22px;
-  margin: -30px -22px;
+  padding: calc(30 * var(--u)) calc(22 * var(--u));
+  margin: calc(-30 * var(--u)) calc(-22 * var(--u));
 }
 
 /* ---- posters ---- */
 .home--tv .movie-card__poster {
-  border-radius: 14px;
+  border-radius: calc(14 * var(--u));
   border: 0;
   transition:
     transform 240ms var(--ease),
@@ -4700,11 +4693,11 @@ body:not(.mpv-active) .mini-player {
 
 .home--tv .movie-card.is-focused .movie-card__poster {
   transform: scale(1.1);
-  box-shadow: 0 30px 50px -16px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 calc(30 * var(--u)) calc(50 * var(--u)) calc(-16 * var(--u)) rgba(0, 0, 0, 0.7);
 }
 
 .home--tv .movie-card.is-focused .movie-card__poster::after {
-  box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.95);
+  box-shadow: inset 0 0 0 calc(4 * var(--u)) rgba(255, 255, 255, 0.95);
 }
 
 .home--tv .movie-card.is-focused .movie-card__poster img {
@@ -4716,15 +4709,15 @@ body:not(.mpv-active) .mini-player {
 }
 
 .home--tv .movie-card__rank {
-  left: 12px;
-  top: 8px;
+  left: calc(12 * var(--u));
+  top: calc(8 * var(--u));
   bottom: auto;
-  font-size: 50px;
+  font-size: calc(50 * var(--u));
   font-weight: 800;
   line-height: 1;
   color: #fff;
   -webkit-text-stroke: 0;
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.7);
+  text-shadow: 0 calc(2 * var(--u)) calc(16 * var(--u)) rgba(0, 0, 0, 0.7);
   z-index: 2;
 }
 
@@ -4738,9 +4731,9 @@ body:not(.mpv-active) .mini-player {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 36px 10px 12px;
+  padding: calc(36 * var(--u)) calc(10 * var(--u)) calc(12 * var(--u));
   text-align: center;
-  font-size: 15px;
+  font-size: calc(15 * var(--u));
   font-weight: 600;
   color: #fff;
   background: linear-gradient(0deg, rgba(0, 0, 0, 0.75), transparent);
@@ -4756,9 +4749,9 @@ body:not(.mpv-active) .mini-player {
 .feature-card {
   position: relative;
   flex: 0 0 auto;
-  width: calc((100cqw - 48px) / 3.1);
+  width: calc((100cqw - calc(48 * var(--u))) / 3.1);
   aspect-ratio: 4 / 5;
-  border-radius: 18px;
+  border-radius: calc(18 * var(--u));
   overflow: hidden;
   background: var(--surface);
   cursor: pointer;
@@ -4783,27 +4776,27 @@ body:not(.mpv-active) .mini-player {
 
 .feature-card__text {
   position: absolute;
-  left: 26px;
-  right: 26px;
-  bottom: 24px;
+  left: calc(26 * var(--u));
+  right: calc(26 * var(--u));
+  bottom: calc(24 * var(--u));
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: calc(6 * var(--u));
   color: #fff;
 }
 
 .feature-card__text b {
   font-family: var(--font-display);
-  font-size: clamp(22px, 2vw, 34px);
+  font-size: clamp(calc(22 * var(--u)), 2vw, calc(34 * var(--u)));
   font-weight: 800;
   line-height: 1.02;
   letter-spacing: -0.015em;
-  margin-bottom: 4px;
+  margin-bottom: calc(4 * var(--u));
 }
 
 .feature-card__meta {
   display: block;
-  font-size: 15px;
+  font-size: calc(15 * var(--u));
   font-weight: 600;
   color: rgba(255, 255, 255, 0.85);
 }
@@ -4811,12 +4804,12 @@ body:not(.mpv-active) .mini-player {
 .feature-card__meta i {
   font-style: normal;
   color: var(--gold);
-  margin-left: 10px;
+  margin-left: calc(10 * var(--u));
   white-space: nowrap;
 }
 
 .feature-card__line {
-  font-size: 15px;
+  font-size: calc(15 * var(--u));
   line-height: 1.35;
   color: rgba(255, 255, 255, 0.82);
   display: -webkit-box;
@@ -4838,12 +4831,12 @@ body:not(.mpv-active) .mini-player {
 
 .feature-card.is-focused {
   transform: scale(1.045);
-  box-shadow: 0 34px 60px -20px rgba(0, 0, 0, 0.75);
+  box-shadow: 0 calc(34 * var(--u)) calc(60 * var(--u)) calc(-20 * var(--u)) rgba(0, 0, 0, 0.75);
 }
 
 .home--tv .feature-card.is-focused::after,
 .home--tv .home-banner.is-focused::after {
-  box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.95);
+  box-shadow: inset 0 0 0 calc(4 * var(--u)) rgba(255, 255, 255, 0.95);
   animation: none;
   background: none;
   padding: 0;
@@ -4852,20 +4845,20 @@ body:not(.mpv-active) .mini-player {
 }
 
 .shelf--feature .row-scroll__group {
-  gap: 24px;
+  gap: calc(24 * var(--u));
 }
 
 /* ---- wide collection banner ---- */
 .shelf--banner {
-  padding: 6px 0;
+  padding: calc(6 * var(--u)) 0;
 }
 
 .home-banner {
   position: relative;
   display: block;
   width: 100%;
-  height: min(46vh, 480px);
-  border-radius: 20px;
+  height: min(46vh, calc(480 * var(--u)));
+  border-radius: calc(20 * var(--u));
   overflow: hidden;
   background: var(--surface);
   cursor: pointer;
@@ -4892,38 +4885,47 @@ body:not(.mpv-active) .mini-player {
 
 .home-banner__text {
   position: absolute;
-  left: 40px;
-  bottom: 36px;
-  max-width: 560px;
+  left: calc(40 * var(--u));
+  bottom: calc(36 * var(--u));
+  max-width: calc(560 * var(--u));
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: calc(8 * var(--u));
   color: #fff;
 }
 
 .home-banner__text b {
   font-family: var(--font-display);
-  font-size: clamp(30px, 3.2vw, 54px);
+  font-size: clamp(calc(30 * var(--u)), 3.2vw, calc(54 * var(--u)));
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.02em;
 }
 
 .home-banner__text span {
-  font-size: 17px;
+  font-size: calc(17 * var(--u));
   line-height: 1.35;
   color: rgba(255, 255, 255, 0.86);
 }
 
 .home-banner.is-focused {
   transform: scale(1.015);
-  box-shadow: 0 34px 60px -20px rgba(0, 0, 0, 0.75);
+  box-shadow: 0 calc(34 * var(--u)) calc(60 * var(--u)) calc(-20 * var(--u)) rgba(0, 0, 0, 0.75);
 }
 
 .home--tv .shelf--under-banner {
-  margin-top: 26px !important;
+  margin-top: calc(26 * var(--u)) !important;
 }
 
 .home--tv .shelf--under-banner .shelf__head {
   display: none;
+}
+
+/* Posters follow the page's unit too. */
+.home--tv .movie-card {
+  width: calc(230 * var(--u));
+}
+
+.home--tv .row-scroll__group {
+  gap: calc(22 * var(--u));
 }
