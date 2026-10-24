@@ -4434,3 +4434,231 @@ body:not(.mpv-active) .mini-player {
 .remote-urls {
   word-break: break-all;
 }
+
+/* ---------- Home page, after the Apple TV store ----------
+   Only the look changes, the colours are the theme's own: a frame of the film across the whole width,
+   the title and buttons at the lower left, a pill of dots, and the shelves on a sheet that rises over
+   the banner's foot, with the numbered posters lifting a little when they get the focus. */
+
+.home--tv .hero {
+  height: min(76vh, 800px);
+  margin: 0 calc(-1 * var(--page-x));
+  border: 0;
+  background: transparent;
+  overflow: hidden;
+}
+
+.home--tv .hero__backdrop {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  filter: brightness(0.82) saturate(1.1);
+}
+
+.home--tv .hero__slide::after {
+  background:
+    linear-gradient(0deg, var(--bg) 2%, transparent 46%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0.18) 48%, transparent 72%);
+}
+
+.home--tv .hero__info {
+  left: var(--page-x);
+  right: var(--page-x);
+  bottom: 150px;
+  max-width: 660px;
+  display: flex;
+  flex-direction: column;
+}
+
+.home--tv .hero__title {
+  order: 1;
+  font-size: clamp(40px, 5.2vw, 76px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  margin: 0 0 14px;
+  text-shadow: 0 4px 28px rgba(0, 0, 0, 0.55);
+}
+
+.home--tv .hero__meta {
+  order: 2;
+  margin: 0 0 8px;
+  font-weight: 600;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
+}
+
+.home--tv .hero__category,
+.home--tv .hero__year {
+  color: var(--text);
+  opacity: 0.86;
+  font-size: 16px;
+}
+
+.home--tv .hero__desc {
+  order: 3;
+  font-size: 17px;
+  line-height: 1.4;
+  color: var(--text);
+  opacity: 0.86;
+  -webkit-line-clamp: 2;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
+}
+
+.hero__actions {
+  position: absolute;
+  z-index: 3;
+  left: var(--page-x);
+  bottom: 84px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.hero__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 56px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(30, 30, 34, 0.5);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  color: #fff;
+  font: 600 18px var(--font-body);
+}
+
+.hero__btn--pill {
+  padding: 0 30px 0 24px;
+}
+
+.hero__btn--round {
+  width: 56px;
+  padding: 0;
+}
+
+.hero__btn.is-on svg {
+  fill: currentColor;
+}
+
+.home--tv .hero__dots {
+  bottom: 54px;
+  gap: 9px;
+  padding: 9px 14px;
+  border-radius: 14px;
+  background: rgba(30, 30, 34, 0.5);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.home--tv .hero__dot {
+  width: 7px;
+  height: 7px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.home--tv .hero__dot.is-active {
+  width: 22px;
+  background: #fff;
+}
+
+/* The sheet. */
+.home__rows {
+  position: relative;
+  z-index: 1;
+  margin: -64px calc(-1 * var(--page-x)) 0;
+  padding: 26px var(--page-x) 40px;
+  border-radius: 30px 30px 0 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--text) 9%, var(--bg)) 0%, var(--bg) 70%);
+}
+
+.home--tv .home__rows .shelf {
+  margin-top: 46px;
+}
+
+.home--tv .home__rows .shelf:first-child {
+  margin-top: 0;
+}
+
+.home--tv .shelf__title {
+  font-size: 22px;
+  font-weight: 700;
+  opacity: 0.82;
+}
+
+/* Posters: rounder, the place number white at the corner, the genre inside at the bottom; the
+   title only under the one that has the focus, which lifts instead of going dark. */
+.home--tv .movie-card__poster {
+  border-radius: 16px;
+  border: 0;
+  transition: transform 220ms var(--ease), box-shadow 220ms var(--ease);
+}
+
+.home--tv .movie-card.is-focused .movie-card__poster {
+  transform: scale(1.08);
+  box-shadow: 0 26px 44px -14px rgba(0, 0, 0, 0.65);
+}
+
+.home--tv .movie-card.is-focused .movie-card__poster img {
+  filter: none;
+}
+
+.home--tv .movie-card.is-focused .movie-card__play {
+  display: none;
+}
+
+.home--tv .movie-card__rank {
+  left: 14px;
+  top: 10px;
+  bottom: auto;
+  font-size: 54px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  -webkit-text-stroke: 0;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.65);
+  z-index: 2;
+}
+
+.movie-card__label {
+  display: none;
+}
+
+.home--tv .movie-card__label {
+  display: block;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 34px 10px 12px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.72), transparent);
+  pointer-events: none;
+}
+
+.home--tv .movie-card__title,
+.home--tv .movie-card__meta {
+  opacity: 0;
+  transition: opacity 200ms var(--ease);
+}
+
+.home--tv .movie-card.is-focused .movie-card__title,
+.home--tv .movie-card.is-focused .movie-card__meta {
+  opacity: 1;
+}
+
+.home--tv .movie-card.is-focused .movie-card__title {
+  color: var(--text);
+}
+
+/* Room for the lifted poster. */
+.home--tv .row-scroll__track {
+  padding-top: 26px;
+  padding-bottom: 26px;
+  margin-top: -26px;
+  margin-bottom: -26px;
+}

@@ -1,30 +1,44 @@
 import { useEffect, useState } from "react";
 import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { returnedToSavedFocus } from "../data/focusRestore";
-import { BackIcon, Focusable, NextIcon } from "@kinonyx/ui";
+import { cancelGlides, FavoriteIcon, Focusable, FocusGroup, NextIcon, PlusIcon } from "@kinonyx/ui";
 import { kpImages, type KpCollectionItem } from "../data/api";
 import { img, stillLarge } from "../data/images";
+import { useFavorites } from "../store/favorites";
 import { ProgressiveImg } from "./ProgressiveImg";
 
 const ROTATE_MS = 7000;
 
+/** The page goes back to its top when the banner gets the focus: it is meant to be seen whole. */
+const toTop = () => {
+  cancelGlides();
+  document.querySelector(".app-body")?.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+/**
+ * The home banner, laid out like the Apple TV store's: a frame of the film across the whole width,
+ * the title, a line about it and a few buttons at the lower left, and a pill of dots at the bottom.
+ * The buttons carry the focus — "Подробнее" opens the film, "+" adds it to the favourites, "›" turns
+ * to the next one; Left on "Подробнее" turns back.
+ */
 export function HeroCarousel({ films, onOpen }: { films: KpCollectionItem[]; onOpen: (film: KpCollectionItem) => void }) {
   const [index, setIndex] = useState(0);
   const slides = films.slice(0, 5);
   const ids = slides.map((f) => f.kinopoiskId).join(",");
+  const favorites = useFavorites((s) => s.items);
+  const toggleFavorite = useFavorites((s) => s.toggle);
 
+  // Turning by itself; pressing anything restarts the wait, so a slide never changes right under a press.
   useEffect(() => {
     if (slides.length < 2) return;
     const id = window.setInterval(() => setIndex((i) => (i + 1) % slides.length), ROTATE_MS);
     return () => window.clearInterval(id);
-  }, [slides.length]);
+  }, [slides.length, index]);
 
-  // A real frame from the film reads far better as ambience than the poster stretched
-  // and blurred — the poster is portrait art, not a scene. One STILL image per slide,
-  // fetched once and cached (same disk cache as every other Kinopoisk request); falls
-  // back to the poster crop for the rare film with no stills. `/1920x` (not the ~280px
-  // `previewUrl`) so it stays sharp stretched full-bleed across the banner — previewUrl
-  // was visibly pixelated at that size.
+  // A real frame from the film reads far better as the backdrop than the poster stretched and
+  // blurred — the poster is portrait art, not a scene. One STILL image per slide, fetched once and
+  // cached (same disk cache as every other Kinopoisk request); falls back to the poster for the
+  // rare film with no stills. `/1920x` so it stays sharp across the whole width.
   const [stills, setStills] = useState<Record<number, string | undefined>>({});
   useEffect(() => {
     let cancelled = false;
@@ -45,48 +59,29 @@ export function HeroCarousel({ films, onOpen }: { films: KpCollectionItem[]; onO
 
   if (slides.length === 0) return null;
   const go = (delta: number) => setIndex((i) => (i + delta + slides.length) % slides.length);
+  const current = slides[index];
+  const isFavorite = favorites.some((f) => f.kinopoiskId === current.kinopoiskId);
 
-  // Same slide-left/slide-right feel as the gallery/lightbox viewers (SlideViewer.tsx),
-  // adapted to this carousel's existing render-all-slides-and-toggle-a-class approach
-  // (it already cross-fades that way) instead of mount/unmount: every slide keeps a fixed
-  // "which side of active" bucket, computed via shortest wrap-aware direction, so the
-  // outgoing frame transitions out that side and the incoming one transitions in from it.
+  // Slide-left/slide-right like the gallery viewers: every slide keeps a fixed "which side of
+  // active" bucket (shortest wrap-aware direction), so the outgoing frame leaves that side and the
+  // incoming one arrives from it.
   const offsetOf = (i: number): "left" | "right" | null => {
     if (i === index) return null;
     const raw = (i - index + slides.length) % slides.length;
     return raw <= slides.length / 2 ? "right" : "left";
   };
 
+  // Up from any button goes to the top bar; the narrow icons up there are not found by the nearest-neighbour search.
+  const common = (extra?: (dir: string) => boolean | void) => (direction: string) => {
+    if (direction === "up") {
+      setFocus("hdr:search");
+      return false;
+    }
+    return extra?.(direction) ?? true;
+  };
+
   return (
-    <Focusable
-      focusKey="hero"
-      className="hero"
-      // Was `scroll={false}` — meant the hero never scrolled itself into view, so
-      // navigating Up from a lower shelf moved focus onto it but left the page exactly
-      // where it was, hero nowhere on screen. "start" pins it flush under the top bar,
-      // which is what "perfectly visible at the top" means for the tallest element on
-      // the page (a plain "center" would leave slack above/below it instead).
-      scrollBlock="start"
-      autoFocus={!returnedToSavedFocus()}
-      onArrowPress={(direction) => {
-        // Left/Right flip slides while the banner is focused; Down leaves it as usual.
-        if (direction === "left" || direction === "right") {
-          go(direction === "left" ? -1 : 1);
-          return false;
-        }
-        // The hero spans the full width, so the default nearest-neighbour search often
-        // fails to line it up with the narrow top-bar icons above it — Up would just do
-        // nothing (focus stays put, nothing visibly changes). Send it there explicitly.
-        if (direction === "up") {
-          setFocus("hdr:search");
-          return false;
-        }
-        return true;
-      }}
-      // onPress alone: Focusable already routes Enter to it — also passing onEnterPress
-      // opened the film twice (and "back" then took two presses).
-      onPress={() => onOpen(slides[index])}
-    >
+    <FocusGroup focusKey="hero" className="hero" preferredChildFocusKey="hero:details">
       {slides.map((film, i) => {
         const title = film.nameRu || film.nameOriginal || "Без названия";
         const preview = img(film.posterUrlPreview);
@@ -98,33 +93,73 @@ export function HeroCarousel({ films, onOpen }: { films: KpCollectionItem[]; onO
             key={film.kinopoiskId}
             className={`hero__slide ${i === index ? "is-active" : ""} ${offset ? `hero__slide--offset-${offset}` : ""}`}
           >
-            <ProgressiveImg className="hero__backdrop" src={backdrop} placeholder={preview} alt="" />
-            <ProgressiveImg className="hero__poster" src={img(film.posterUrl)} placeholder={preview} alt={title} />
+            <ProgressiveImg className="hero__backdrop" src={backdrop} placeholder={preview} alt={title} />
             <div className="hero__info">
-              <div className="hero__meta">
-                {film.ratingKinopoisk != null && <span className="hero__rating">★ {film.ratingKinopoisk.toFixed(1)}</span>}
-                {film.year != null && <span className="hero__year">{film.year}</span>}
-                <span className="hero__category">{film.genres?.map((g) => g.genre).slice(0, 3).join(", ") || "Фильм"}</span>
-              </div>
               <h2 className="hero__title">{title}</h2>
+              <div className="hero__meta">
+                <span className="hero__category">
+                  {["Фильм", ...(film.genres?.map((g) => g.genre).slice(0, 2) ?? [])].join(" · ")}
+                </span>
+                {film.year != null && <span className="hero__year">{film.year}</span>}
+                {film.ratingKinopoisk != null && <span className="hero__rating">★ {film.ratingKinopoisk.toFixed(1)}</span>}
+              </div>
               {film.description && <p className="hero__desc">{film.description}</p>}
             </div>
           </div>
         );
       })}
-      {/* Ordinary app buttons: hover/press sounds and the usual focus beam. A click on them
-          doesn't reach the banner (Focusable stops propagation), so it won't open the film. */}
-      <Focusable as="button" className="icon-btn hero__arrow hero__arrow--prev" focusKey="hero:prev" scroll={false} onPress={() => go(-1)}>
-        <BackIcon size={24} />
-      </Focusable>
-      <Focusable as="button" className="icon-btn hero__arrow hero__arrow--next" focusKey="hero:next" scroll={false} onPress={() => go(1)}>
-        <NextIcon size={24} />
-      </Focusable>
+
+      <div className="hero__actions">
+        <Focusable
+          as="button"
+          className="hero__btn hero__btn--pill"
+          focusKey="hero:details"
+          autoFocus={!returnedToSavedFocus()}
+          scroll={false}
+          onFocus={toTop}
+          onArrowPress={common((dir) => {
+            if (dir === "left") {
+              go(-1);
+              return false;
+            }
+          })}
+          onPress={() => onOpen(current)}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v5M12 8h.01" />
+          </svg>
+          Подробнее
+        </Focusable>
+        <Focusable
+          as="button"
+          className={`hero__btn hero__btn--round ${isFavorite ? "is-on" : ""}`}
+          focusKey="hero:add"
+          scroll={false}
+          onFocus={toTop}
+          onArrowPress={common()}
+          onPress={() => toggleFavorite(current)}
+        >
+          {isFavorite ? <FavoriteIcon size={24} /> : <PlusIcon size={26} />}
+        </Focusable>
+        <Focusable
+          as="button"
+          className="hero__btn hero__btn--round"
+          focusKey="hero:next"
+          scroll={false}
+          onFocus={toTop}
+          onArrowPress={common()}
+          onPress={() => go(1)}
+        >
+          <NextIcon size={26} />
+        </Focusable>
+      </div>
+
       <div className="hero__dots">
         {slides.map((film, i) => (
           <i key={film.kinopoiskId} className={`hero__dot ${i === index ? "is-active" : ""}`} />
         ))}
       </div>
-    </Focusable>
+    </FocusGroup>
   );
 }

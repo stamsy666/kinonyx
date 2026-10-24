@@ -17,6 +17,7 @@ interface Props {
 
 export function MovieCard({ film, focusKey, onPress, rank, progress, autoFocus }: Props) {
   const title = film.nameRu || film.nameOriginal || "Без названия";
+  const genre = film.genres?.[0]?.genre;
   const poster = img(film.posterUrlPreview);
   // A `posterUrlPreview` field being set doesn't mean the file actually loads — brand new
   // or unreleased titles on Kinopoisk regularly point at a URL that 404s. Falls back to
@@ -37,6 +38,7 @@ export function MovieCard({ film, focusKey, onPress, rank, progress, autoFocus }
           </svg>
         </span>
         {rank != null && <span className="movie-card__rank">{rank}</span>}
+        {genre && <span className="movie-card__label">{genre}</span>}
         {progress != null && (
           <div className="movie-card__progress">
             <i style={{ width: `${Math.round(Math.min(1, Math.max(0, progress)) * 100)}%` }} />

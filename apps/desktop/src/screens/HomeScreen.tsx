@@ -180,7 +180,7 @@ export function HomeScreen() {
   };
 
   return (
-    <FocusGroup focusKey="home" className="screen-pad home">
+    <FocusGroup focusKey="home" className="screen-pad home home--tv">
       {error && <p className="empty">Не удалось загрузить подборку: {error}</p>}
       {!hero && !error && (
         <div style={{ display: "grid", placeItems: "center", height: 300 }}>
@@ -188,6 +188,9 @@ export function HomeScreen() {
         </div>
       )}
       {hero && <HeroCarousel films={hero} onOpen={open} />}
+      {/* The shelves sit on a sheet that rises over the foot of the banner. */}
+      {hero && (
+        <div className="home__rows">
       {hero && metadataSource && (
         <LazyShelf
           key={shelves[0].kind}
@@ -265,6 +268,8 @@ export function HomeScreen() {
             onOpen={open}
           />
         ))}
+        </div>
+      )}
       {channelError && (
         <Modal focusKey="channel-error" preferredChildFocusKey="channel-err:close" onClose={() => setChannelError(null)}>
           <div className="modal-panel__header">
