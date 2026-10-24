@@ -4512,6 +4512,8 @@ body:not(.mpv-active) .mini-player {
 
 /* ---- the banner ---- */
 .home--tv .hero {
+  /* Scrolling down, the banner fades out as the rows come up, and the theme's own background shows behind them. */
+  opacity: calc(1 - var(--sheet));
   height: 100vh;
   margin: -4px calc(-1 * var(--page-x)) 0;
   border: 0;
@@ -4685,29 +4687,20 @@ body:not(.mpv-active) .mini-player {
   position: relative;
   z-index: 2;
   margin: -17vh calc(-1 * var(--page-x)) 0;
-  padding: 0 var(--page-x) 60px;
+  padding: 0 var(--page-x) 80px;
 }
 
-.home__rows::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: -2vh 0 0;
-  background: color-mix(in srgb, var(--text) 11%, var(--bg));
-  opacity: var(--sheet);
-  box-shadow: 0 -30px 60px -20px rgba(0, 0, 0, 0.5);
-}
-
+/* The rows' own spacing: between the blocks (each shelf sits in a wrapper), not inside them. */
 .home--tv .home__rows .shelf {
-  margin-top: 40px;
-}
-
-.home--tv .home__rows .shelf:first-child {
   margin-top: 0;
 }
 
+.home--tv .home__rows > * + * {
+  margin-top: 64px;
+}
+
 .home--tv .shelf__head {
-  margin-bottom: 4px;
+  margin-bottom: 16px;
 }
 
 .home--tv .shelf__title {
@@ -4719,10 +4712,8 @@ body:not(.mpv-active) .mini-player {
 
 /* Room for the lifted cards (the scrolling row would clip them). */
 .home--tv .row-scroll__track {
-  padding-top: 24px;
-  padding-bottom: 30px;
-  margin-top: -14px;
-  margin-bottom: -24px;
+  padding: 30px 22px;
+  margin: -30px -22px;
 }
 
 /* ---- posters ---- */
@@ -4838,8 +4829,7 @@ body:not(.mpv-active) .mini-player {
 }
 
 .feature-card__meta {
-  display: flex;
-  gap: 10px;
+  display: block;
   font-size: 15px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.85);
@@ -4848,6 +4838,8 @@ body:not(.mpv-active) .mini-player {
 .feature-card__meta i {
   font-style: normal;
   color: var(--gold);
+  margin-left: 10px;
+  white-space: nowrap;
 }
 
 .feature-card__line {
@@ -4892,7 +4884,7 @@ body:not(.mpv-active) .mini-player {
 
 /* ---- wide collection banner ---- */
 .shelf--banner {
-  padding: 18px 0 6px;
+  padding: 6px 0;
 }
 
 .home-banner {
@@ -4956,7 +4948,7 @@ body:not(.mpv-active) .mini-player {
 }
 
 .home--tv .shelf--under-banner {
-  margin-top: 10px !important;
+  margin-top: 26px !important;
 }
 
 .home--tv .shelf--under-banner .shelf__head {
