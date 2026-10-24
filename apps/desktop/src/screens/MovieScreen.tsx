@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { BackIcon, FavoriteIcon, Focusable, FocusGroup, Spinner } from "@kinonyx/ui";
+import { cancelGlides, FavoriteIcon, Focusable, FocusGroup, PlayIcon, PlusIcon, Spinner } from "@kinonyx/ui";
 import { useApp } from "../store/app";
 import { useFavorites } from "../store/favorites";
 import { useLastRelease } from "../store/lastRelease";
@@ -33,8 +33,8 @@ import { continueLabel } from "../store/episodeProgress";
 import { Modal } from "../components/Modal";
 import { ProgressiveImg } from "../components/ProgressiveImg";
 import { holdMusic } from "../data/music";
-import { MovieBackdrop } from "../components/MovieBackdrop";
-import { DetailBackButton } from "../components/DetailBackButton";
+import { HomeChrome } from "../components/HomeChrome";
+import { useHomeFeel } from "../components/useHomeFeel";
 
 /** What the page shows — both a collection/search card and a full film record have it. */
 interface FilmView {
@@ -71,7 +71,19 @@ function formatPremiere(d: Date): string {
 
 const STILLS_PER_VIEW = 4;
 const ACTORS_PER_VIEW = 7;
-const BACKDROP_SLIDES = 8;
+
+/** "2 ч 25 мин" from minutes. */
+function formatLength(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h ? `${h} ч${m ? ` ${m} мин` : ""}` : `${m} мин`;
+}
+
+/** The page goes back to its top when a button of the first screen gets the focus. */
+const toTop = () => {
+  cancelGlides();
+  document.querySelector(".app-body")?.scrollTo({ top: 0, behavior: "smooth" });
+};
 
 type Modal = "watch" | "quality" | "trailer" | null;
 
@@ -94,7 +106,6 @@ const RUTUBE_AUTO = "rutube:auto";
 const normalizeGenre = (s: string) => s.trim().toLowerCase();
 
 export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectionItem }) {
-  const back = useApp((s) => s.back);
   const navigate = useApp((s) => s.navigate);
   const [film, setFilm] = useState<FilmView | null>(preview ?? null);
   const [images, setImages] = useState<KpImage[]>([]);
@@ -124,7 +135,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
     }
     kpImages(id, "STILL", 1).then((r) => !cancelled && setImages(r.items ?? [])).catch(warn("images"));
     kpStaff(id)
-      .then((r) => !cancelled && setStaff(r.filter((p) => p.professionKey === "ACTOR").slice(0, 20)))
+      .then((r) => !cancelled && setStaff(r))
       .catch(warn("staff"));
     kpSimilars(id)
       .then((r) => !cancelled && setSimilars(r.items ?? []))
@@ -172,13 +183,8 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
     };
   }, [images]);
 
-  // The film's stills as the page's ambient backdrop; the poster until they arrive.
-  const backdrop = useMemo(() => {
-    const stills = images.slice(0, BACKDROP_SLIDES).map((i) => img(i.previewUrl)).filter((u): u is string => !!u);
-    if (stills.length) return stills;
-    const poster = img(film?.posterUrlPreview);
-    return poster ? [poster] : [];
-  }, [images, film?.posterUrlPreview]);
+  // The page scrolls like the home page: the picture drifts slower, the sheet with the shelves rises over it.
+  useHomeFeel(film);
 
   // The picker shows the speed each release needs (size ÷ runtime), and runtime is only in
   // the full record — one cached request, and only if the viewer actually wants to watch.
@@ -205,32 +211,18 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
       })
       .catch(() => setTrailers([rutube]));
   };
-  // Mouse has no hardware Back, so the button floats over the content on a detail page
-  // this long; remote/keyboard already have one (onBack's Escape/Backspace) and get the
-  // button back in its normal spot instead — see data/inputMode.ts.
-  const useFloatingBack = useApp((s) => s.inputMode) === "mouse";
-  const onBackPress = () => back() || navigate({ name: "home" });
-  const backButton = useFloatingBack ? (
-    <DetailBackButton focusKey="movie:back" onPress={onBackPress} autoFocus={!film} />
-  ) : (
-    <div className="row" style={{ marginTop: 4 }}>
-      <Focusable back as="button" className="icon-btn" focusKey="movie:back" onPress={onBackPress} scroll={false} autoFocus={!film}>
-        <BackIcon />
-      </Focusable>
-    </div>
-  );
   const isFav = useFavorites((s) => s.items.some((f) => f.kinopoiskId === id));
   const toggleFavorite = useFavorites((s) => s.toggle);
   const lastRelease = useLastRelease((s) => s.items[id]);
 
   if (!film) {
     return (
-      <FocusGroup focusKey="movie" className="screen-pad stack" style={useFloatingBack ? { paddingTop: 76 } : undefined}>
-        {backButton}
+      <FocusGroup focusKey="movie" className="screen-pad home home--tv home--nohero mtv">
+        <HomeChrome id="movie" />
         {error ? (
-          <p className="empty">Не удалось загрузить фильм: {error}</p>
+          <p className="empty" style={{ paddingTop: 140 }}>Не удалось загрузить фильм: {error}</p>
         ) : (
-          <div style={{ display: "grid", placeItems: "center", height: 300 }}>
+          <div style={{ display: "grid", placeItems: "center", height: "100vh" }}>
             <Spinner />
           </div>
         )}
@@ -250,6 +242,13 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
   const hasRating = film.ratingKinopoisk != null && film.ratingKinopoisk > 0;
   const isUpcoming = premiere ? premiere.getTime() > Date.now() : !hasRating && year != null && year >= new Date().getFullYear();
   const releaseLabel = premiere ? `Премьера: ${formatPremiere(premiere)}` : year ? `Ожидается в ${year} году` : "Дата выхода неизвестна";
+  // The frame across the whole window: the film's first still at its original size.
+  const backdropUrl = images[0]?.imageUrl ? img(images[0].imageUrl) : undefined;
+  const actors = staff.filter((p) => p.professionKey === "ACTOR").slice(0, 20);
+  const cast = actors.slice(0, 3).map((p) => p.nameRu || p.nameEn).filter(Boolean);
+  const director = staff.find((p) => p.professionKey === "DIRECTOR");
+  const directorName = director?.nameRu || director?.nameEn;
+  const genreNames = (film.genres ?? []).map((g) => g.genre);
   const onToggleFavorite = () =>
     toggleFavorite({
       kinopoiskId: id,
@@ -263,111 +262,142 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
     });
 
   return (
-    <FocusGroup focusKey="movie" className="screen-pad stack" style={useFloatingBack ? { paddingTop: 76 } : undefined}>
-      <MovieBackdrop images={backdrop} />
-      {backButton}
+    <FocusGroup focusKey="movie" className="screen-pad home home--tv home--nohero mtv">
+      <HomeChrome id="movie" />
 
-      <div className="movie-head">
-        <div className="movie-head__poster">
-          <ProgressiveImg src={img(film.posterUrl)} placeholder={img(film.posterUrlPreview)} alt={title} />
-        </div>
-        <div className="movie-head__info">
-          <div className="movie-head__meta">
-            {film.ratingKinopoisk != null && <span className="movie-head__rating">★ {film.ratingKinopoisk.toFixed(1)}</span>}
-            <span className="movie-head__category">
-              {film.genres && film.genres.length > 0
-                ? film.genres.map((g, i) => (
-                    <span key={g.genre + i}>
-                      <Focusable
-                        as="button"
-                        className="genre-chip"
-                        focusKey={`movie:genre:${i}`}
-                        onPress={() => openGenre(g.genre)}
-                        scroll={false}
-                      >
-                        {g.genre}
-                      </Focusable>
-                      {i < film.genres!.length - 1 ? ", " : ""}
-                    </span>
-                  ))
-                : "Фильм"}
-              {year ? `, ${year}` : ""}
-            </span>
+      {/* The first screen: a frame of the film across the whole window, the title and what to do with it
+          at the lower left, who is in it at the lower right. */}
+      <div className="mtv__hero">
+        {backdropUrl ? (
+          <ProgressiveImg className="mtv__backdrop" src={backdropUrl} placeholder={img(images[0]?.previewUrl) ?? img(film.posterUrlPreview)} alt={title} />
+        ) : (
+          <ProgressiveImg className="mtv__backdrop mtv__backdrop--poster" src={img(film.posterUrl)} placeholder={img(film.posterUrlPreview)} alt={title} />
+        )}
+        <div className="mtv__shade" />
+
+        <div className="mtv__info">
+          <h1 className="mtv__title">{title}</h1>
+          <div className="mtv__meta">{["Фильм", ...(film.genres?.map((g) => g.genre).slice(0, 3) ?? [])].join(" · ")}</div>
+          <p className="mtv__desc">{film.description || "Описание пока не добавлено."}</p>
+          <div className="mtv__facts">
+            {year != null && <span>{year}</span>}
+            {film.filmLength ? <span>{formatLength(film.filmLength)}</span> : null}
+            {film.ratingKinopoisk != null && film.ratingKinopoisk > 0 && <span className="mtv__rating">★ {film.ratingKinopoisk.toFixed(1)}</span>}
           </div>
-          <h1 className="movie-head__title">{title}</h1>
-          <p className="movie-head__desc">{film.description || "Описание пока не добавлено."}</p>
-          <div className="movie-head__actions">
+          <FocusGroup focusKey="movie:actions" className="mtv__actions" preferredChildFocusKey={isUpcoming ? "movie:trailer" : "movie:watch"}>
             {isUpcoming ? (
               <>
-                <span className="movie-head__release">{releaseLabel}</span>
-                <Focusable as="button" focusKey="movie:trailer" className="btn" onPress={openTrailers} autoFocus scroll={false}>
+                <span className="mtv__release">{releaseLabel}</span>
+                <Focusable as="button" focusKey="movie:trailer" className="hero__btn hero__btn--pill" onPress={openTrailers} autoFocus scroll={false} onFocus={toTop}>
                   Трейлер
                 </Focusable>
               </>
             ) : (
               <>
-                <Focusable as="button" focusKey="movie:watch" className="btn btn--primary" onPress={openWatch} autoFocus scroll={false}>
+                <Focusable as="button" focusKey="movie:watch" className="hero__btn hero__btn--pill mtv__primary" onPress={openWatch} autoFocus scroll={false} onFocus={toTop}>
+                  <PlayIcon size={20} />
                   {continueLabel(id) ?? "Смотреть"}
                 </Focusable>
-                <Focusable as="button" focusKey="movie:quality" className="btn" onPress={() => setModal("quality")}>
-                  Качество
-                </Focusable>
-                <Focusable as="button" focusKey="movie:trailer" className="btn" onPress={openTrailers}>
+                <Focusable as="button" focusKey="movie:trailer" className="hero__btn hero__btn--pill" onPress={openTrailers} scroll={false} onFocus={toTop}>
                   Трейлер
+                </Focusable>
+                <Focusable as="button" focusKey="movie:quality" className="hero__btn hero__btn--pill" onPress={() => setModal("quality")} scroll={false} onFocus={toTop}>
+                  Качество
                 </Focusable>
               </>
             )}
             <Focusable
               as="button"
               focusKey="movie:favorite"
-              className={`icon-btn icon-btn--fav ${isFav ? "is-fav" : ""}`}
+              className={`hero__btn hero__btn--round ${isFav ? "is-on" : ""}`}
               onPress={onToggleFavorite}
               scroll={false}
+              onFocus={toTop}
             >
-              <FavoriteIcon key={String(isFav)} fill={isFav ? "currentColor" : "none"} />
+              {isFav ? <FavoriteIcon key="on" size={24} fill="currentColor" /> : <PlusIcon size={26} />}
             </Focusable>
-          </div>
+          </FocusGroup>
         </div>
+
+        {(cast.length > 0 || directorName) && (
+          <div className="mtv__credits">
+            {cast.length > 0 && (
+              <p>
+                В главных ролях <b>{cast.join(", ")}</b>
+              </p>
+            )}
+            {directorName && (
+              <p>
+                Режиссёр <b>{directorName}</b>
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
-      <RowScroll label="Материалы" count={images.length} perView={STILLS_PER_VIEW}>
-        {images.map((image, i) => (
-          <Focusable
-            key={image.previewUrl + i}
-            focusKey={`stills:${i}`}
-            className={`still-card ${stillOpen === i ? "is-opened" : ""}`}
-            onPress={() => setStillOpen(i)}
-          >
-            <ProgressiveImg src={img(stillCard(image.imageUrl))} placeholder={img(image.previewUrl)} />
-            <span className="still-card__zoom" aria-hidden="true">
-              {/* Magnifier that wobbles once when the frame gets focus (still-card__lens in theme.css). */}
-              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <g className="still-card__lens">
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="M17 17L21 21" />
-                </g>
-              </svg>
-            </span>
-          </Focusable>
-        ))}
-      </RowScroll>
+      {/* The sheet: it rises over the picture as the page scrolls; the title and the first shelf peek out below it. */}
+      <div className="mtv__sheet">
+        <div className="mtv__sheet-bg" />
+        <h2 className="mtv__sheet-title">{title}</h2>
+        <div className="mtv__rows">
+          <RowScroll label="Трейлеры" count={1}>
+            <Focusable focusKey="trailers:0" className="mtv-trailer" onPress={openTrailers}>
+              <ProgressiveImg src={img(stillCard(images[0]?.imageUrl ?? ""))} placeholder={img(images[0]?.previewUrl) ?? img(film.posterUrlPreview)} />
+              <span className="mtv-trailer__play" aria-hidden="true">
+                <PlayIcon size={34} />
+              </span>
+              <span className="mtv-trailer__label">{title}: трейлер</span>
+            </Focusable>
+          </RowScroll>
 
-      <RowScroll label="Актёры" count={staff.length} perView={ACTORS_PER_VIEW}>
-        {staff.map((p, i) => (
-          <ActorTile key={p.staffId} person={p} focusKey={`actors:${i}`} onPress={() => navigate({ name: "person", id: p.staffId, preview: p })} />
-        ))}
-      </RowScroll>
+          <RowScroll label="Материалы" count={images.length} perView={STILLS_PER_VIEW}>
+            {images.map((image, i) => (
+              <Focusable
+                key={image.previewUrl + i}
+                focusKey={`stills:${i}`}
+                className={`still-card ${stillOpen === i ? "is-opened" : ""}`}
+                onPress={() => setStillOpen(i)}
+              >
+                <ProgressiveImg src={img(stillCard(image.imageUrl))} placeholder={img(image.previewUrl)} />
+                <span className="still-card__zoom" aria-hidden="true">
+                  {/* Magnifier that wobbles once when the frame gets focus (still-card__lens in theme.css). */}
+                  <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <g className="still-card__lens">
+                      <circle cx="11" cy="11" r="8" />
+                      <path d="M17 17L21 21" />
+                    </g>
+                  </svg>
+                </span>
+              </Focusable>
+            ))}
+          </RowScroll>
 
-      <RowScroll label="Похожие фильмы" count={similars.length}>
-        {similars.map((s, i) => (
-          <MovieCard
-            key={s.filmId}
-            film={{ kinopoiskId: s.filmId, nameRu: s.nameRu, nameOriginal: s.nameOriginal, posterUrl: s.posterUrl, posterUrlPreview: s.posterUrlPreview }}
-            focusKey={`similar:${i}`}
-            onPress={() => navigate({ name: "movie", id: s.filmId })}
-          />
-        ))}
-      </RowScroll>
+          <RowScroll label="Актёры" count={actors.length} perView={ACTORS_PER_VIEW}>
+            {actors.map((p, i) => (
+              <ActorTile key={p.staffId} person={p} focusKey={`actors:${i}`} onPress={() => navigate({ name: "person", id: p.staffId, preview: p })} />
+            ))}
+          </RowScroll>
+
+          <RowScroll label="Похожие фильмы" count={similars.length}>
+            {similars.map((s, i) => (
+              <MovieCard
+                key={s.filmId}
+                film={{ kinopoiskId: s.filmId, nameRu: s.nameRu, nameOriginal: s.nameOriginal, posterUrl: s.posterUrl, posterUrlPreview: s.posterUrlPreview }}
+                focusKey={`similar:${i}`}
+                onPress={() => navigate({ name: "movie", id: s.filmId })}
+              />
+            ))}
+          </RowScroll>
+
+          <RowScroll label="Жанры" count={genreNames.length}>
+            {genreNames.map((name, i) => (
+              <Focusable key={name} as="button" focusKey={`movie:genre:${i}`} className="mtv-genre" onPress={() => openGenre(name)}>
+                {name}
+              </Focusable>
+            ))}
+          </RowScroll>
+        </div>
+      </div>
 
       {stillOpen !== null && images.length > 0 && (
         <Lightbox
