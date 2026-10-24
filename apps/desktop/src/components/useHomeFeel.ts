@@ -19,7 +19,10 @@ export function useHomeFeel(ready: unknown) {
       frame = requestAnimationFrame(() => {
         const y = body.scrollTop;
         const h = body.clientHeight || 1;
-        page.style.setProperty("--sheet", String(Math.min(1, Math.max(0, (y - h * 0.03) / (h * 0.2)))));
+        const sheet = Math.min(1, Math.max(0, (y - h * 0.03) / (h * 0.2)));
+        page.style.setProperty("--sheet", String(sheet));
+        // Once the sheet is up, what is left of the banner under it (invisible buttons) must not catch the mouse.
+        page.classList.toggle("is-sheeted", sheet > 0.5);
         page.style.setProperty("--parallax", `${Math.round(y * 0.4)}px`);
       });
     };

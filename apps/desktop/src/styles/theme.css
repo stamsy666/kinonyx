@@ -6860,3 +6860,18 @@ body .sidebar__item.is-focused .sidebar__icon {
   padding: 0 calc(22 * var(--mu));
   white-space: nowrap;
 }
+
+/* The sheet only overlaps the banner's foot: it must not catch the mouse meant for the buttons under it — only
+   the shelves themselves do. Once it is up, the banner's text and buttons under it stop catching the mouse. */
+.mtv__sheet {
+  pointer-events: none;
+}
+
+.mtv__rows .row-scroll {
+  pointer-events: auto;
+}
+
+.home--tv.is-sheeted .mtv__info,
+.home--tv.is-sheeted .mtv__credits {
+  pointer-events: none;
+}
