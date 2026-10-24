@@ -5029,3 +5029,23 @@ body:not(.mpv-active) .mini-player {
 .home--tv .home-end__btn.is-focused::after {
   content: none;
 }
+
+/* The home banner's frames cross-fade in place (a sliding frame showed its edge as a line); only the
+   text drifts a little, so the change still has a direction. */
+.home--tv .hero__slide,
+.home--tv .hero__slide--offset-left,
+.home--tv .hero__slide--offset-right {
+  transform: none;
+}
+
+.home--tv .hero__info {
+  transition: transform 480ms var(--ease);
+}
+
+.home--tv .hero__slide--offset-left .hero__info {
+  transform: translateX(calc(-36 * var(--u)));
+}
+
+.home--tv .hero__slide--offset-right .hero__info {
+  transform: translateX(calc(36 * var(--u)));
+}
