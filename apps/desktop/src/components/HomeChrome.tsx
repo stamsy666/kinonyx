@@ -10,7 +10,7 @@ import logoMark from "../assets/logo-mark.png";
  * middle, search and full screen on the right (`extra` — more round buttons before them). It fades with the
  * page's `--sheet` as the page scrolls. Focus keys: `home:menu` (the banner's Up goes there), `<id>:search`.
  */
-export function HomeChrome({ id, label, extra }: { id: string; label?: string; extra?: ReactNode }) {
+export function HomeChrome({ id, label, extra, hideSearch }: { id: string; label?: string; extra?: ReactNode; hideSearch?: boolean }) {
   const navigate = useApp((s) => s.navigate);
   const toggleSidebar = useApp((s) => s.toggleSidebar);
   return (
@@ -42,9 +42,11 @@ export function HomeChrome({ id, label, extra }: { id: string; label?: string; e
       </div>
       <div className="home__chrome-right">
         {extra}
-        <Focusable as="button" className="home-round" focusKey={`${id}:search`} scroll={false} onPress={() => navigate({ name: "search" })}>
-          <SearchLensIcon />
-        </Focusable>
+        {!hideSearch && (
+          <Focusable as="button" className="home-round" focusKey={`${id}:search`} scroll={false} onPress={() => navigate({ name: "search" })}>
+            <SearchLensIcon />
+          </Focusable>
+        )}
         <FullscreenButton focusKey={`${id}:fullscreen`} className="home-round" />
       </div>
     </div>

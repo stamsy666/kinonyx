@@ -28,6 +28,7 @@ import {
   Maximize,
   ZoomIn,
   Mic,
+  Globe,
   Minimize,
   Pause,
   Play,
@@ -107,6 +108,7 @@ export const FolderIcon = wrap(FolderOpen);
 export const TrashIcon = wrap(Trash2);
 export const ArchiveIcon = wrap(History);
 export const MicIcon = wrap(Mic);
+export const GlobeIcon = wrap(Globe);
 export const FavoriteIcon = wrap(Heart);
 export const NextEpisodeIcon = wrap(SkipForward, { fill: "currentColor" });
 export const PrevChannelIcon = wrap(SkipBack, { fill: "currentColor" });
