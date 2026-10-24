@@ -7283,3 +7283,12 @@ body .sidebar__item.is-focused .sidebar__icon {
 .home--tv .ctv__search .field.is-focused svg {
   color: #1d1d20;
 }
+
+/* The dark layer of the hand-over to a channel (data/transition.ts). */
+.kx-fade {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #000;
+  opacity: 0;
+}

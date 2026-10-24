@@ -10,6 +10,7 @@ import { ChannelTile } from "../../components/ChannelTile";
 import { ChannelCarousel } from "../../components/ChannelCarousel";
 import { VoiceSearchModal } from "../../components/VoiceSearchModal";
 import { digitsFromWords, looseName } from "../../data/voiceText";
+import { fadeThrough } from "../../data/transition";
 
 const TICK_MS = 30_000;
 const LAYOUT_KEY = "kinonyx.channelsLayout";
@@ -79,7 +80,7 @@ export function TvChannelsScreen({ group }: { group?: string }) {
   const title = !group ? "Все каналы" : group === UNGROUPED ? "Без категории" : cleanGroupName(group);
   const open = (c: Channel, programme?: Programme) => {
     setLastChannelFocus(groupKey, `ch:${c.id}`);
-    navigate({ name: "tv-player", channelId: c.id, programme });
+    fadeThrough(() => navigate({ name: "tv-player", channelId: c.id, programme }));
   };
   const rememberedChannelExists = channels.some((c) => `ch:${c.id}` === rememberedChannelFocus);
 
