@@ -4472,31 +4472,6 @@ body:not(.mpv-active) .mini-player {
   gap: 12px;
 }
 
-.home-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 46px;
-  padding: 0 20px 0 12px;
-  border-radius: 23px;
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  background: rgba(40, 40, 46, 0.42);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  backdrop-filter: blur(20px) saturate(1.4);
-  color: #fff;
-  font: 700 17px var(--font-body);
-}
-
-.home-chip__icon {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
-  color: #111;
-}
-
 .home-round {
   display: grid;
   place-items: center;
@@ -4644,12 +4619,10 @@ body:not(.mpv-active) .mini-player {
 }
 
 .home--tv .hero__btn.is-focused::after,
-.home--tv .home-chip.is-focused::after,
 .home--tv .home-round.is-focused::after {
   content: none;
 }
 
-.home--tv .home-chip.is-focused,
 .home--tv .home-round.is-focused {
   transform: scale(1.06);
   background: rgba(255, 255, 255, 0.92);

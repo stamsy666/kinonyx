@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { BackIcon, HomeIcon } from "@kinonyx/ui";
 import { FullscreenButton } from "../components/FullscreenButton";
 import { WhatToWatchModal } from "../components/WhatToWatchModal";
 import { PopcornIcon } from "../components/AnimatedIcons";
@@ -220,23 +219,26 @@ export function HomeScreen() {
 
   return (
     <FocusGroup focusKey="home" className="screen-pad home home--tv">
-      {/* The page's own top: a glass chip that opens the menu (like the Apple TV's "‹ Магазин"), and
-          two small buttons on the right. It fades away as the page scrolls. */}
+      {/* The page's own top: a round glass button that opens the menu on the left, and two small
+          buttons on the right. It fades away as the page scrolls. */}
       <div className="home__chrome">
         <Focusable
           as="button"
-          className="home-chip"
+          className="home-round"
           focusKey="home:menu"
           scroll={false}
           onFocus={() => document.querySelector(".app-body")?.scrollTo({ top: 0, behavior: "smooth" })}
           onArrowPress={(dir) => (dir === "down" ? (setFocusSafe("hero:details"), false) : true)}
           onPress={toggleSidebar}
         >
-          <BackIcon size={18} />
-          <span className="home-chip__icon">
-            <HomeIcon size={15} />
-          </span>
-          Главная
+          {/* Three lines that draw themselves one after another on focus (menu-icon in theme.css). */}
+          <svg className="menu-icon" width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+              <path d="M5 5h14" />
+              <path d="M5 12h14" />
+              <path d="M5 19h14" />
+            </g>
+          </svg>
         </Focusable>
         <div className="home__chrome-right">
           <Focusable as="button" className="home-round" focusKey="home:wtw" scroll={false} onPress={() => setWtwOpen(true)}>
