@@ -5303,27 +5303,37 @@ body .sidebar__item.is-focused .sidebar__icon {
   background: rgba(255, 255, 255, 0.28);
 }
 
-/* The keyboard column slides away when the focus is on the right; the right side takes the width. */
-.sx__cols {
-  display: grid;
-  grid-template-columns: calc(440 * var(--u)) minmax(0, 1fr);
-  column-gap: calc(56 * var(--u));
-  transition:
-    grid-template-columns 480ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    column-gap 480ms cubic-bezier(0.2, 0.8, 0.2, 1);
+/* The keyboard slides away when the focus is on the right. Nothing is re-laid out during the move (that made the
+   cards jump): the right side always has the full width and is only pushed along (transform), the keyboard
+   floats at the left; in the narrow state the right side simply runs off the edge, like on the tvOS page. */
+.sx {
+  overflow-x: clip;
 }
 
-.sx[data-wide="true"] .sx__cols {
-  grid-template-columns: 0px minmax(0, 1fr);
-  column-gap: 0;
+.sx__cols {
+  position: relative;
 }
 
 .sx__kbd {
-  align-self: start;
+  position: absolute;
+  top: 0;
+  left: 0;
   width: calc(440 * var(--u));
+  will-change: transform;
   transition:
-    transform 480ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    opacity 320ms var(--ease);
+    transform 520ms cubic-bezier(0.22, 0.8, 0.2, 1),
+    opacity 360ms var(--ease);
+}
+
+.sx__side {
+  --kbd-shift: calc((440 + 56) * var(--u));
+  will-change: transform;
+  transform: translateX(var(--kbd-shift));
+  transition: transform 520ms cubic-bezier(0.22, 0.8, 0.2, 1);
+}
+
+.sx[data-wide="true"] .sx__side {
+  transform: translateX(0);
 }
 
 .sx[data-wide="true"] .sx__kbd {
