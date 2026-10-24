@@ -132,6 +132,7 @@ pub fn run() {
             remote::remote_start,
             remote::remote_stop,
             remote::remote_info,
+            remote::remote_theme,
             translator::translator_transcribe,
             translator::translator_voice,
         ])

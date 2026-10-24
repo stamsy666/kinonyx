@@ -6,14 +6,14 @@
 <meta name="theme-color" content="#0a0708">
 <title>KINONYX — пульт</title>
 <style>
-  /* The app's own palette (Графит): warm near-black, hairline borders, small radii, solid buttons. */
+  /* Colours: the app's own (the theme chosen in Settings) are put in front of these by the server and refreshed by the page. */
   :root {
     --bg: #0a0708; --bg-2: #120c0e;
     --surface: rgba(255,255,255,.055); --surface-hi: rgba(255,255,255,.11);
     --line: rgba(255,255,255,.09); --line-hi: rgba(255,255,255,.18);
-    --text: #f3ece7; --dim: rgba(243,236,231,.58);
-    --accent: #e63950; --accent-deep: #a11f31;
-    --radius: 8px;
+    --text: #f3ece7; --text-dim: rgba(243,236,231,.58);
+    --accent: #e63950; --accent-deep: #a11f31; --on-accent: #fff;
+    --radius: 8px; --logo-filter: none;
     --font: "Roboto", system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; user-select: none; }
@@ -27,12 +27,12 @@
   svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
   svg .fill { fill: currentColor; stroke: none; }
 
-  header { display: flex; align-items: center; justify-content: space-between; min-height: 36px; }
-  .brand { font-weight: 800; letter-spacing: .22em; font-size: 15px; }
-  .brand i { font-style: normal; color: var(--accent); }
-  .link { display: inline-flex; align-items: center; gap: 8px; color: var(--dim); font-size: 14px; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #3fd3c6; transition: background .2s; }
-  .dot.off { background: var(--accent); }
+  header { position: relative; display: flex; align-items: center; justify-content: center; min-height: 40px; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .22em; font-size: 16px; }
+  .brand img { width: 28px; height: 28px; object-fit: contain; filter: var(--logo-filter); }
+  /* Connection: only a dot — green while the app answers, red when it does not. */
+  .dot { position: absolute; right: 2px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%; background: #3ddc84; box-shadow: 0 0 0 3px rgba(61,220,132,.18); transition: background .2s, box-shadow .2s; }
+  .dot.off { background: #ff3b4a; box-shadow: 0 0 0 3px rgba(255,59,74,.2); }
 
   main { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; }
 
@@ -46,9 +46,9 @@
 
   .media { display: grid; grid-template-columns: 1fr 1.35fr 1fr; gap: 10px; }
   .media .key { height: 64px; font-size: 28px; }
-  .media .main { background: var(--accent); border-color: transparent; font-size: 32px; }
+  .media .main { background: var(--accent); color: var(--on-accent); border-color: transparent; font-size: 32px; }
   .media .main.down { background: var(--accent-deep); }
-  .key small { position: absolute; bottom: 5px; font-size: 11px; color: var(--dim); letter-spacing: .02em; }
+  .key small { position: absolute; bottom: 5px; font-size: 11px; color: var(--text-dim); letter-spacing: .02em; }
 
   .pad-wrap { flex: 1; min-height: 0; display: grid; place-items: center; }
   .pad {
@@ -69,7 +69,7 @@
   .pad::after { left: 14%; right: 14%; top: 50%; height: 1px; transform: rotate(-45deg); }
   .pad .ok {
     position: absolute; left: 32%; top: 32%; width: 36%; height: 36%; border-radius: 50%; border: 0;
-    background: var(--accent); color: #fff; font: 700 22px var(--font); letter-spacing: .04em; z-index: 1;
+    background: var(--accent); color: var(--on-accent); font: 700 22px var(--font); letter-spacing: .04em; z-index: 1;
     transition: transform .08s, background .12s;
   }
   .pad .ok.down { transform: scale(.94); background: var(--accent-deep); }
@@ -86,7 +86,7 @@
   }
   .typing input:focus { border-color: var(--accent); }
   .typing .key { width: 52px; height: 52px; font-size: 22px; }
-  .typing .go { background: var(--accent); border-color: transparent; }
+  .typing .go { background: var(--accent); color: var(--on-accent); border-color: transparent; }
 
   /* Wide screen (phone on its side): the pad on the left, everything else on the right. */
   @media (orientation: landscape) and (max-height: 560px) {
@@ -101,11 +101,12 @@
   .side { display: contents; }
   @media (orientation: landscape) and (max-height: 560px) { .side { display: flex; } }
 </style>
+<style id="app-theme">/*THEME*/</style>
 </head>
 <body>
   <header>
-    <span class="brand">KINON<i>Y</i>X</span>
-    <span class="link"><i class="dot" id="dot"></i><span id="state">подключено</span></span>
+    <span class="brand"><img id="logo" alt="">KINONYX</span>
+    <i class="dot" id="dot" aria-label="связь"></i>
   </header>
 
   <main>
@@ -150,8 +151,9 @@
 
 <script>
   const t = new URLSearchParams(location.search).get("t") || "";
-  const dot = document.getElementById("dot"), st = document.getElementById("state");
-  const mark = ok => { dot.classList.toggle("off", !ok); st.textContent = ok ? "подключено" : "нет связи"; };
+  const dot = document.getElementById("dot");
+  const mark = ok => dot.classList.toggle("off", !ok);
+  document.getElementById("logo").src = "/logo.png?t=" + encodeURIComponent(t);
   const send = (path, extra) => fetch(path + "?t=" + encodeURIComponent(t) + (extra || ""), { cache: "no-store" })
     .then(r => { mark(r.ok); return r.ok; }).catch(() => { mark(false); return false; });
   const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
@@ -188,11 +190,26 @@
   document.getElementById("clear").addEventListener("click", () => { input.value = ""; push(); input.focus(); });
   typing.addEventListener("submit", e => { e.preventDefault(); clearTimeout(pending); send("/txt", "&v=" + encodeURIComponent(input.value)).then(() => press("Enter")); input.blur(); });
 
+  // The app's theme: read again every few seconds (it doubles as the connection check), so changing the
+  // theme in the app changes the remote too.
+  let lastTheme = "";
+  const loadTheme = () => fetch("/theme?t=" + encodeURIComponent(t), { cache: "no-store" })
+    .then(r => r.ok ? r.text() : Promise.reject()).then(text => {
+      mark(true);
+      if (text === lastTheme) return;
+      lastTheme = text;
+      const vars = JSON.parse(text), root = document.documentElement.style;
+      for (const k in vars) if (/^--[a-z0-9-]+$/.test(k)) root.setProperty(k, vars[k]);
+      const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+      if (bg) document.querySelector('meta[name="theme-color"]').content = bg;
+    }).catch(() => mark(false));
+  loadTheme();
+
   // The phone stays awake while the remote is open.
   const keepAwake = async () => { try { if ("wakeLock" in navigator) await navigator.wakeLock.request("screen"); } catch (e) {} };
   keepAwake();
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { keepAwake(); send("/ping"); } });
-  setInterval(() => send("/ping"), 5000);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { keepAwake(); loadTheme(); } });
+  setInterval(loadTheme, 3000);
   document.addEventListener("contextmenu", e => e.preventDefault());
 </script>
 </body>

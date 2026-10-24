@@ -18,6 +18,8 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
 export const remoteStart = (token: string) => invoke<RemoteInfo>("remote_start", { token });
 export const remoteStop = () => invoke<void>("remote_stop");
 export const remoteInfo = () => invoke<RemoteInfo | null>("remote_info");
+/** The app's current colours (CSS variables), for the remote page to wear. */
+export const remoteTheme = (vars: Record<string, string>) => invoke<void>("remote_theme", { vars });
 
 async function listen<T>(event: string, fn: (payload: T) => void): Promise<() => void> {
   if (!isTauri) return () => undefined;

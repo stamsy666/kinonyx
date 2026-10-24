@@ -7,6 +7,7 @@
 //! is refused, so only whoever scanned the code can press keys. The server runs only while the
 //! remote is switched on in Settings.
 
+use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -18,6 +19,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::watch;
 
 const PAGE: &str = include_str!("remote.html");
+const LOGO: &[u8] = include_bytes!("../../src/assets/logo-mark.png");
 const PREFERRED_PORT: u16 = 47_815;
 /// Keys the phone may send: the d-pad, OK, Back, the menu (what the gamepad's PS/Xbox button does), and the player's own keys.
 const KEYS: [&str; 11] = [
@@ -38,6 +40,8 @@ const MAX_TEXT_CHARS: usize = 200;
 #[derive(Default)]
 pub struct Remote {
     running: Mutex<Option<Running>>,
+    /// The app's colours (CSS variables, as JSON), pushed by the front end whenever the theme changes.
+    theme: Arc<Mutex<String>>,
 }
 
 struct Running {
@@ -126,7 +130,7 @@ pub async fn remote_start(app: AppHandle, state: State<'_, Remote>, token: Strin
     let emit: Emit = Arc::new(move |name, payload| {
         let _ = app.emit(name, payload);
     });
-    tokio::spawn(serve(listener, emit, token.clone(), stop_rx));
+    tokio::spawn(serve(listener, emit, token.clone(), state.theme.clone(), stop_rx));
     *state.running.lock().unwrap() = Some(Running { port, token: token.clone(), stop });
     Ok(info(port, &token))
 }
@@ -152,19 +156,49 @@ pub fn remote_info(state: State<'_, Remote>) -> Option<RemoteInfo> {
 /// How a request reaches the app: `(event name, payload)`.
 type Emit = Arc<dyn Fn(&'static str, String) + Send + Sync>;
 
-async fn serve(listener: TcpListener, emit: Emit, token: String, mut stop: watch::Receiver<bool>) {
+async fn serve(listener: TcpListener, emit: Emit, token: String, theme: Arc<Mutex<String>>, mut stop: watch::Receiver<bool>) {
     loop {
         tokio::select! {
             accepted = listener.accept() => {
                 let Ok((socket, _)) = accepted else { continue };
-                let (emit, token) = (emit.clone(), token.clone());
+                let (emit, token, theme) = (emit.clone(), token.clone(), theme.clone());
                 tokio::spawn(async move {
-                    let _ = tokio::time::timeout(Duration::from_secs(10), handle(socket, emit, token)).await;
+                    let _ = tokio::time::timeout(Duration::from_secs(10), handle(socket, emit, token, theme)).await;
                 });
             }
             _ = stop.changed() => return,
         }
     }
+}
+
+/// Variables the page may take from the app, and what a value may be made of: colours, lengths,
+/// filters. Anything else is dropped, so the page can never be given markup or a stray rule.
+fn clean_theme(vars: HashMap<String, String>) -> HashMap<String, String> {
+    vars.into_iter()
+        .filter(|(k, v)| {
+            k.len() <= 40
+                && k.starts_with("--")
+                && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+                && !v.is_empty()
+                && v.len() <= 200
+                && v.chars().all(|c| c.is_ascii_alphanumeric() || " #%.,()-".contains(c))
+        })
+        .collect()
+}
+
+/// `:root{...}` declarations for the page from the stored theme JSON.
+fn theme_css(json: &str) -> String {
+    let vars: HashMap<String, String> = serde_json::from_str(json).unwrap_or_default();
+    let mut names: Vec<_> = clean_theme(vars).into_iter().collect();
+    names.sort();
+    let body: String = names.into_iter().map(|(k, v)| format!("{k}:{v};")).collect();
+    format!(":root{{{body}}}")
+}
+
+/// The front end tells the remote which colours the app is in (the theme chosen in Settings).
+#[tauri::command]
+pub fn remote_theme(state: State<'_, Remote>, vars: HashMap<String, String>) {
+    *state.theme.lock().unwrap() = serde_json::to_string(&clean_theme(vars)).unwrap_or_default();
 }
 
 /// `%XX` and `+` decoding of one query value.
@@ -209,7 +243,7 @@ async fn respond(socket: &mut TcpStream, status: &str, content_type: &str, body:
     let _ = socket.shutdown().await;
 }
 
-async fn handle(mut socket: TcpStream, emit: Emit, token: String) {
+async fn handle(mut socket: TcpStream, emit: Emit, token: String, theme: Arc<Mutex<String>>) {
     let mut buf = vec![0u8; 8192];
     let mut len = 0;
     // Read until the end of the headers.
@@ -234,7 +268,17 @@ async fn handle(mut socket: TcpStream, emit: Emit, token: String) {
         return respond(&mut socket, "403 Forbidden", "text/plain; charset=utf-8", "Откройте пульт по QR-коду из KINONYX".as_bytes()).await;
     }
     match path {
-        "/" => respond(&mut socket, "200 OK", "text/html; charset=utf-8", PAGE.as_bytes()).await,
+        "/" => {
+            // The theme goes into the page itself, so it opens already in the app's colours.
+            let css = theme_css(&theme.lock().unwrap());
+            let page = PAGE.replace("/*THEME*/", &css);
+            respond(&mut socket, "200 OK", "text/html; charset=utf-8", page.as_bytes()).await;
+        }
+        "/theme" => {
+            let json = theme.lock().unwrap().clone();
+            respond(&mut socket, "200 OK", "application/json; charset=utf-8", if json.is_empty() { b"{}" } else { json.as_bytes() }).await;
+        }
+        "/logo.png" => respond(&mut socket, "200 OK", "image/png", LOGO).await,
         "/ping" => respond(&mut socket, "204 No Content", "text/plain", b"").await,
         "/k" => {
             match query_of(query, "k") {
@@ -297,8 +341,10 @@ mod tests {
         let got: Arc<Mutex<Vec<(String, String)>>> = Arc::new(Mutex::new(Vec::new()));
         let sink = got.clone();
         let emit: Emit = Arc::new(move |name, payload| sink.lock().unwrap().push((name.to_string(), payload)));
+        let theme = Arc::new(Mutex::new(String::new()));
+        *theme.lock().unwrap() = r##"{"--accent":"#112233","--evil":"red;}</style>"}"##.to_string();
         let (stop, stop_rx) = watch::channel(false);
-        tokio::spawn(serve(listener, emit, "secret12".into(), stop_rx));
+        tokio::spawn(serve(listener, emit, "secret12".into(), theme, stop_rx));
 
         let (status, body) = get(port, "/?t=secret12").await;
         assert!(status.contains("200") && body.contains("KINONYX"), "{status}");
@@ -309,6 +355,13 @@ mod tests {
         assert!(get(port, "/k?k=Enter").await.0.contains("403"), "key without token refused");
         assert!(get(port, "/txt?t=secret12&v=%D0%BF%D1%80+%D0%B8").await.0.contains("204"));
         assert!(get(port, "/nope?t=secret12").await.0.contains("404"));
+        let (status, body) = get(port, "/?t=secret12").await;
+        assert!(status.contains("200") && body.contains("--accent:#112233;"), "the page carries the app's colours");
+        assert!(!body.contains("</style>red"), "nothing but safe values is let into the page");
+        assert!(get(port, "/theme?t=secret12").await.1.contains("#112233"));
+        let (status, _) = get(port, "/logo.png?t=secret12").await;
+        assert!(status.contains("200"));
+        assert!(get(port, "/logo.png").await.0.contains("403"));
         let _ = stop.send(true);
 
         let got = got.lock().unwrap().clone();

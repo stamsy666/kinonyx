@@ -1,7 +1,13 @@
 import { useEffect } from "react";
 import { dispatchKey } from "@kinonyx/ui";
-import { onRemoteKey, onRemoteText } from "../data/remote";
+import { onRemoteKey, onRemoteText, remoteTheme } from "../data/remote";
 import { useRemote } from "../store/remote";
+
+/** The variables the remote page wears: the app's palette and shape. */
+const THEME_VARS = [
+  "--bg", "--bg-2", "--surface", "--surface-hi", "--line", "--line-hi", "--text", "--text-dim",
+  "--accent", "--accent-deep", "--on-accent", "--radius", "--radius-sm", "--logo-filter",
+];
 
 /**
  * Turns what the phone presses into what the gamepad would: the same key events. Text typed on
@@ -9,6 +15,38 @@ import { useRemote } from "../store/remote";
  * startup when it was left on.
  */
 export function RemoteBridge() {
+  // The remote page follows the theme chosen in the app: its colours are sent while the remote runs and
+  // again whenever the root element's theme attributes change.
+  const running = useRemote((s) => s.info !== null);
+  useEffect(() => {
+    if (!running) return;
+    let timer = 0;
+    let last = "";
+    const push = () => {
+      const cs = getComputedStyle(document.documentElement);
+      const vars: Record<string, string> = {};
+      for (const name of THEME_VARS) {
+        const v = cs.getPropertyValue(name).trim();
+        if (v) vars[name] = v;
+      }
+      const json = JSON.stringify(vars);
+      if (json === last) return;
+      last = json;
+      void remoteTheme(vars).catch(() => undefined);
+    };
+    const schedule = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(push, 250);
+    };
+    push();
+    const watch = new MutationObserver(schedule);
+    watch.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "data-bg", "data-scheme", "class"] });
+    return () => {
+      watch.disconnect();
+      window.clearTimeout(timer);
+    };
+  }, [running]);
+
   useEffect(() => {
     void useRemote.getState().resume();
     let alive = true;
