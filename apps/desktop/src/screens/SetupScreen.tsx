@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
-import { Focusable, FocusGroup } from "@kinonyx/ui";
+import { BackIcon, Focusable, FocusGroup, NextIcon } from "@kinonyx/ui";
 import { useApp } from "../store/app";
 import {
   checkSourceKey,
@@ -14,7 +14,6 @@ import { openExternal } from "../data/io";
 import { rematchAll } from "../data/rematch";
 import logoMark from "../assets/logo-mark.png";
 import { TextField } from "../components/TextField";
-import { FocusHighlight } from "../components/FocusHighlight";
 
 const SOURCES: {
   key: MetadataSource;
@@ -82,84 +81,91 @@ export function SetupScreen() {
   };
 
   return (
-    <FocusGroup focusKey="setup" className="settings setup screen-pad">
-      <img className="setup__logo" src={logoMark} alt="" />
-      <h1 className="setup__title">Добро пожаловать в KINONYX</h1>
-      <p className="setup__lead">
-        {step === 0
-          ? "Откуда брать информацию о фильмах? Это можно поменять потом в Настройках."
-          : `Вставьте API-ключ ${meta.label} — он нужен, чтобы загрузить каталог.`}
-      </p>
-
-      {step === 0 && (
-        <>
-          <div className="sound-options setup__sources">
-            <FocusHighlight pad={6} radius={16} />
-            {SOURCES.map((s, i) => (
-              <Focusable
-                as="button"
-                key={s.key}
-                focusKey={`setup:source:${i}`}
-                autoFocus={i === 0}
-                className={`sound-option ${source === s.key ? "is-active" : ""}`}
-                onPress={() => setSource(s.key)}
-              >
-                {s.label}
-              </Focusable>
-            ))}
+    <FocusGroup focusKey="setup" className="settings screen-pad home home--tv home--nohero settings--tv">
+      <div className="stx">
+        <div className="stx__stage">
+          <div className="stx__art">
+            <img className="setup__logo" src={logoMark} alt="" />
           </div>
-          <div className="settings__hint setup__blurb">{meta.blurb}</div>
-          <div className="setup__actions">
-            <Focusable as="button" className="btn btn--primary" focusKey="setup:next" onPress={() => setStep(1)}>
-              Далее
-            </Focusable>
-          </div>
-        </>
-      )}
+          <p className="stx__desc">
+            {step === 0
+              ? "Добро пожаловать в KINONYX. Откуда брать информацию о фильмах? Это можно поменять потом в Настройках."
+              : `Вставьте API-ключ ${meta.label} — он нужен, чтобы загрузить каталог.`}
+          </p>
+        </div>
 
-      {step === 1 && (
-        <>
-          <section className="settings__item">
-            <div className="settings__label">API-KEY {meta.label.toUpperCase()}</div>
-            <TextField
-              focusKey="setup:key"
-              autoFocus
-              value={key}
-              onChange={(v) => {
-                setKey(v);
-                setNote(null);
-              }}
-              onSubmit={() => void verify()}
-              placeholder={`Вставьте ключ с ${meta.keyHost}`}
-            />
-            <div className={`settings__hint ${note ? `settings__hint--${note.kind}` : ""}`}>
-              {note?.text ?? "Enter — проверить. Ключ хранится только на этом компьютере."}
-            </div>
-          </section>
-          <div className="setup__actions">
-            <Focusable
-              as="button"
-              className="btn btn--primary"
-              focusKey="setup:verify"
-              onPress={() => void verify()}
-            >
-              {busy ? "Проверяю…" : "Проверить и продолжить"}
-            </Focusable>
-            <Focusable
-              as="button"
-              className="btn"
-              focusKey="setup:get-key"
-              onPress={() => void openExternal(meta.keyUrl)}
-            >
-              Где взять ключ
-            </Focusable>
-            <Focusable back as="button" className="btn" focusKey="setup:back" onPress={() => setStep(0)}>
-              Назад
-            </Focusable>
-          </div>
-        </>
-      )}
+        <div className="stx__list">
+          <div className="settings-pane" key={step}>
+            {step === 0 && (
+              <>
+                <section className="settings__item">
+                  <div className="settings__label">Источник</div>
+                  <div className="sound-options">
+                    {SOURCES.map((s, i) => (
+                      <Focusable
+                        as="button"
+                        key={s.key}
+                        focusKey={`setup:source:${i}`}
+                        autoFocus={i === 0}
+                        className={`sound-option ${source === s.key ? "is-active" : ""}`}
+                        onPress={() => setSource(s.key)}
+                      >
+                        {s.label}
+                      </Focusable>
+                    ))}
+                  </div>
+                  <div className="settings__hint">{meta.blurb}</div>
+                </section>
+                <section className="settings__item">
+                  <Focusable as="button" className="cycle-row" focusKey="setup:next" onPress={() => setStep(1)}>
+                    <span className="cycle-row__label">Далее</span>
+                    <NextIcon size={20} />
+                  </Focusable>
+                </section>
+              </>
+            )}
 
+            {step === 1 && (
+              <>
+                <Focusable as="button" back focusKey="setup:back" className="stx__row stx__back" onPress={() => setStep(0)}>
+                  <span className="stx__row-icon">
+                    <BackIcon size={22} />
+                  </span>
+                  <span className="stx__row-label">Назад</span>
+                </Focusable>
+                <section className="settings__item">
+                  <div className="settings__label">API-KEY {meta.label.toUpperCase()}</div>
+                  <TextField
+                    focusKey="setup:key"
+                    autoFocus
+                    value={key}
+                    onChange={(v) => {
+                      setKey(v);
+                      setNote(null);
+                    }}
+                    onSubmit={() => void verify()}
+                    placeholder={`Вставьте ключ с ${meta.keyHost}`}
+                  />
+                  <div className={`settings__hint ${note ? `settings__hint--${note.kind}` : ""}`}>
+                    {note?.text ?? "Enter — проверить. Ключ хранится только на этом компьютере."}
+                  </div>
+                </section>
+                <section className="settings__item">
+                  <Focusable as="button" className="cycle-row" focusKey="setup:verify" onPress={() => void verify()}>
+                    <span className="cycle-row__label">{busy ? "Проверяю…" : "Проверить и продолжить"}</span>
+                    <NextIcon size={20} />
+                  </Focusable>
+                  <Focusable as="button" className="cycle-row" focusKey="setup:get-key" onPress={() => void openExternal(meta.keyUrl)}>
+                    <span className="cycle-row__label">Где взять ключ</span>
+                    <span className="cycle-row__value">{meta.keyHost}</span>
+                    <NextIcon size={20} />
+                  </Focusable>
+                </section>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </FocusGroup>
   );
 }

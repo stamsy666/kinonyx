@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { BackIcon, Focusable, FocusGroup, Spinner } from "@kinonyx/ui";
+import { AboutIcon, BackIcon, Focusable, FocusGroup, NextIcon, Spinner } from "@kinonyx/ui";
+import { HomeChrome } from "../components/HomeChrome";
 import { useApp } from "../store/app";
 import { runDiagnostics, type DiagnosticCheck } from "../data/api";
 
@@ -41,54 +42,70 @@ export function DiagnosticsScreen() {
   };
 
   return (
-    <FocusGroup focusKey="diagnostics" className="settings screen-pad">
-      <header className="settings__head">
-        <Focusable back
-          as="button"
-          className="back-btn"
-          focusKey="diagnostics:back"
-          autoFocus
-          onPress={() => back() || navigate({ name: "home" })}
-          scrollBlock="start"
-        >
-          <BackIcon size={18} />
-          Назад
-        </Focusable>
-        <h1 className="settings__title">Диагностика</h1>
-        <span />
-      </header>
+    <FocusGroup focusKey="diagnostics" className="settings screen-pad home home--tv home--nohero settings--tv">
+      <HomeChrome id="diagnostics" label="Диагностика" hideSearch />
 
-      {!checks && !error && (
-        <div className="diag__loading">
-          <Spinner /> Проверяю…
+      <div className="stx">
+        <div className="stx__stage">
+          <div className="stx__art">
+            <AboutIcon size={300} strokeWidth={1} />
+          </div>
+          <p className="stx__desc">Что работает, а что нет: ключи, сеть, торрент-сервер и плеер.</p>
         </div>
-      )}
-      {error && <div className="settings__hint settings__hint--error">{error}</div>}
 
-      {checks && (
-        <ul className="diag__list">
-          {checks.map((c) => (
-            <li key={c.id} className={`diag__row diag__row--${c.status}`}>
-              <span className="diag__dot" aria-hidden />
-              <div className="diag__body">
-                <div className="diag__label">
-                  {c.label} <span className="diag__badge">{STATUS_LABEL[c.status]}</span>
-                </div>
-                <div className="diag__detail">{c.detail}</div>
-                {c.hint && c.status !== "ok" && <div className="diag__hint">{c.hint}</div>}
+        <div className="stx__list">
+          <div className="settings-pane">
+            <Focusable
+              as="button"
+              back
+              focusKey="diagnostics:back"
+              className="stx__row stx__back"
+              autoFocus
+              onPress={() => back() || navigate({ name: "home" })}
+            >
+              <span className="stx__row-icon">
+                <BackIcon size={22} />
+              </span>
+              <span className="stx__row-label">Назад</span>
+            </Focusable>
+
+            {!checks && !error && (
+              <div className="diag__loading">
+                <Spinner /> Проверяю…
               </div>
-            </li>
-          ))}
-        </ul>
-      )}
+            )}
+            {error && <div className="settings__hint settings__hint--error">{error}</div>}
 
-      <div className="setup__actions">
-        <Focusable as="button" className="btn btn--primary" focusKey="diagnostics:rerun" onPress={run}>
-          Проверить ещё раз
-        </Focusable>
-        <Focusable as="button" className="btn" focusKey="diagnostics:copy" onPress={() => void copy()}>
-          {copied ? "Скопировано" : "Копировать отчёт"}
-        </Focusable>
+            {checks && (
+              <section className="settings__item">
+                <div className="settings__label">Проверки</div>
+                {checks.map((c) => (
+                  <div className="diag-item" key={c.id}>
+                    <Focusable as="button" focusKey={`diagnostics:${c.id}`} className={`stx__row diag-pill diag-pill--${c.status}`}>
+                      <i className="diag-pill__dot" aria-hidden />
+                      <span className="stx__row-label">{c.label}</span>
+                      <span className="diag-pill__detail">{c.detail}</span>
+                      <span className="diag-pill__badge">{STATUS_LABEL[c.status]}</span>
+                    </Focusable>
+                    {c.hint && c.status !== "ok" && <div className="settings__hint">{c.hint}</div>}
+                  </div>
+                ))}
+              </section>
+            )}
+
+            <section className="settings__item">
+              <Focusable as="button" className="cycle-row" focusKey="diagnostics:rerun" onPress={run}>
+                <span className="cycle-row__label">Проверить ещё раз</span>
+                <NextIcon size={20} />
+              </Focusable>
+              <Focusable as="button" className="cycle-row" focusKey="diagnostics:copy" onPress={() => void copy()}>
+                <span className="cycle-row__label">Копировать отчёт</span>
+                <span className="cycle-row__value">{copied ? "Скопировано" : ""}</span>
+                <NextIcon size={20} />
+              </Focusable>
+            </section>
+          </div>
+        </div>
       </div>
     </FocusGroup>
   );

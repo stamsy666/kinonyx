@@ -6052,3 +6052,71 @@ body .sidebar__item.is-focused .sidebar__icon {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ----- Diagnostics and the first-run wizard in the settings look ----- */
+.settings--tv .settings-pane .diag__loading {
+  padding: calc(30 * var(--u)) 0;
+}
+
+.settings--tv .settings-pane .diag-item {
+  margin-bottom: calc(10 * var(--u));
+}
+
+.settings--tv .settings-pane .diag-item .stx__row {
+  margin-bottom: 0;
+}
+
+.settings--tv .settings-pane .diag-item .settings__hint {
+  margin-top: calc(6 * var(--u));
+  margin-bottom: calc(8 * var(--u));
+}
+
+.diag-pill__dot {
+  flex: none;
+  width: calc(14 * var(--u));
+  height: calc(14 * var(--u));
+  border-radius: 50%;
+  background: #4cc38a;
+}
+
+.diag-pill--warn .diag-pill__dot {
+  background: #e0b341;
+}
+
+.diag-pill--fail .diag-pill__dot {
+  background: #ff5a5f;
+}
+
+.diag-pill .stx__row-label {
+  flex: none;
+}
+
+.diag-pill__detail {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: calc(15 * var(--u));
+  font-weight: 600;
+  text-align: right;
+  opacity: 0.65;
+}
+
+.diag-pill__badge {
+  flex: none;
+  min-width: calc(76 * var(--u));
+  text-align: right;
+  font-size: calc(13 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.settings--tv .stx__art .setup__logo {
+  width: calc(220 * var(--u));
+  height: calc(220 * var(--u));
+  margin: 0;
+  filter: var(--logo-filter, none);
+}
