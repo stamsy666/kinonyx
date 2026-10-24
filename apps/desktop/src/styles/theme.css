@@ -6653,3 +6653,210 @@ body .sidebar__item.is-focused .sidebar__icon {
   flex: none;
   width: calc(230 * var(--u));
 }
+
+/* ---------- "Что посмотреть?" in the settings look (the window lives in <body>, so it carries its own unit) ---------- */
+.modal-panel.wtw-tv {
+  --mu: clamp(0.8px, 100vh / 720, 1.35px);
+  width: calc(620 * var(--mu));
+  max-width: 92vw;
+  max-height: 92vh;
+  padding: calc(34 * var(--mu));
+  border: 0;
+  border-radius: calc(40 * var(--mu));
+  background: rgba(46, 46, 50, 0.88);
+  -webkit-backdrop-filter: blur(40px);
+  backdrop-filter: blur(40px);
+  box-shadow: 0 calc(30 * var(--mu)) calc(80 * var(--mu)) rgba(0, 0, 0, 0.5);
+  transition: width 240ms var(--ease);
+}
+
+.modal-panel.wtw-tv.wtw-tv--result {
+  width: calc(860 * var(--mu));
+}
+
+.wtw-tv__title {
+  margin: 0 0 calc(10 * var(--mu));
+  text-align: center;
+  font-size: calc(30 * var(--mu));
+  font-weight: 700;
+  color: #fff;
+}
+
+.wtw-tv__sub {
+  margin: 0 0 calc(22 * var(--mu));
+  text-align: center;
+  font-size: calc(16 * var(--mu));
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.wtw-tv__list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10 * var(--mu));
+  margin-top: calc(14 * var(--mu));
+}
+
+.wtw-tv__sub + .wtw-tv__list,
+.wtw-tv__sub ~ .wtw-tv__list {
+  margin-top: 0;
+}
+
+.wtw-tv__row {
+  display: flex;
+  align-items: center;
+  gap: calc(14 * var(--mu));
+  width: 100%;
+  min-height: calc(62 * var(--mu));
+  padding: 0 calc(24 * var(--mu));
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: calc(19 * var(--mu));
+  font-weight: 700;
+  text-align: left;
+  transition:
+    background-color 160ms var(--ease),
+    color 160ms var(--ease);
+}
+
+.wtw-tv__name {
+  flex: 1;
+}
+
+.wtw-tv__hint {
+  font-size: calc(15 * var(--mu));
+  font-weight: 600;
+  opacity: 0.65;
+}
+
+.wtw-tv__row--quiet {
+  margin-top: calc(8 * var(--mu));
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.wtw-tv__row.is-focused,
+.wtw-tv__btn.is-focused {
+  background: rgba(244, 244, 247, 0.95);
+  color: #1d1d20;
+  box-shadow:
+    0 0 0 calc(3 * var(--mu)) rgba(255, 255, 255, 0.95),
+    inset 0 0 0 calc(2 * var(--mu)) rgba(0, 0, 0, 0.18);
+  transform: none;
+}
+
+.wtw-tv__row.is-focused::after,
+.wtw-tv__btn.is-focused::after {
+  content: none;
+}
+
+.wtw-tv__wait {
+  display: grid;
+  place-items: center;
+  padding: calc(50 * var(--mu)) 0 calc(36 * var(--mu));
+}
+
+/* the film that came up */
+.wtw-tv__result {
+  display: flex;
+  gap: calc(32 * var(--mu));
+  margin-top: calc(22 * var(--mu));
+}
+
+.wtw-tv__poster {
+  flex: none;
+  width: calc(240 * var(--mu));
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: calc(20 * var(--mu));
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.wtw-tv__poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.wtw-tv__info {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.wtw-tv__film {
+  margin: 0 0 calc(8 * var(--mu));
+  font-size: calc(34 * var(--mu));
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.wtw-tv__meta {
+  display: flex;
+  gap: calc(14 * var(--mu));
+  margin-bottom: calc(14 * var(--mu));
+  font-size: calc(16 * var(--mu));
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.wtw-tv__rating {
+  color: #ffd25e;
+}
+
+.wtw-tv__desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0 0 auto;
+  font-size: calc(16 * var(--mu));
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.wtw-tv__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(14 * var(--mu));
+  margin-top: calc(20 * var(--mu));
+}
+
+.wtw-tv__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(10 * var(--mu));
+  min-height: calc(54 * var(--mu));
+  padding: 0 calc(26 * var(--mu));
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: calc(17 * var(--mu));
+  font-weight: 700;
+  transition:
+    background-color 160ms var(--ease),
+    color 160ms var(--ease);
+}
+
+.wtw-tv__btn--primary {
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+}
+.modal-panel.wtw-tv.wtw-tv--result {
+  width: calc(920 * var(--mu));
+}
+
+.wtw-tv__actions {
+  gap: calc(10 * var(--mu));
+}
+
+.wtw-tv__btn {
+  padding: 0 calc(22 * var(--mu));
+  white-space: nowrap;
+}
