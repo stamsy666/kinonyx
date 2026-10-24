@@ -6646,3 +6646,10 @@ body .sidebar__item.is-focused .sidebar__icon {
 .home--tv.ptv {
   padding-bottom: 0;
 }
+
+/* the filmography's cards are the posters' own width (the wrapper used to take a share of a paged row, which
+   made each one as wide as the whole row and pushed the rest out of sight) */
+.ptv .filmography-card {
+  flex: none;
+  width: calc(230 * var(--u));
+}
