@@ -4665,7 +4665,7 @@ body:not(.mpv-active) .mini-player {
 }
 
 .home--tv .home__rows > * + * {
-  margin-top: calc(100 * var(--u));
+  margin-top: calc(60 * var(--u));
 }
 
 .home--tv .shelf__head {
