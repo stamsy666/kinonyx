@@ -9,6 +9,9 @@ import { HomeChrome } from "../components/HomeChrome";
 
 const KINDS: CatalogKind[] = ["films", "series", "cartoons"];
 
+/** Films already shown on a tile of this page: no picture is used twice. */
+const usedFilms = new Set<number>();
+
 /** A tile of a genre: a colour of its own at once, and the poster of a popular title of that genre
  *  fades in once the tile gets near the screen (one cached request per genre, only for tiles in view). */
 function CategoryTile({
@@ -36,8 +39,9 @@ function CategoryTile({
         io.disconnect();
         kpFilmsFilter(cat.filter)
           .then(async (r) => {
-            const film = (r.items ?? []).find((f) => f.posterUrlPreview);
+            const film = (r.items ?? []).find((f) => f.posterUrlPreview && !usedFilms.has(f.kinopoiskId));
             if (!film) return;
+            usedFilms.add(film.kinopoiskId);
             // A frame of the film fits a wide tile far better than the portrait poster; the poster is the fallback.
             const still = await kpImages(film.kinopoiskId, "STILL", 1).then((x) => x.items?.[0]?.imageUrl).catch(() => undefined);
             if (!cancelled) setArt(img(still ? stillLarge(still) : film.posterUrl || film.posterUrlPreview));
@@ -78,6 +82,8 @@ export function CategoriesHubScreen() {
   const source = useApp((s) => s.metadataSource) ?? "kinopoisk";
   const categoryLists = categoryListsFor(source);
   useHomeFeel(null);
+  // A fresh page starts with no picture taken (tiles pick theirs as they come into view).
+  useState(() => usedFilms.clear());
 
   return (
     <FocusGroup focusKey="categories-hub" className="screen-pad home home--tv home--nohero">
