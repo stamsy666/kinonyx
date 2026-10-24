@@ -20,35 +20,40 @@ interface Props {
 const MEDIA = ".movie-card__poster, .actor-card__avatar, .still-card";
 
 /**
- * Every shelf remembers the card you were last on (the group keeps its last focused child), so
- * going back to a shelf you have already visited lands on that card. A shelf you have NOT visited
- * yet is entered on its FIRST card — not on whichever column happens to be nearest — until you move
- * inside it. One listener for all shelves, installed while any is on the screen.
+ * Up/Down move between shelves one at a time, in page order — never by "whichever card is
+ * horizontally nearest" (a short shelf, like two favourite channels, would be skipped for a long one
+ * above it). A shelf you have been in lands on the card you left it from; one you have not been in
+ * lands on its FIRST card. One listener for all shelves, installed while any is on the screen.
  */
 let shelves = 0;
-const visited = new WeakSet<Element>();
-const markVisited = (e: Event) => {
-  const g = (e.target as Element | null)?.closest?.(".row-scroll__group");
-  if (g) visited.add(g);
+const remembered = new WeakMap<Element, string>();
+const remember = (el: Element | null | undefined) => {
+  const g = el?.closest?.(".row-scroll__group");
+  const key = el?.closest<HTMLElement>("[data-fk]")?.dataset.fk;
+  if (g && key) remembered.set(g, key);
 };
+const onPointer = (e: Event) => remember(e.target as Element);
 function onShelfKey(e: KeyboardEvent) {
   const current = document.querySelector<HTMLElement>(".row-scroll__group .is-focused, .home-banner.is-focused, .hero__btn.is-focused");
-  const group = current?.closest<HTMLElement>(".row-scroll__group");
-  if (group) visited.add(group);
+  remember(current);
   const down = e.key === "ArrowDown";
   if ((!down && e.key !== "ArrowUp") || !current || document.querySelector(".modal, [role=dialog]")) return;
+  const group = current.closest<HTMLElement>(".row-scroll__group");
   const all = [...document.querySelectorAll<HTMLElement>(".row-scroll__group")];
   let next: HTMLElement | undefined;
   if (group) next = all[all.indexOf(group) + (down ? 1 : -1)];
   else if (down) next = all.find((g) => current.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING);
-  if (!next || visited.has(next)) return;
-  const first = next.querySelector<HTMLElement>("[data-fk]");
+  if (!next) return;
   const origin = (group ?? current).getBoundingClientRect().top;
   const there = next.getBoundingClientRect().top;
-  if (!first || (down ? there <= origin : there >= origin)) return;
+  if (down ? there <= origin : there >= origin) return;
+  const key = remembered.get(next);
+  const target =
+    (key && next.querySelector<HTMLElement>(`[data-fk="${CSS.escape(key)}"]`)) || next.querySelector<HTMLElement>("[data-fk]");
+  if (!target) return;
   e.preventDefault();
   e.stopImmediatePropagation();
-  setFocus(first.dataset.fk!);
+  setFocus(target.dataset.fk!);
 }
 
 /**
@@ -79,12 +84,12 @@ export function RowScroll({ label, children, count, perView, className = "", hea
   useEffect(() => {
     if (shelves++ === 0) {
       window.addEventListener("keydown", onShelfKey, true);
-      window.addEventListener("pointerover", markVisited, true);
+      window.addEventListener("pointerover", onPointer, true);
     }
     return () => {
       if (--shelves === 0) {
         window.removeEventListener("keydown", onShelfKey, true);
-        window.removeEventListener("pointerover", markVisited, true);
+        window.removeEventListener("pointerover", onPointer, true);
       }
     };
   }, []);
