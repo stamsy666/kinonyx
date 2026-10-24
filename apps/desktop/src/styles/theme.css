@@ -5381,6 +5381,9 @@ body .sidebar__item.is-focused .sidebar__icon {
 .sx__keys {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
+  /* A gap between the keys: touching keys, with fractional sizes at a zoomed window, can be measured as
+     overlapping by a hair, and Right/Down then jump over the neighbour. */
+  gap: calc(6 * var(--u));
   margin-top: calc(18 * var(--u));
 }
 
