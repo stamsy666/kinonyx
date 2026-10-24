@@ -4490,8 +4490,9 @@ body:not(.mpv-active) .mini-player {
 
 /* ---- the banner ---- */
 .home--tv .hero {
-  /* Scrolling down, the banner fades out as the rows come up, and the theme's own background shows behind them. */
-  opacity: calc(1 - var(--sheet));
+  /* Scrolling down, the rows come up over the banner's lower part (its buttons and dots stay in view above
+     them, as on the Apple TV); the banner only dims a little. */
+  opacity: calc(1 - var(--sheet) * 0.4);
   height: 100vh;
   margin: calc(-4 * var(--u)) calc(-1 * var(--page-x)) 0;
   border: 0;
@@ -4680,6 +4681,8 @@ body:not(.mpv-active) .mini-player {
 .home--tv .row-scroll__track {
   padding: calc(30 * var(--u)) calc(22 * var(--u));
   margin: calc(-30 * var(--u)) calc(-22 * var(--u));
+  /* A card scrolled into view stops where its lifted frame still fits: it is never pushed past the edge. */
+  scroll-padding-inline: calc(22 * var(--u));
 }
 
 /* ---- posters ---- */
@@ -4928,4 +4931,13 @@ body:not(.mpv-active) .mini-player {
 
 .home--tv .row-scroll__group {
   gap: calc(22 * var(--u));
+  /* As wide as its cards, so the row's end padding comes after the last card (otherwise the last card
+     stops only a few pixels from the edge and its lifted frame is cut off). */
+  width: max-content;
+}
+
+/* The first shelf lands lower when it is scrolled to, so a strip of the banner (buttons and dots)
+   stays above it, as in the Apple TV store. */
+.home--tv .home__rows > :first-child .row-scroll__group > * {
+  scroll-margin-top: 16vh;
 }

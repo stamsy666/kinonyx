@@ -111,7 +111,9 @@ export function glideIntoView(el: HTMLElement, block: ScrollLogicalPosition, tra
     const bottom = top + r.height;
     const padY = 24;
     let ty = gy.ty;
-    if (block === "center") ty = top - (page.clientHeight - r.height) / 2;
+    // `scroll-margin-top` on the element shifts where it lands (a first shelf that leaves room above it).
+    const bias = parseFloat(getComputedStyle(el).scrollMarginTop) || 0;
+    if (block === "center") ty = top - (page.clientHeight - r.height) / 2 - bias;
     else if (block === "start") ty = top - padY;
     else if (top < ty + padY) ty = top - padY;
     else if (bottom > ty + page.clientHeight - padY) ty = bottom - page.clientHeight + padY;
