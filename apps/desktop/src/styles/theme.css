@@ -5013,3 +5013,79 @@ body:not(.mpv-active) .mini-player {
   color: #fff;
   text-shadow: 0 1px calc(10 * var(--u)) rgba(0, 0, 0, 0.5);
 }
+
+/* ---------- The main menu, after the tvOS sidebar: a floating glass card that is only as tall as its
+   items, a round avatar + name + clock on top, round icons, and a light pill with a ring on focus. */
+body .sidebar {
+  top: 32px;
+  left: 32px;
+  bottom: auto;
+  width: min(380px, 86vw);
+  max-height: calc(100vh - 64px);
+  overflow: hidden auto;
+  padding: 26px 20px 22px;
+  gap: 18px;
+  border-radius: 46px;
+}
+
+body .sidebar__brand {
+  padding: 0 8px;
+  gap: 14px;
+}
+
+body .sidebar__brand-mark {
+  width: 52px;
+  height: 52px;
+  padding: 9px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+body .sidebar__brand-name {
+  font-size: 20px;
+}
+
+body .sidebar__clock {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+body .sidebar__nav {
+  gap: 6px;
+  margin-top: 6px;
+}
+
+body .sidebar__item {
+  height: 64px;
+  padding: 0 10px;
+  gap: 16px;
+  font-size: 19px;
+  font-weight: 700;
+  border: 2px solid transparent;
+}
+
+body .sidebar__icon {
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+body .sidebar__item.is-active:not(.is-focused) {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+body .sidebar__item.is-focused {
+  background: rgba(244, 244, 247, 0.94);
+  color: #1d1d20;
+  border-color: rgba(0, 0, 0, 0.22);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.95);
+}
+
+body .sidebar__item.is-focused::after {
+  content: none;
+}
+
+body .sidebar__item.is-focused .sidebar__icon {
+  background: rgba(0, 0, 0, 0.12);
+}

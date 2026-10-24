@@ -144,7 +144,7 @@ export function Sidebar() {
                 }}
               >
                 <span className="sidebar__icon">
-                  <Icon size={18} />
+                  <Icon size={22} />
                 </span>
                 <span className="sidebar__item-label">{item.label}</span>
                 {item.soon && <span className="sidebar__item-hint">скоро</span>}
