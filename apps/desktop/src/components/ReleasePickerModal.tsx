@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Focusable, Spinner, onBack } from "@kinonyx/ui";
+import { Focusable, NextIcon, Spinner, onBack } from "@kinonyx/ui";
 import {
   openTorrent,
   parseSize,
@@ -17,7 +17,6 @@ import { useEpisodeProgress } from "../store/episodeProgress";
 import { splitByYear } from "../data/releaseFilter";
 import { pickByQuality, qualityLabel, type QualityKey } from "../data/quality";
 import { Modal } from "./Modal";
-import { FocusHighlight } from "./FocusHighlight";
 
 interface Props {
   filmId: number;
@@ -237,42 +236,40 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
 
   const heading = stage === "files" ? "Выбор серии" : "Выбор раздачи";
 
+  const visible = showHidden ? [...releases, ...hidden] : releases;
+
   return (
-    <Modal focusKey="release-picker" preferredChildFocusKey="release:0" onClose={onClose}>
-      <div className="modal-panel__header">
-        <h3>{heading}</h3>
-        <Focusable back as="button" className="icon-btn" focusKey="release:close" onPress={onClose} scroll={false}>
-          ×
-        </Focusable>
-      </div>
-      <div className="modal-panel__list">
-        <FocusHighlight pad={0} radius="var(--radius-sm)" />
+    <Modal focusKey="release-picker" preferredChildFocusKey="release:0" className="links-tv rel-tv" onClose={onClose}>
+      <h3 className="links-tv__title">{heading}</h3>
+      {stage === "list" && (
+        <p className="links-tv__text">
+          {qualityMissed && quality
+            ? `Раздач в качестве «${qualityLabel(quality)}» не нашлось — выберите из того, что есть.`
+            : `${year ? `«${title}», ${year}. ` : ""}Скорость зависит от числа сидов (▲) раздачи, а не от вашего интернета.`}
+        </p>
+      )}
+      <div className="rel-tv__list">
         {(stage === "searching" || stage === "connecting") && (
-          <div style={{ display: "grid", placeItems: "center", padding: "40px 0", gap: 14 }}>
+          <div className="links-tv__wait">
             <Spinner />
-            <span className="modal-status">
+            <span className="links-tv__text">
               {stage === "searching" ? (quality ? `Ищу раздачу ${qualityLabel(quality)}…` : "Ищу раздачи…") : resuming ? "Открываю сохранённую раздачу…" : "Получаю файлы раздачи от пиров…"}
             </span>
           </div>
         )}
         {stage === "error" && (
-          <div className="stack" style={{ gap: 6 }}>
-            <p className="empty" style={{ paddingBottom: 6 }}>{error}</p>
+          <>
+            <p className="links-tv__text">{error}</p>
             {releases.length > 0 && (
-              <Focusable back as="button" className="btn" focusKey="release:back" autoFocus scroll={false} onPress={() => setStage("list")}>
-                К списку раздач
+              <Focusable back as="button" className="links-tv__row" focusKey="release:back" autoFocus scroll={false} onPress={() => setStage("list")}>
+                <span className="links-tv__name">К списку раздач</span>
+                <NextIcon size={20} />
               </Focusable>
             )}
-          </div>
-        )}
-        {stage === "list" && qualityMissed && quality && (
-          <p className="release-note">Раздач в качестве «{qualityLabel(quality)}» не нашлось — выберите из того, что есть.</p>
-        )}
-        {stage === "list" && (
-          <p className="release-note">{year ? `Ищу «${title}» ${year} года. ` : ""}Скорость зависит от числа сидов раздачи, а не от вашего интернета. Выбирайте раздачи с большим ▲.</p>
+          </>
         )}
         {stage === "list" &&
-          (showHidden ? [...releases, ...hidden] : releases).map((r, i) => {
+          visible.map((r, i) => {
             const need = neededMbit(r.size, durationMin);
             const few = (r.seeds ?? 0) < FEW_SEEDS;
             return (
@@ -280,14 +277,14 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
                 key={r.provider + r.id}
                 as="button"
                 focusKey={`release:${i}`}
-                className="list-option"
+                className="rel-tv__row"
                 onPress={() => void pick(r)}
                 autoFocus={i === 0}
               >
-                <span className="list-option__title">{r.name}</span>
-                <span className="list-option__hint">
+                <span className="rel-tv__title">{r.name}</span>
+                <span className="rel-tv__meta">
                   <span>{r.size ?? "—"}</span>
-                  {need && <span>нужно ≈ {need < 10 ? need.toFixed(1) : Math.round(need)} Мбит/с</span>}
+                  {need && <span>≈ {need < 10 ? need.toFixed(1) : Math.round(need)} Мбит/с</span>}
                   <span className={few ? "release-seeds release-seeds--few" : "release-seeds"}>▲ {r.seeds ?? 0}</span>
                   <span>▼ {r.peers ?? 0}</span>
                   <span>{r.provider}</span>
@@ -297,8 +294,8 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
             );
           })}
         {stage === "list" && hidden.length > 0 && !showHidden && (
-          <Focusable as="button" className="btn" focusKey="release:show-hidden" scroll={false} onPress={() => setShowHidden(true)}>
-            Показать ещё {hidden.length} — с другим годом
+          <Focusable as="button" className="links-tv__row links-tv__row--close" focusKey="release:show-hidden" scroll={false} onPress={() => setShowHidden(true)}>
+            <span className="links-tv__name">Показать ещё {hidden.length} — с другим годом</span>
           </Focusable>
         )}
         {stage === "files" &&
@@ -312,15 +309,15 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
                 key={f.id}
                 as="button"
                 focusKey={`file:${i}`}
-                className="list-option"
+                className="rel-tv__row"
                 autoFocus={smartFile ? next : i === 0}
                 onPress={() => void play(files.link, files.hash, `${files.name} — ${f.name}`, f, files.choices).catch(fail)}
               >
-                <span className="list-option__title">
+                <span className="rel-tv__title">
                   {label}
                   {next && <span className="ep-tag"> · далее</span>}
                 </span>
-                <span className="list-option__hint">
+                <span className="rel-tv__meta">
                   {e?.watched && <span className="ep-done">✓ просмотрено</span>}
                   {e && !e.watched && e.position / e.duration >= 0.02 && <span>{Math.round((e.position / e.duration) * 100)}%</span>}
                   {label !== f.name && <span>{f.name}</span>}

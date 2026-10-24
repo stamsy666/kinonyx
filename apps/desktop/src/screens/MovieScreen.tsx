@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { cancelGlides, FavoriteIcon, Focusable, FocusGroup, PlayIcon, PlusIcon, Spinner } from "@kinonyx/ui";
+import { cancelGlides, FavoriteIcon, Focusable, FocusGroup, NextIcon, PlayIcon, PlusIcon, Spinner } from "@kinonyx/ui";
 import { useApp } from "../store/app";
 import { useFavorites } from "../store/favorites";
 import { useLastRelease } from "../store/lastRelease";
@@ -415,6 +415,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
       )}
       {modal === "quality" && (
         <LinksModal
+          tv
           heading="Качество"
           empty=""
           links={QUALITY_OPTIONS.map((o) => ({ key: o.key, title: o.title, hint: o.hint, url: "" }))}
@@ -453,6 +454,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
       )}
       {modal === "trailer" && (
         <LinksModal
+          tv
           heading="Трейлеры"
           empty="Трейлеры не найдены"
           onClose={() => setModal(null)}
@@ -507,24 +509,13 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
           document.body,
         )}
       {trailerError && (
-        <Modal focusKey="trailer-error" preferredChildFocusKey="trailer-err:browser" onClose={() => setTrailerError(null)}>
-          <div className="modal-panel__header">
-            <h3>Не удалось открыть трейлер</h3>
-            <Focusable back
-              as="button"
-              className="icon-btn"
-              focusKey="trailer-err:close"
-              onPress={() => setTrailerError(null)}
-              scroll={false}
-            >
-              ×
-            </Focusable>
-          </div>
-          <p className="trailer-error__text">{trailerError.message}</p>
-          <div className="trailer-error__actions">
+        <Modal focusKey="trailer-error" preferredChildFocusKey="trailer-err:browser" className="links-tv" onClose={() => setTrailerError(null)}>
+          <h3 className="links-tv__title">Не удалось открыть трейлер</h3>
+          <p className="links-tv__text">{trailerError.message}</p>
+          <div className="links-tv__list">
             <Focusable
               as="button"
-              className="btn btn--primary"
+              className="links-tv__row"
               focusKey="trailer-err:browser"
               autoFocus
               scroll={false}
@@ -533,7 +524,11 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
                 setTrailerError(null);
               }}
             >
-              Открыть в браузере
+              <span className="links-tv__name">Открыть в браузере</span>
+              <NextIcon size={20} />
+            </Focusable>
+            <Focusable as="button" back className="links-tv__row links-tv__row--close" focusKey="trailer-err:close" scroll={false} onPress={() => setTrailerError(null)}>
+              <span className="links-tv__name">Закрыть</span>
             </Focusable>
           </div>
         </Modal>

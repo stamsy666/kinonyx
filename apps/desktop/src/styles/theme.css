@@ -7292,3 +7292,151 @@ body .sidebar__item.is-focused .sidebar__icon {
   background: #000;
   opacity: 0;
 }
+
+/* ----- The film page's windows (quality, trailers, release choice, errors) in the same look ----- */
+.links-tv__text {
+  margin: 0 0 calc(18 * var(--mu));
+  text-align: center;
+  font-size: calc(16 * var(--mu));
+  font-weight: 600;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.links-tv__wait {
+  display: grid;
+  place-items: center;
+  gap: calc(14 * var(--mu));
+  padding: calc(34 * var(--mu)) 0 calc(20 * var(--mu));
+}
+
+.links-tv__wait .links-tv__text {
+  margin: 0;
+}
+
+.links-tv__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.links-tv__row .links-tv__hint {
+  flex: none;
+}
+
+/* the choice of a release or an episode: tall rows with the name on two lines and a line of figures */
+.modal-panel.links-tv.rel-tv {
+  width: calc(820 * var(--mu));
+  max-height: 90vh;
+}
+
+.rel-tv__list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10 * var(--mu));
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: calc(6 * var(--mu));
+  margin: calc(-6 * var(--mu));
+}
+
+.rel-tv__list::-webkit-scrollbar {
+  display: none;
+}
+
+.rel-tv__row {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: calc(6 * var(--mu));
+  width: 100%;
+  padding: calc(16 * var(--mu)) calc(26 * var(--mu));
+  border: 0;
+  border-radius: calc(30 * var(--mu));
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  text-align: left;
+  transition:
+    background-color 160ms var(--ease),
+    color 160ms var(--ease);
+}
+
+.rel-tv__title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: calc(17 * var(--mu));
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.rel-tv__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(4 * var(--mu)) calc(16 * var(--mu));
+  font-size: calc(14 * var(--mu));
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.rel-tv__row .release-seeds {
+  color: #7fe0b5;
+}
+
+.rel-tv__row .release-seeds--few,
+.rel-tv__row .release-warn {
+  color: #ffd25e;
+}
+
+.rel-tv__row .ep-done {
+  color: #7fe0b5;
+}
+
+.rel-tv__row.is-focused {
+  background: rgba(244, 244, 247, 0.95);
+  color: #1d1d20;
+  box-shadow:
+    0 0 0 calc(3 * var(--mu)) rgba(255, 255, 255, 0.95),
+    inset 0 0 0 calc(2 * var(--mu)) rgba(0, 0, 0, 0.18);
+  transform: none;
+}
+
+.rel-tv__row.is-focused::after {
+  content: none;
+}
+
+.rel-tv__row.is-focused .rel-tv__meta {
+  opacity: 0.85;
+}
+
+.rel-tv__row.is-focused .release-seeds,
+.rel-tv__row.is-focused .ep-done {
+  color: #137a4f;
+}
+
+.rel-tv__row.is-focused .release-seeds--few,
+.rel-tv__row.is-focused .release-warn {
+  color: #a35a00;
+}
+
+/* "Открываю трейлер…": a card of the same kind */
+.trailer-resolving__card {
+  --mu: clamp(0.8px, 100vh / 720, 1.35px);
+  gap: calc(16 * var(--mu));
+  padding: calc(34 * var(--mu)) calc(48 * var(--mu));
+  border: 0;
+  border-radius: calc(36 * var(--mu));
+  background: rgba(46, 46, 50, 0.88);
+  -webkit-backdrop-filter: blur(40px);
+  backdrop-filter: blur(40px);
+  box-shadow: 0 calc(30 * var(--mu)) calc(80 * var(--mu)) rgba(0, 0, 0, 0.5);
+}
+
+.trailer-resolving__card p {
+  font-size: calc(19 * var(--mu));
+  font-weight: 700;
+  color: #fff;
+}

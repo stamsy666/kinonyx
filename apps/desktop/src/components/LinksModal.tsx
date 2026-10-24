@@ -33,6 +33,12 @@ export function LinksModal({
       <Modal focusKey="links-modal" preferredChildFocusKey="link:0" className="links-tv" onClose={onClose}>
         <h3 className="links-tv__title">{heading}</h3>
         <div className="links-tv__list">
+          {links === null && (
+            <div className="links-tv__wait">
+              <Spinner />
+            </div>
+          )}
+          {links?.length === 0 && <p className="links-tv__text">{empty}</p>}
           {links?.map((l, i) => (
             <Focusable
               key={l.key}
