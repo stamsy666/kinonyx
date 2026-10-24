@@ -4919,7 +4919,7 @@ body:not(.mpv-active) .mini-player {
 }
 
 .home--tv .shelf--under-banner {
-  margin-top: calc(26 * var(--u)) !important;
+  margin-top: calc(33 * var(--u)) !important;
 }
 
 .home--tv .shelf--under-banner .shelf__head {
