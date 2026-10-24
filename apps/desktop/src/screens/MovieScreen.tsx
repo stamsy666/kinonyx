@@ -33,6 +33,7 @@ import { continueLabel } from "../store/episodeProgress";
 import { Modal } from "../components/Modal";
 import { ProgressiveImg } from "../components/ProgressiveImg";
 import { holdMusic } from "../data/music";
+import { fadeThrough } from "../data/transition";
 import { HomeChrome } from "../components/HomeChrome";
 import { useHomeFeel } from "../components/useHomeFeel";
 
@@ -435,16 +436,18 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
           remembered={quality ? undefined : lastRelease}
           onClose={() => setModal(null)}
           onReady={(source) =>
-            navigate({
-              name: "player",
-              title: source.title,
-              url: source.url,
-              hash: source.hash,
-              filmId: id,
-              film: { nameRu: film.nameRu, nameOriginal: film.nameOriginal, year: film.year, genres: film.genres?.map((g) => g.genre) },
-              poster: film.posterUrlPreview ? img(film.posterUrlPreview) : undefined,
-              episodes: source.episodes,
-            })
+            fadeThrough(() =>
+              navigate({
+                name: "player",
+                title: source.title,
+                url: source.url,
+                hash: source.hash,
+                filmId: id,
+                film: { nameRu: film.nameRu, nameOriginal: film.nameOriginal, year: film.year, genres: film.genres?.map((g) => g.genre) },
+                poster: film.posterUrlPreview ? img(film.posterUrlPreview) : undefined,
+                episodes: source.episodes,
+              }),
+            )
           }
         />
       )}
@@ -460,20 +463,27 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
             if (!viaRutube && !isYoutubeUrl(l.url)) {
               // Kinopoisk's own widget player — embed it full-screen instead of the
               // mpv player, since yt-dlp/mpv can't play it (it's not a media file).
-              navigate({ name: "web-trailer", title: `${title} — ${l.title}`, url: l.url });
+              fadeThrough(() => navigate({ name: "web-trailer", title: `${title} — ${l.title}`, url: l.url }));
               return;
             }
             setTrailerError(null);
             setTrailerResolving(true);
             resolveTrailerUrl(viaRutube ? "" : l.url, film)
-              .then((r) =>
-                navigate({
-                  name: "player",
-                  title: `${title} — ${l.title}`,
-                  url: r.qualities[r.defaultIndex].url,
-                  qualities: r.qualities,
-                  qualityIndex: r.defaultIndex,
-                }),
+              .then(
+                (r) =>
+                  new Promise<void>((done) => {
+                    const started = fadeThrough(() => {
+                      navigate({
+                        name: "player",
+                        title: `${title} — ${l.title}`,
+                        url: r.qualities[r.defaultIndex].url,
+                        qualities: r.qualities,
+                        qualityIndex: r.defaultIndex,
+                      });
+                      done();
+                    });
+                    if (!started) done();
+                  }),
               )
               .catch((e) => setTrailerError({ message: e instanceof Error ? e.message : String(e),
                 url: viaRutube

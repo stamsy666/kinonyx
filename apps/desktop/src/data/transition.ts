@@ -13,11 +13,11 @@ let running = false;
  * Every step also has a timer behind it: where the animation clock is held (a window that is not shown), the
  * action still runs and the layer still goes away.
  */
-export function fadeThrough(action: () => void) {
-  if (running) return;
+export function fadeThrough(action: () => void): boolean {
+  if (running) return false;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     action();
-    return;
+    return true;
   }
   running = true;
   const layer = document.createElement("div");
@@ -45,4 +45,5 @@ export function fadeThrough(action: () => void) {
 
   layer.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OUT_MS, easing: EASE, fill: "forwards" }).onfinish = act;
   window.setTimeout(act, OUT_MS + 120);
+  return true;
 }
