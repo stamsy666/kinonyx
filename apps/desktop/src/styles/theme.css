@@ -4949,3 +4949,37 @@ body:not(.mpv-active) .mini-player {
   -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 26vh), transparent 100%);
   mask-image: linear-gradient(180deg, #000 calc(100% - 26vh), transparent 100%);
 }
+
+/* Favourite channels on the home page: cards the size and look of the posters (rounded, lift and a
+   white frame on focus). */
+.home--tv .row-scroll__track .channel-tile {
+  width: calc(230 * var(--u));
+  aspect-ratio: 2 / 3;
+  padding: calc(22 * var(--u)) calc(16 * var(--u)) calc(18 * var(--u));
+  border: 0;
+  border-radius: calc(14 * var(--u));
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+  text-align: center;
+  transition:
+    transform 240ms var(--ease),
+    box-shadow 240ms var(--ease);
+}
+
+.home--tv .row-scroll__track .channel-tile .channel-tile__logo img {
+  max-width: 80%;
+  max-height: 80%;
+}
+
+.home--tv .row-scroll__track .channel-tile .channel-tile__name {
+  font-size: calc(17 * var(--u));
+  margin-top: calc(12 * var(--u));
+}
+
+.home--tv .row-scroll__track .channel-tile.is-focused {
+  transform: scale(1.1);
+  box-shadow: 0 calc(30 * var(--u)) calc(50 * var(--u)) calc(-16 * var(--u)) rgba(0, 0, 0, 0.7);
+}
+
+.home--tv .row-scroll__track .channel-tile.is-focused::after {
+  box-shadow: inset 0 0 0 calc(4 * var(--u)) rgba(255, 255, 255, 0.95);
+}
