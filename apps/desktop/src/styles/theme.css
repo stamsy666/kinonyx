@@ -6485,3 +6485,18 @@ body .sidebar__item.is-focused .sidebar__icon {
 .mtv__sheet-bg {
   bottom: calc(-1 * var(--app-pad-bottom, 56px));
 }
+.mtv__actions {
+  gap: calc(24 * var(--u));
+}
+
+/* the frames are the same cards as the trailer: no blur, a name on the picture, a small mark in the corner */
+.mtv .still-card.mtv-trailer {
+  border: 0;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.mtv .still-card.mtv-trailer.is-focused img,
+.mtv .still-card.mtv-trailer.is-opened img {
+  filter: none;
+  transform: none;
+}

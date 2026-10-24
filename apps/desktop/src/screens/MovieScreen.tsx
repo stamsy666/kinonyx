@@ -69,7 +69,6 @@ function formatPremiere(d: Date): string {
   return `${d.getDate()} ${MONTHS_RU[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-const STILLS_PER_VIEW = 4;
 const ACTORS_PER_VIEW = 7;
 
 /** "2 ч 25 мин" from minutes. */
@@ -350,24 +349,22 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
             </Focusable>
           </RowScroll>
 
-          <RowScroll label="Материалы" count={images.length} perView={STILLS_PER_VIEW}>
+          <RowScroll label="Материалы" count={images.length}>
             {images.map((image, i) => (
               <Focusable
                 key={image.previewUrl + i}
                 focusKey={`stills:${i}`}
-                className={`still-card ${stillOpen === i ? "is-opened" : ""}`}
+                className={`still-card mtv-trailer ${stillOpen === i ? "is-opened" : ""}`}
                 onPress={() => setStillOpen(i)}
               >
                 <ProgressiveImg src={img(stillCard(image.imageUrl))} placeholder={img(image.previewUrl)} />
-                <span className="still-card__zoom" aria-hidden="true">
-                  {/* Magnifier that wobbles once when the frame gets focus (still-card__lens in theme.css). */}
-                  <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <g className="still-card__lens">
-                      <circle cx="11" cy="11" r="8" />
-                      <path d="M17 17L21 21" />
-                    </g>
+                <span className="mtv-trailer__play" aria-hidden="true">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M16.5 16.5L21 21" />
                   </svg>
                 </span>
+                <span className="mtv-trailer__label">Кадр {i + 1}</span>
               </Focusable>
             ))}
           </RowScroll>
