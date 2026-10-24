@@ -43,6 +43,10 @@
     transition: transform .08s, background .12s, border-color .12s;
   }
   .key.down { transform: scale(.955); background: var(--surface-hi); border-color: var(--line-hi); }
+  .key { overflow: hidden; }
+  .rip { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--text); opacity: .28; pointer-events: none; animation: rip .55s ease-out forwards; }
+  @keyframes rip { to { transform: scale(15); opacity: 0; } }
+  .media .main .rip { background: var(--on-accent); }
 
   .media { display: grid; grid-template-columns: 1fr 1.35fr 1fr; gap: 10px; }
   .media .key { height: 64px; font-size: 28px; }
@@ -56,10 +60,22 @@
     border-radius: 50%; background: var(--surface); border: 1px solid var(--line); overflow: hidden;
   }
   .pad .arrow {
-    position: absolute; display: grid; place-items: center; border: 0; background: none; color: var(--text); font-size: 34px; padding: 0;
-    transition: background .1s;
+    position: absolute; display: grid; place-items: center; border: 0; background: none; color: var(--text-dim); font-size: 36px; padding: 0;
+    transition: color .15s;
   }
-  .pad .arrow.down { background: var(--surface-hi); }
+  .pad .arrow svg { position: relative; z-index: 1; transition: transform .16s cubic-bezier(.2,.8,.2,1); }
+  /* The pressed arrow lights a round halo around its icon; the icon leans the way it points. */
+  .pad .arrow::before {
+    content: ""; position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%;
+    background: var(--accent); opacity: 0; transform: scale(.35); pointer-events: none;
+    transition: opacity .22s ease-out, transform .26s cubic-bezier(.2,.8,.2,1);
+  }
+  .pad .arrow.down { color: var(--on-accent); }
+  .pad .arrow.down::before { opacity: .95; transform: scale(1); transition-duration: .08s; }
+  .pad .arrow.u.down svg { transform: translateY(-4px) scale(1.12); }
+  .pad .arrow.d.down svg { transform: translateY(4px) scale(1.12); }
+  .pad .arrow.l.down svg { transform: translateX(-4px) scale(1.12); }
+  .pad .arrow.r.down svg { transform: translateX(4px) scale(1.12); }
   .pad .u { top: 0; left: 24%; width: 52%; height: 31%; }
   .pad .d { bottom: 0; left: 24%; width: 52%; height: 31%; }
   .pad .l { left: 0; top: 24%; width: 31%; height: 52%; }
@@ -73,6 +89,9 @@
     transition: transform .08s, background .12s;
   }
   .pad .ok.down { transform: scale(.94); background: var(--accent-deep); }
+  .pad .ok::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 3px solid var(--accent); opacity: 0; pointer-events: none; }
+  .pad .ok.down::after { animation: ring .55s ease-out; }
+  @keyframes ring { from { opacity: .8; transform: scale(1); } to { opacity: 0; transform: scale(1.7); } }
 
   .bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
   .bar .key { height: 62px; font-size: 24px; }
@@ -87,6 +106,18 @@
   .typing input:focus { border-color: var(--accent); }
   .typing .key { width: 52px; height: 52px; font-size: 22px; }
   .typing .go { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+
+  /* Coming in: each part rises into place a beat after the one above it. */
+  @keyframes rise { from { opacity: 0; transform: translateY(16px); } }
+  @keyframes pop { from { opacity: 0; transform: scale(.9); } }
+  header { animation: rise .45s cubic-bezier(.2,.8,.2,1) both; }
+  .media { animation: rise .5s .06s cubic-bezier(.2,.8,.2,1) both; }
+  .pad { animation: pop .6s .12s cubic-bezier(.2,.8,.2,1) both; }
+  .bar { animation: rise .5s .2s cubic-bezier(.2,.8,.2,1) both; }
+  .typing.on { animation: rise .28s cubic-bezier(.2,.8,.2,1) both; }
+  .dot.ping { animation: ping .5s ease-out; }
+  @keyframes ping { 50% { transform: scale(1.7); } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
   /* Wide screen (phone on its side): the pad on the left, everything else on the right. */
   @media (orientation: landscape) and (max-height: 560px) {
@@ -157,7 +188,18 @@
   const send = (path, extra) => fetch(path + "?t=" + encodeURIComponent(t) + (extra || ""), { cache: "no-store" })
     .then(r => { mark(r.ok); return r.ok; }).catch(() => { mark(false); return false; });
   const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
-  const press = k => { buzz(10); return send("/k", "&k=" + encodeURIComponent(k)); };
+  const blink = () => { dot.classList.remove("ping"); void dot.offsetWidth; dot.classList.add("ping"); };
+  const press = k => { buzz(10); blink(); return send("/k", "&k=" + encodeURIComponent(k)); };
+  const ripple = (b, e) => {
+    if (b.classList.contains("arrow") || b.classList.contains("ok")) return; // those have their own effect
+    const r = b.getBoundingClientRect(), pt = (e.touches && e.touches[0]) || e;
+    const span = document.createElement("span");
+    span.className = "rip";
+    span.style.left = (pt.clientX - r.left) + "px";
+    span.style.top = (pt.clientY - r.top) + "px";
+    b.appendChild(span);
+    setTimeout(() => span.remove(), 600);
+  };
 
   // Every key reacts at once on touch; arrows and seeks repeat while held.
   document.querySelectorAll("[data-k]").forEach(b => {
@@ -165,6 +207,7 @@
     const start = e => {
       e.preventDefault();
       b.classList.add("down");
+      ripple(b, e);
       press(b.dataset.k);
       if (b.dataset.k.startsWith("Arrow") || b.dataset.rep) {
         delay = setTimeout(() => { rep = setInterval(() => press(b.dataset.k), 120); }, 380);
