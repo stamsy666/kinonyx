@@ -69,7 +69,6 @@ function formatPremiere(d: Date): string {
   return `${d.getDate()} ${MONTHS_RU[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-const ACTORS_PER_VIEW = 7;
 
 /** "2 ч 25 мин" from minutes. */
 function formatLength(min: number): string {
@@ -369,7 +368,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
             ))}
           </RowScroll>
 
-          <RowScroll label="Актёры" count={actors.length} perView={ACTORS_PER_VIEW}>
+          <RowScroll label="Актёры" count={actors.length}>
             {actors.map((p, i) => (
               <ActorTile key={p.staffId} person={p} focusKey={`actors:${i}`} onPress={() => navigate({ name: "person", id: p.staffId, preview: p })} />
             ))}

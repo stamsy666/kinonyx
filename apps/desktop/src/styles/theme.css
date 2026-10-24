@@ -6500,3 +6500,78 @@ body .sidebar__item.is-focused .sidebar__icon {
   filter: none;
   transform: none;
 }
+
+/* the cast: the same cards as the trailer and the frames — a photo, the name on it, a white frame when chosen */
+.mtv .actor-card {
+  position: relative;
+  flex: none;
+  width: calc(210 * var(--u));
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-radius: calc(16 * var(--u));
+  background: rgba(255, 255, 255, 0.12);
+  text-align: left;
+  transition: transform 240ms var(--ease);
+}
+
+.mtv .actor-card__avatar {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  aspect-ratio: auto;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.mtv .actor-card__avatar::after,
+.mtv .actor-card__link {
+  display: none;
+}
+
+.mtv .actor-card.is-focused .actor-card__avatar img {
+  filter: none;
+}
+
+.mtv .actor-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.78), transparent 52%);
+  pointer-events: none;
+}
+
+.mtv .actor-card__name,
+.mtv .actor-card__role {
+  position: absolute;
+  left: calc(14 * var(--u));
+  right: calc(14 * var(--u));
+  z-index: 1;
+  color: #fff;
+}
+
+.mtv .actor-card__name {
+  bottom: calc(34 * var(--u));
+  margin: 0;
+  font-size: calc(17 * var(--u));
+  font-weight: 700;
+}
+
+.mtv .actor-card__role {
+  bottom: calc(14 * var(--u));
+  font-size: calc(13 * var(--u));
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.home--tv .mtv .actor-card.is-focused {
+  transform: scale(1.06);
+}
+
+.home--tv .mtv .actor-card.is-focused::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 calc(4 * var(--u)) rgba(255, 255, 255, 0.95);
+}
