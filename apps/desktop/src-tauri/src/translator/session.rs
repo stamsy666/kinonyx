@@ -33,6 +33,9 @@ use super::mpv::{self, Mpv};
 use super::mt;
 use super::relay::Relay;
 
+mod film;
+pub use film::{FileOptions, FileSession};
+
 const SR: f64 = SAMPLE_RATE as f64;
 /// Whisper's native window. Longer context → better accuracy and punctuation.
 const MAX_WINDOW_S: f64 = 28.0;
@@ -104,6 +107,8 @@ fn emit_status(app: &AppHandle, session: u64, state: &'static str, message: Opti
 
 struct Block {
     start_pts: f64,
+    /// Where this block began (`start_pts` moves on as the recognised audio is trimmed away).
+    origin: f64,
     samples: Vec<f32>,
     closed: bool,
 }
@@ -121,7 +126,7 @@ impl Audio {
         if let Some(b) = self.blocks.back_mut() {
             b.closed = true;
         }
-        self.blocks.push_back(Block { start_pts: pts, samples: Vec::new(), closed: false });
+        self.blocks.push_back(Block { start_pts: pts, origin: pts, samples: Vec::new(), closed: false });
         self.anchor = Some((self.total, pts));
     }
 }
@@ -234,7 +239,7 @@ impl Session {
         spawn_event_loop(audio_mpv.clone(), Some(audio.clone()));
         audio_mpv.command(&["loadfile", &relay.play_url()])?;
 
-        tokio::spawn(read_pcm(pipe, pipe_name.clone(), audio.clone(), stop.subscribe()));
+        tokio::spawn(read_pcm(pipe, pipe_name.clone(), audio.clone(), None, stop.subscribe()));
         tokio::spawn(watch_drift(audio_mpv.clone(), audio.clone(), stop.subscribe()));
 
         let (seg_tx, seg_rx) = mpsc::unbounded_channel();
@@ -387,6 +392,7 @@ async fn read_pcm(
     first: tokio::net::windows::named_pipe::NamedPipeServer,
     name: String,
     audio: Arc<Mutex<Audio>>,
+    throttle: Option<Throttle>,
     mut stop: watch::Receiver<bool>,
 ) {
     let mut next = Some(first);
@@ -396,7 +402,7 @@ async fn read_pcm(
             _ = stop.changed() => return,
         }
         next = ServerOptions::new().access_inbound(true).access_outbound(false).create(&name).ok();
-        if !read_connection(pipe, &audio, &mut stop).await {
+        if !read_connection(pipe, &audio, throttle.as_ref(), &mut stop).await {
             return;
         }
         eprintln!("[translator] audio output reopened by mpv");
@@ -404,14 +410,46 @@ async fn read_pcm(
 }
 
 /// Reads one connection until mpv closes it. False if the session is stopping.
+/// For a film (decoded far faster than it plays): the decoder is held back — by simply not
+/// draining its pipe — once it is this far ahead of what the viewer is watching.
+struct Throttle {
+    visible_pos: Arc<AtomicU64>,
+    ahead_s: f64,
+    /// Set while the decoder is being moved: the pipe must drain then, or its shutdown would hang.
+    release: Arc<AtomicBool>,
+}
+
+impl Throttle {
+    fn held(&self, audio: &Mutex<Audio>) -> bool {
+        if self.release.load(Ordering::SeqCst) {
+            return false;
+        }
+        let a = audio.lock().unwrap();
+        let Some(b) = a.blocks.back() else { return false };
+        let head = b.start_pts + b.samples.len() as f64 / SR;
+        let vis = load_f64(&self.visible_pos);
+        let from = if vis.is_finite() { vis } else { b.origin };
+        head - from > self.ahead_s
+    }
+}
+
 async fn read_connection(
     mut pipe: tokio::net::windows::named_pipe::NamedPipeServer,
     audio: &Mutex<Audio>,
+    throttle: Option<&Throttle>,
     stop: &mut watch::Receiver<bool>,
 ) -> bool {
     let mut buf = vec![0u8; 64 * 1024];
     let mut carry: Option<u8> = None;
     loop {
+        if let Some(t) = throttle {
+            while t.held(audio) {
+                tokio::select! {
+                    _ = tokio::time::sleep(Duration::from_millis(250)) => {}
+                    _ = stop.changed() => return false,
+                }
+            }
+        }
         let n = tokio::select! {
             r = pipe.read(&mut buf) => r.unwrap_or(0),
             _ = stop.changed() => return false,
@@ -708,7 +746,7 @@ async fn translate(
         if let Some(seg) = next {
             // Don't glue lines across a long pause — they're separate utterances. (A shorter
             // pause is usually a speaker catching breath mid-sentence.)
-            if pending.last().map(|p| seg.start - p.end > 2.5 || p.lang != seg.lang).unwrap_or(false) {
+            if pending.last().map(|p| seg.start - p.end > 2.5 || seg.start < p.end - 1.0 || p.lang != seg.lang).unwrap_or(false) {
                 emit_group(&app, session, &client, &ports, std::mem::take(&mut pending), &mut context, &voice_tx, &voice, &mut stop).await;
             }
             last_arrival = Instant::now();

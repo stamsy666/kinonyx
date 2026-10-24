@@ -83,6 +83,9 @@ export const translatorDownload = (id: string) => invoke<void>("translator_downl
 export const translatorCancelDownload = (id: string) => invoke<void>("translator_cancel_download", { id });
 export const translatorDelete = (id: string) => invoke<void>("translator_delete", { id });
 export const translatorStart = (options: StartOptions) => invoke<{ session: number; playUrl: string }>("translator_start", { options });
+/** Translates a film's speech ahead of the viewer (the player plays the film itself). Returns the session id. */
+export const translatorFilmStart = (options: { url: string; asrModel: string; mtModel: string; sourceLang: string | null; start: number }) =>
+  invoke<number>("translator_film_start", { options });
 export const translatorStop = (session?: number) => invoke<void>("translator_stop", { session: session ?? null });
 /** "voice" kills just the voice-over server, "all" every helper process, immediately. */
 export const translatorRelease = (what: "voice" | "all") => invoke<void>("translator_release", { what });

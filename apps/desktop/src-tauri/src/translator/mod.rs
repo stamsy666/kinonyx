@@ -23,7 +23,7 @@ use tokio::sync::Mutex;
 use catalog::Kind;
 use downloads::Downloads;
 use engines::Engines;
-use session::{Options, Session};
+use session::{FileOptions, FileSession, Options, Session};
 
 /// Models stay loaded this long after the last session, so zapping between channels doesn't
 /// reload them; after that the ~4 GB of video memory is given back.
@@ -34,6 +34,8 @@ pub struct Translator {
     downloads: Arc<Downloads>,
     engines: Arc<Engines>,
     session: Mutex<Option<Session>>,
+    /// A film being translated (the player plays it itself; this decodes its audio ahead).
+    film: Mutex<Option<FileSession>>,
     next_id: AtomicU64,
     generation: Arc<AtomicU64>,
 }
@@ -67,6 +69,9 @@ impl Translator {
     pub async fn stop_for_update(&self) {
         if let Some(s) = self.session.lock().await.take() {
             s.shutdown();
+        }
+        if let Some(f) = self.film.lock().await.take() {
+            f.shutdown();
         }
         self.engines.stop_all().await;
     }
@@ -122,7 +127,7 @@ pub fn translator_cancel_download(state: State<'_, Translator>, id: String) {
 pub async fn translator_delete(state: State<'_, Translator>, id: String) -> Result<(), String> {
     let item = catalog::item(&id).ok_or("неизвестный компонент")?;
     // A loaded model file can't be deleted on Windows — unload first.
-    if state.session.lock().await.is_some() {
+    if state.session.lock().await.is_some() || state.film.lock().await.is_some() {
         return Err("Сначала выключите перевод в плеере".into());
     }
     state.engines.stop_all().await;
@@ -152,11 +157,34 @@ pub async fn translator_start(app: AppHandle, state: State<'_, Translator>, opti
     Ok(reply)
 }
 
+/// Starts translating the film at `options.url` from `options.start` (the player plays the film
+/// itself). Returns the session id the cues and status events carry.
+#[tauri::command]
+pub async fn translator_film_start(app: AppHandle, state: State<'_, Translator>, options: FileOptions) -> Result<u64, String> {
+    let mut slot = state.film.lock().await;
+    if let Some(old) = slot.take() {
+        old.shutdown();
+    }
+    state.generation.fetch_add(1, Ordering::SeqCst);
+    let id = state.next_id.fetch_add(1, Ordering::SeqCst) + 1;
+    let s = FileSession::start(app, state.engines.clone(), id, options).await?;
+    *slot = Some(s);
+    Ok(id)
+}
+
 #[tauri::command]
 pub async fn translator_stop(state: State<'_, Translator>, session: Option<u64>) -> Result<(), String> {
     let mut slot = state.session.lock().await;
-    if slot.as_ref().is_some_and(|s| session.map_or(true, |id| s.id == id)) {
-        slot.take().unwrap().shutdown();
+    let mut film = state.film.lock().await;
+    let live_stops = slot.as_ref().is_some_and(|s| session.map_or(true, |id| s.id == id));
+    let film_stops = film.as_ref().is_some_and(|f| session.map_or(true, |id| f.id == id));
+    if live_stops || film_stops {
+        if live_stops {
+            slot.take().unwrap().shutdown();
+        }
+        if film_stops {
+            film.take().unwrap().shutdown();
+        }
         let gen = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
         let (generation, engines) = (state.generation.clone(), state.engines.clone());
         tauri::async_runtime::spawn(async move {
@@ -183,6 +211,9 @@ pub async fn translator_release(state: State<'_, Translator>, what: String) -> R
     }
     if let Some(s) = state.session.lock().await.take() {
         s.shutdown();
+    }
+    if let Some(f) = state.film.lock().await.take() {
+        f.shutdown();
     }
     // Cancels an idle-unload timer that might still be pending.
     state.generation.fetch_add(1, Ordering::SeqCst);
@@ -233,7 +264,7 @@ pub async fn translator_transcribe(app: AppHandle, state: State<'_, Translator>,
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(60)).await;
         let state = handle.state::<Translator>();
-        if state.generation.load(Ordering::SeqCst) == gen && state.session.lock().await.is_none() {
+        if state.generation.load(Ordering::SeqCst) == gen && state.session.lock().await.is_none() && state.film.lock().await.is_none() {
             state.engines.stop_all().await;
         }
     });
@@ -254,6 +285,9 @@ pub async fn translator_transcribe(app: AppHandle, state: State<'_, Translator>,
 pub async fn translator_position(state: State<'_, Translator>, session: u64, position: f64) -> Result<(), String> {
     if let Some(s) = state.session.lock().await.as_ref().filter(|s| s.id == session) {
         s.visible_pos.store(position.to_bits(), Ordering::SeqCst);
+    }
+    if let Some(f) = state.film.lock().await.as_ref().filter(|f| f.id == session) {
+        f.on_position(position);
     }
     Ok(())
 }

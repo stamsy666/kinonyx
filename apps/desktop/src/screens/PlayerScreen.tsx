@@ -32,6 +32,9 @@ import {
   onBack,
 } from "@kinonyx/ui";
 import { useApp } from "../store/app";
+import { useTranslator } from "../store/translator";
+import { translatorRelease } from "../data/translator";
+import { LiveSubtitles, useFilmTranslation } from "../components/LiveSubtitles";
 import { useContinueWatching } from "../store/continueWatching";
 import { isTauri } from "../data/io";
 import { episodeKey, episodeLabel } from "../data/episodes";
@@ -165,6 +168,48 @@ export function PlayerScreen({
     Object.assign(mpvOptions, buildMpvOptions(prefs));
     return { url: curUrl, title, live: false, mpvOptions };
   }, [curUrl, curAudio, title, resumeAt, prefs]);
+
+  // Local translation of the film's speech into Russian subtitles (torrent films only; same
+  // engine as the channels' translator). Off for every new film.
+  const translatorReady = useTranslator((s) => s.ready());
+  const translationEnabled = useTranslator((s) => s.translationEnabled());
+  const refreshTranslator = useTranslator((s) => s.refresh);
+  useEffect(() => {
+    void refreshTranslator();
+  }, [refreshTranslator]);
+  const [filmTr, setFilmTr] = useState(false);
+  const [trHint, setTrHint] = useState<string | null>(null);
+  const canTranslate = isTauri && !!hash && translationEnabled;
+  const filmSubs = useFilmTranslation(canTranslate ? curUrl : null, filmTr, state.position);
+  useEffect(() => {
+    if (filmSubs.state !== "error") return;
+    setTrHint(`Перевод выключен: ${filmSubs.error ?? "ошибка"}`);
+    setFilmTr(false);
+    void translatorRelease("all").catch(() => undefined);
+  }, [filmSubs.state, filmSubs.error]);
+  useEffect(() => {
+    if (!trHint) return;
+    const t = window.setTimeout(() => setTrHint(null), 9000);
+    return () => window.clearTimeout(t);
+  }, [trHint]);
+  // A new film or episode starts without translation (it costs the video card's time).
+  useEffect(() => {
+    setFilmTr(false);
+  }, [curUrl]);
+  const turnTranslationOff = () => {
+    if (!filmTr) return;
+    setFilmTr(false);
+    void translatorRelease("all").catch(() => undefined);
+  };
+  // Leaving the player with the translation on: its engines go too (not for a player that never used it).
+  const filmTrRef = useRef(false);
+  filmTrRef.current = filmTr;
+  useEffect(
+    () => () => {
+      if (filmTrRef.current) void translatorRelease("all").catch(() => undefined);
+    },
+    [],
+  );
 
   const bump = () => {
     setOsd(true);
@@ -435,6 +480,8 @@ export function PlayerScreen({
     <FocusGroup focusKey="screen:player" className={`player ${isTauri ? "player--mpv" : ""} ${revealed ? "player--revealed" : ""} ${osd ? "" : "player--idle"}`} isFocusBoundary>
       {isTauri ? <div className="player__video-hole" /> : <video ref={videoRef} playsInline autoPlay />}
 
+      <LiveSubtitles cues={filmSubs.cues} position={state.position} active={filmTr} note={trHint} raised={osd} />
+
       {showStreamStats && <StreamStats stats={state.stats} bufferedAhead={state.bufferedAhead} swarm={swarm} />}
 
       {(state.status === "loading" || state.status === "buffering") && (
@@ -606,9 +653,34 @@ export function PlayerScreen({
                 <TrackItem
                   focusKey="menu:off"
                   label="Выключены"
-                  active={!tracks.some((t) => t.selected)}
-                  onPress={() => void adapterRef.current?.selectTrack("subtitle", null)}
+                  active={!filmTr && !tracks.some((t) => t.selected)}
+                  onPress={() => {
+                    turnTranslationOff();
+                    void adapterRef.current?.selectTrack("subtitle", null);
+                  }}
                   autoFocus
+                />
+              )}
+              {menu === "subtitle" && canTranslate && (
+                <TrackItem
+                  focusKey="menu:translate"
+                  label="Локальный перевод на русский"
+                  hint={translatorReady ? undefined : "скачайте в настройках"}
+                  active={filmTr}
+                  onPress={() => {
+                    if (filmTr) {
+                      turnTranslationOff();
+                    } else if (!translatorReady) {
+                      setTrHint("Для перевода скачайте движок и модели: Настройки → Локальный перевод.");
+                    } else {
+                      // Embedded subtitles never show on top of the translation.
+                      void adapterRef.current?.selectTrack("subtitle", null);
+                      setTrHint("Перевод запускается: первые строки появятся через полминуты.");
+                      setFilmTr(true);
+                    }
+                    setMenu(null);
+                    bump();
+                  }}
                 />
               )}
               {tracks.length === 0 && menu === "audio" && <div className="empty">Только одна дорожка</div>}
@@ -617,8 +689,12 @@ export function PlayerScreen({
                   key={t.id}
                   focusKey={`menu:${i}`}
                   label={trackLabel(t, tracks, i)}
-                  active={t.selected}
-                  onPress={() => void adapterRef.current?.selectTrack(menu, t.id)}
+                  active={t.selected && !(menu === "subtitle" && filmTr)}
+                  onPress={() => {
+                    // An embedded track replaces the translation — never both on screen.
+                    if (menu === "subtitle") turnTranslationOff();
+                    void adapterRef.current?.selectTrack(menu, t.id);
+                  }}
                   autoFocus={menu === "audio" && i === 0}
                 />
               ))}

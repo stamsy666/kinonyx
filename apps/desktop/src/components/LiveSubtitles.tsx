@@ -6,6 +6,7 @@ import {
   onCue,
   onSessionStatus,
   onVoice,
+  translatorFilmStart,
   translatorPosition,
   translatorStart,
   translatorStop,
@@ -218,4 +219,91 @@ export function LiveSubtitles({
       {cue ? <p className="live-subs__text">{cue.text}</p> : <p className="live-subs__note">{note}</p>}
     </div>
   );
+}
+
+/**
+ * Translates the speech of a film (a file or a torrent stream the player is already playing) into
+ * timed Russian cues while `enabled`. The decoder runs ahead of the viewer and follows their seeks;
+ * all cues are kept here, timed in the film's own timeline, so seeking back shows them at once.
+ */
+export function useFilmTranslation(url: string | null, enabled: boolean, position: number) {
+  const { asrModel, mtModel, sourceLang } = useTranslator();
+  const [state, setState] = useState<LiveTranslationState>("off");
+  const [error, setError] = useState<string | null>(null);
+  const [cues, setCues] = useState<Cue[]>([]);
+  const sessionRef = useRef<number | null>(null);
+  const posRef = useRef(position);
+  posRef.current = position;
+
+  useEffect(() => {
+    if (!enabled || !url) {
+      setState("off");
+      return;
+    }
+    let cancelled = false;
+    let startedId: number | null = null;
+    setState("starting");
+    setError(null);
+    setCues([]);
+    translatorFilmStart({ url, asrModel, mtModel, sourceLang, start: posRef.current })
+      .then((id) => {
+        if (cancelled) {
+          void translatorStop(id);
+          return;
+        }
+        startedId = id;
+        sessionRef.current = id;
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setState("error");
+        setError(e instanceof Error ? e.message : String(e));
+      });
+    return () => {
+      cancelled = true;
+      sessionRef.current = null;
+      if (startedId != null) void translatorStop(startedId);
+    };
+    // Model choices are read at start; changing them applies from the next session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, url]);
+
+  useEffect(() => {
+    let alive = true;
+    const offs: (() => void)[] = [];
+    void onCue((c) => {
+      // The session id may not be known yet when the very first cue arrives (warm models): a film
+      // has one session at a time, so a cue is taken whenever none is known or it matches.
+      if (sessionRef.current != null && c.session !== sessionRef.current) return;
+      setState((s) => (s === "starting" ? "ready" : s));
+      setCues((list) =>
+        list.some((x) => Math.abs(x.start - c.start) < 0.05 && x.text === c.text)
+          ? list
+          : [...list, c].sort((a, b) => a.start - b.start),
+      );
+    }).then((f) => (alive ? offs.push(f) : f()));
+    void onSessionStatus((s) => {
+      if (sessionRef.current != null && s.session !== sessionRef.current) return;
+      if (s.state === "error") {
+        setState("error");
+        setError(s.message ?? "Переводчик не запустился");
+      } else if (s.state === "ready") setState("ready");
+    }).then((f) => (alive ? offs.push(f) : f()));
+    return () => {
+      alive = false;
+      offs.forEach((f) => f());
+    };
+  }, []);
+
+  // The decoder follows the viewer: once a second it is told where they are.
+  useEffect(() => {
+    if (!enabled || !url) return;
+    const t = window.setInterval(() => {
+      const id = sessionRef.current;
+      if (id != null) void translatorPosition(id, posRef.current).catch(() => undefined);
+    }, 1000);
+    return () => window.clearInterval(t);
+  }, [enabled, url]);
+
+  return { state, error, cues };
 }

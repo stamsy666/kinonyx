@@ -124,6 +124,7 @@ pub fn run() {
             translator::translator_delete,
             translator::translator_start,
             translator::translator_stop,
+            translator::translator_film_start,
             translator::translator_release,
             translator::translator_position,
             translator::translator_transcribe,
