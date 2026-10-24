@@ -3,7 +3,7 @@ import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { returnedToSavedFocus } from "../data/focusRestore";
 import { cancelGlides, FavoriteIcon, Focusable, FocusGroup, NextIcon, PlusIcon } from "@kinonyx/ui";
 import { kpImages, type KpCollectionItem } from "../data/api";
-import { img, stillLarge } from "../data/images";
+import { img } from "../data/images";
 import { useFavorites } from "../store/favorites";
 import { ProgressiveImg } from "./ProgressiveImg";
 
@@ -86,7 +86,8 @@ export function HeroCarousel({ films, onOpen }: { films: KpCollectionItem[]; onO
         const title = film.nameRu || film.nameOriginal || "Без названия";
         const preview = img(film.posterUrlPreview);
         const stillUrl = stills[film.kinopoiskId];
-        const backdrop = stillUrl ? img(stillLarge(stillUrl)) : preview;
+        // The original frame (sharp across the whole window); the poster only if the film has no stills.
+        const backdrop = stillUrl ? img(stillUrl) : img(film.posterUrl) ?? preview;
         const offset = offsetOf(i);
         return (
           <div

@@ -9,7 +9,7 @@ import { useChannelFavorites } from "../store/channelFavorites";
 import { useContinueWatching } from "../store/continueWatching";
 import { useTv } from "../store/tv";
 import type { Channel } from "@kinonyx/epg";
-import { kpCollection, kpFilmsFilter, kpSimilars, KP_COLLECTIONS, type KpCollectionItem } from "../data/api";
+import { kpCollection, kpSimilars, KP_COLLECTIONS, type KpCollectionItem } from "../data/api";
 import { HeroCarousel } from "../components/HeroCarousel";
 import { LazyShelf } from "../components/LazyShelf";
 import { RowScroll } from "../components/RowScroll";
@@ -187,8 +187,9 @@ export function HomeScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    kpFilmsFilter({ kind: "FILM", ratingFrom: 8, order: "RATING" }, 1)
-      .then((res) => !cancelled && setHero(res.items))
+    // What is popular right now: the banner turns through the top of the same chart as the first shelf.
+    kpCollection(shelves[0].kind, 1)
+      .then((res) => !cancelled && setHero(res.items ?? []))
       .catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)));
     return () => {
       cancelled = true;
