@@ -5158,3 +5158,15 @@ body .sidebar__item.is-focused .sidebar__icon {
 .home--tv .cats__chip.is-focused::after {
   content: none;
 }
+
+/* The favourites grid in the home page's unit. */
+.home--tv .grid-cards {
+  grid-template-columns: repeat(auto-fill, minmax(calc(210 * var(--u)), 1fr));
+  gap: calc(44 * var(--u)) calc(22 * var(--u));
+  margin-top: 0;
+}
+
+.favorites__empty {
+  text-align: center;
+  padding: calc(120 * var(--u)) 0;
+}

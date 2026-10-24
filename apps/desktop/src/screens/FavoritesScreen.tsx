@@ -1,24 +1,24 @@
 import { FocusGroup } from "@kinonyx/ui";
 import { useApp } from "../store/app";
 import { useFavorites } from "../store/favorites";
-import { TvScreenHeader } from "../components/TvScreenHeader";
+import { HomeChrome } from "../components/HomeChrome";
 import { MovieCard } from "../components/MovieCard";
 import { FocusHighlight } from "../components/FocusHighlight";
+import { useHomeFeel } from "../components/useHomeFeel";
 
 export function FavoritesScreen() {
   const navigate = useApp((s) => s.navigate);
-  const back = useApp((s) => s.back);
-  const toggleSidebar = useApp((s) => s.toggleSidebar);
   const films = useFavorites((s) => s.items);
+  useHomeFeel(null);
 
   const open = (film: (typeof films)[number]) => navigate({ name: "movie", id: film.kinopoiskId, preview: film });
 
   return (
-    <FocusGroup focusKey="favorites" className="screen">
-      <TvScreenHeader title="Избранное" onMenu={toggleSidebar} onBack={() => back()} onSettings={() => navigate({ name: "settings" })} />
-      <div className="screen__body">
+    <FocusGroup focusKey="favorites" className="screen-pad home home--tv home--nohero">
+      <HomeChrome id="favorites" label="Избранное" />
+      <div className="home__rows">
         {films.length === 0 ? (
-          <p className="empty">Пока пусто — добавляйте фильмы сердечком на странице фильма.</p>
+          <p className="empty favorites__empty">Пока пусто — добавляйте фильмы сердечком на странице фильма.</p>
         ) : (
           <div className="grid-cards">
             <FocusHighlight />
