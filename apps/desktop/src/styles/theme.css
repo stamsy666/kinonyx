@@ -5253,6 +5253,8 @@ body .sidebar__item.is-focused .sidebar__icon {
 
 /* ---------- Search, after the tvOS search page ---------- */
 .sx {
+  /* Its own, smaller unit: the keyboard and the tiles read too big at the page's size. */
+  --u: clamp(0.7px, calc(100vh / 860), 1.1px);
   padding: calc(112 * var(--u)) 0 calc(40 * var(--u));
 }
 
