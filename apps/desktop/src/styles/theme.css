@@ -7160,3 +7160,118 @@ body .sidebar__item.is-focused .sidebar__icon {
 .ctv__carousel {
   margin: 0;
 }
+/* ----- Channels, "Карусель": the same rounded, white-framed look as the grid ----- */
+.home--tv.ctv .ch-cover {
+  border: 0;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.12);
+  opacity: 0.85;
+}
+
+.home--tv.ctv .ch-cover.is-focused,
+.home--tv.ctv .ch-carousel .ch-cover.is-current,
+.home--tv.ctv .ch-carousel:has(.ch-sched.is-focused, .ch-zone.is-focused, .ch-zone.is-active) .ch-cover.is-current {
+  border: 0;
+  background: rgba(255, 255, 255, 0.2);
+  opacity: 1;
+}
+
+/* the fixed frame: a plain white ring instead of the running beam */
+.home--tv.ctv .ch-frame {
+  padding: 0;
+  border-radius: 18px;
+  background: none;
+  -webkit-mask: none;
+  mask: none;
+  animation: none;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.95);
+}
+
+.home--tv.ctv .ch-carousel__group {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.home--tv.ctv .ch-carousel__name {
+  font-family: var(--font-body);
+  font-size: clamp(28px, 3vw, 42px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* the schedule: one flat panel, the focused row a light pill */
+.home--tv.ctv .ch-zone,
+.home--tv.ctv .ch-empty {
+  margin-right: 0;
+  border: 0;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.home--tv.ctv .ch-empty {
+  padding: 34px 28px 36px;
+}
+
+.home--tv.ctv .ch-zone.is-focused {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.95);
+}
+
+.home--tv.ctv .ch-zone.is-active {
+  border: 0;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.home--tv.ctv .focusable.ch-zone.is-focused::after,
+.home--tv.ctv .focusable.ch-sched.is-focused::after {
+  content: none;
+}
+
+.home--tv.ctv .ch-sched {
+  margin: 0 8px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 999px;
+}
+
+.home--tv.ctv .ch-sched.is-focused {
+  background: rgba(244, 244, 247, 0.95);
+}
+
+.home--tv.ctv .ch-sched.is-focused .ch-sched__title,
+.home--tv.ctv .ch-sched.is-focused .ch-sched__time,
+.home--tv.ctv .ch-sched.is-focused .ch-sched__tag,
+.home--tv.ctv .ch-sched.is-focused .ch-carousel__desc {
+  color: #1d1d20;
+}
+
+.home--tv.ctv .ch-carousel__live {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #111;
+  font-size: 13px;
+}
+
+.home--tv.ctv .ch-carousel__progress {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.home--tv.ctv .ch-carousel__progress i {
+  background: #fff;
+}
+
+.home--tv.ctv .ch-sched.is-focused .ch-carousel__progress {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.home--tv.ctv .ch-sched.is-focused .ch-carousel__progress i {
+  background: #1d1d20;
+}
+
+.home--tv.ctv .ch-empty__icon,
+.home--tv.ctv .ch-empty__title,
+.home--tv.ctv .ch-empty__hint {
+  color: rgba(255, 255, 255, 0.7);
+}
