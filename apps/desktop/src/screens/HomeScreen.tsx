@@ -256,6 +256,9 @@ export function HomeScreen() {
           </svg>
         </Focusable>
         <div className="home__chrome-right">
+          <Focusable as="button" className="home-round" focusKey="home:search" scroll={false} onPress={() => navigate({ name: "search" })}>
+            <SearchIcon size={24} />
+          </Focusable>
           <Focusable as="button" className="home-round" focusKey="home:wtw" scroll={false} onPress={() => setWtwOpen(true)}>
             <PopcornIcon />
           </Focusable>
