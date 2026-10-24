@@ -6120,3 +6120,82 @@ body .sidebar__item.is-focused .sidebar__icon {
   margin: 0;
   filter: var(--logo-filter, none);
 }
+/* ----- The developer / music windows in the settings look. The window lives in <body>, outside the
+   page's own unit, so it carries its own. ----- */
+.modal-panel.links-tv {
+  --mu: clamp(0.8px, 100vh / 720, 1.35px);
+  width: calc(620 * var(--mu));
+  max-width: 90vw;
+  padding: calc(34 * var(--mu)) calc(34 * var(--mu)) calc(30 * var(--mu));
+  border: 0;
+  border-radius: calc(40 * var(--mu));
+  background: rgba(46, 46, 50, 0.88);
+  backdrop-filter: blur(40px);
+  box-shadow: 0 calc(30 * var(--mu)) calc(80 * var(--mu)) rgba(0, 0, 0, 0.5);
+}
+
+.links-tv__title {
+  margin: 0 0 calc(24 * var(--mu));
+  text-align: center;
+  font-size: calc(30 * var(--mu));
+  font-weight: 700;
+  color: #fff;
+}
+
+.links-tv__list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10 * var(--mu));
+}
+
+.links-tv__row {
+  display: flex;
+  align-items: center;
+  gap: calc(14 * var(--mu));
+  width: 100%;
+  min-height: calc(62 * var(--mu));
+  padding: 0 calc(24 * var(--mu));
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: calc(19 * var(--mu));
+  font-weight: 700;
+  text-align: left;
+  transition:
+    background-color 160ms var(--ease),
+    color 160ms var(--ease);
+}
+
+.links-tv__name {
+  flex: 1;
+}
+
+.links-tv__hint {
+  font-size: calc(15 * var(--mu));
+  font-weight: 600;
+  opacity: 0.65;
+}
+
+.links-tv__row--close {
+  justify-content: center;
+  margin-top: calc(10 * var(--mu));
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.links-tv__row--close .links-tv__name {
+  flex: none;
+}
+
+.links-tv__row.is-focused {
+  background: rgba(244, 244, 247, 0.95);
+  color: #1d1d20;
+  box-shadow:
+    0 0 0 calc(3 * var(--mu)) rgba(255, 255, 255, 0.95),
+    inset 0 0 0 calc(2 * var(--mu)) rgba(0, 0, 0, 0.18);
+  transform: none;
+}
+
+.links-tv__row.is-focused::after {
+  content: none;
+}

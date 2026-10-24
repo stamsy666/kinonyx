@@ -871,6 +871,7 @@ export function SettingsScreen() {
 
       {creditOpen && (
         <LinksModal
+          tv
           heading="kidencedev"
           empty=""
           links={DEV_LINKS}
@@ -879,6 +880,7 @@ export function SettingsScreen() {
       )}
       {musicCreditOpen && (
         <LinksModal
+          tv
           heading="Музыка"
           empty=""
           links={MUSIC_CREDITS}
