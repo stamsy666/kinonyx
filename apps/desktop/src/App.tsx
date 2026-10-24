@@ -120,7 +120,7 @@ export function App() {
       s.screen.name,
     ),
   );
-  const isHome = useApp((s) => s.screen.name === "home" || s.screen.name === "catalog");
+  const isHome = useApp((s) => s.screen.name === "home" || s.screen.name === "catalog" || s.screen.name === "categories-hub");
   // Per the sketches, these pages carry their own header instead of the app top bar.
   const ownHeader = useApp(
     (s) =>

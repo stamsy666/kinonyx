@@ -5110,3 +5110,51 @@ body .sidebar__item.is-focused .sidebar__icon {
   margin-top: 0;
   padding-top: calc(96 * var(--u));
 }
+
+/* "Категории": glass pills under a heading per kind. */
+.home--tv .cats {
+  display: grid;
+  gap: calc(54 * var(--u));
+  align-content: start;
+}
+
+.cats__title {
+  margin: 0 0 calc(22 * var(--u));
+  font-size: calc(26 * var(--u));
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.cats__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(14 * var(--u));
+  padding: calc(8 * var(--u));
+  margin: calc(-8 * var(--u));
+}
+
+.cats__chip {
+  height: calc(54 * var(--u));
+  padding: 0 calc(28 * var(--u));
+  border-radius: calc(27 * var(--u));
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(40, 40, 46, 0.42);
+  -webkit-backdrop-filter: blur(calc(20 * var(--u)));
+  backdrop-filter: blur(calc(20 * var(--u)));
+  color: #fff;
+  font: 600 calc(18 * var(--u)) var(--font-body);
+  transition:
+    transform 200ms var(--ease),
+    background-color 200ms var(--ease),
+    color 200ms var(--ease);
+}
+
+.home--tv .cats__chip.is-focused {
+  transform: scale(1.07);
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+}
+
+.home--tv .cats__chip.is-focused::after {
+  content: none;
+}

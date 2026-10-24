@@ -1,4 +1,4 @@
-import { CategoriesIcon, Focusable, FocusGroup } from "@kinonyx/ui";
+import { Focusable, FocusGroup } from "@kinonyx/ui";
 import { SearchLensIcon } from "../components/AnimatedIcons";
 import { useApp } from "../store/app";
 import { kpCollection, kpFilmsFilter, type KpCollectionItem } from "../data/api";
@@ -60,9 +60,6 @@ export function CatalogScreen({ kind }: { kind: CatalogKind }) {
           </span>
         </div>
         <div className="home__chrome-right">
-          <Focusable as="button" className="home-round" focusKey="catalog:categories" scroll={false} onPress={() => navigate({ name: "categories-hub" })}>
-            <CategoriesIcon />
-          </Focusable>
           <Focusable as="button" className="home-round" focusKey="catalog:search" scroll={false} onPress={() => navigate({ name: "search" })}>
             <SearchLensIcon />
           </Focusable>
