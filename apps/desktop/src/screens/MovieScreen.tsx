@@ -348,7 +348,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
             </Focusable>
           </RowScroll>
 
-          <RowScroll label="Материалы" count={images.length}>
+          <RowScroll label="Скриншоты" count={images.length}>
             {images.map((image, i) => (
               <Focusable
                 key={image.previewUrl + i}
@@ -363,7 +363,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
                     <path d="M16.5 16.5L21 21" />
                   </svg>
                 </span>
-                <span className="mtv-trailer__label">Кадр {i + 1}</span>
+                <span className="mtv-trailer__label">Скриншот {i + 1}</span>
               </Focusable>
             ))}
           </RowScroll>

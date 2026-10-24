@@ -52,7 +52,7 @@ export function GalleryScreen({ filmId, startIndex }: { filmId: number; startInd
         <Focusable back as="button" className="icon-btn" focusKey="gallery:back" onPress={() => back()} scroll={false}>
           <BackIcon />
         </Focusable>
-        <h1 className="screen-title">Материалы к фильму</h1>
+        <h1 className="screen-title">Скриншоты к фильму</h1>
       </div>
 
       {/* One focus stop for the whole viewer: Left/Right flip frames, Up leaves to "back".
@@ -74,7 +74,7 @@ export function GalleryScreen({ filmId, startIndex }: { filmId: number; startInd
         }}
       >
         {!images && <Spinner />}
-        {images && images.length === 0 && <p className="empty">Материалы не найдены</p>}
+        {images && images.length === 0 && <p className="empty">Скриншоты не найдены</p>}
         {current && (
           <>
             {/* The small preview (already loaded for the "Материалы" row) shows the new
@@ -98,9 +98,6 @@ export function GalleryScreen({ filmId, startIndex }: { filmId: number; startInd
             >
               <FullscreenIcon size={20} />
             </button>
-            <div className="gallery-view__count">
-              {index + 1} / {count}
-            </div>
           </>
         )}
       </Focusable>

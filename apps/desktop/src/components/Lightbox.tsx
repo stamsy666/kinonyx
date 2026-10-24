@@ -177,9 +177,6 @@ export function Lightbox({ images, index, onIndex, onClose, getOrigin }: Props) 
       <Focusable back as="button" className="icon-btn lightbox__btn lightbox__btn--close" focusKey="lightbox:close" scroll={false} onPress={close}>
         <CloseIcon size={24} />
       </Focusable>
-      <div className="lightbox__count">
-        {index + 1} / {count}
-      </div>
     </FocusGroup>,
     document.body,
   );
