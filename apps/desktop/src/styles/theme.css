@@ -5598,9 +5598,174 @@ body .sidebar__item.is-focused .sidebar__icon {
   content: none;
 }
 
-/* An open section: its settings as soft cards in the same column. */
+/* ----- An open section: every setting is a group under a small heading, and every control in it is a pill row
+   of the same size, like the tvOS lists (choices stack with a tick on the chosen one). ----- */
+.settings--tv .settings-pane {
+  --row-h: calc(62 * var(--u));
+}
+
 .settings--tv .settings-pane .settings__item {
-  border-radius: calc(26 * var(--u));
-  background: rgba(255, 255, 255, 0.1);
+  margin: 0 0 calc(34 * var(--u));
+  padding: 0;
   border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.settings--tv .settings-pane .settings__label,
+.settings--tv .settings-pane .settings__sublabel {
+  margin: 0 0 calc(12 * var(--u)) calc(20 * var(--u));
+  font-size: calc(15 * var(--u));
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.settings--tv .settings-pane .settings__sublabel {
+  margin-top: calc(18 * var(--u));
+}
+
+.settings--tv .settings-pane .settings__hint {
+  margin: calc(10 * var(--u)) calc(20 * var(--u)) 0;
+  font-size: calc(15 * var(--u));
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* choices: a column of pills, a tick on the chosen one */
+.settings--tv .settings-pane .sound-options {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10 * var(--u));
+  padding: 0;
+  margin: 0;
+}
+
+.settings--tv .settings-pane .focus-highlight {
+  display: none;
+}
+
+.settings--tv .settings-pane .sound-option,
+.settings--tv .settings-pane .checkbox,
+.settings--tv .settings-pane .switch,
+.settings--tv .settings-pane .btn,
+.settings--tv .settings-pane .credit,
+.settings--tv .settings-pane .field,
+.settings--tv .settings-pane .volume-row,
+.settings--tv .settings-pane .tr-item__main {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: calc(14 * var(--u));
+  width: 100%;
+  max-width: none;
+  min-height: var(--row-h);
+  margin: 0;
+  padding: 0 calc(24 * var(--u));
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: calc(19 * var(--u));
+  font-weight: 700;
+  text-align: left;
+  transition:
+    background-color 160ms var(--ease),
+    color 160ms var(--ease);
+}
+
+.settings--tv .settings-pane .btn,
+.settings--tv .settings-pane .credit {
+  margin-top: calc(10 * var(--u));
+  justify-content: space-between;
+}
+
+.settings--tv .settings-pane .sound-option.is-active::before {
+  content: "✓";
+  position: absolute;
+  right: calc(26 * var(--u));
+  font-size: calc(22 * var(--u));
+}
+
+.settings--tv .settings-pane .sound-option .swatch {
+  width: calc(18 * var(--u));
+  height: calc(18 * var(--u));
+  border-radius: 50%;
+}
+
+/* on/off rows: the name on the left, the state on the right */
+.settings--tv .settings-pane .checkbox {
+  flex-direction: row-reverse;
+  justify-content: space-between;
+}
+
+.settings--tv .settings-pane .switch {
+  flex-direction: row-reverse;
+  justify-content: space-between;
+}
+
+.settings--tv .settings-pane .checkbox__box {
+  width: calc(30 * var(--u));
+  height: calc(30 * var(--u));
+  border-radius: 50%;
+  border: calc(2 * var(--u)) solid rgba(255, 255, 255, 0.5);
+}
+
+.settings--tv .settings-pane .checkbox.is-on .checkbox__box {
+  background: #fff;
+  border-color: #fff;
+  color: #111;
+}
+
+.settings--tv .settings-pane .switch__label {
+  font-size: calc(19 * var(--u));
+}
+
+/* inputs and sliders */
+.settings--tv .settings-pane .field input {
+  font-size: calc(19 * var(--u));
+  font-weight: 600;
+}
+
+.settings--tv .settings-pane .field.is-editing {
+  box-shadow: inset 0 0 0 calc(2 * var(--u)) rgba(255, 255, 255, 0.8);
+}
+
+.settings--tv .settings-pane .volume-row__track {
+  height: calc(8 * var(--u));
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* focus: the same light pill with a ring as in the list of sections */
+.home--tv.settings--tv .settings-pane .sound-option.is-focused,
+.home--tv.settings--tv .settings-pane .checkbox.is-focused,
+.home--tv.settings--tv .settings-pane .switch.is-focused,
+.home--tv.settings--tv .settings-pane .btn.is-focused,
+.home--tv.settings--tv .settings-pane .credit.is-focused,
+.home--tv.settings--tv .settings-pane .field.is-focused,
+.home--tv.settings--tv .settings-pane .volume-row.is-focused,
+.home--tv.settings--tv .settings-pane .tr-item__main.is-focused {
+  background: rgba(244, 244, 247, 0.95);
+  color: #1d1d20;
+  box-shadow:
+    0 0 0 calc(3 * var(--u)) rgba(255, 255, 255, 0.95),
+    inset 0 0 0 calc(2 * var(--u)) rgba(0, 0, 0, 0.18);
+  transform: none;
+}
+
+.home--tv.settings--tv .settings-pane .is-focused::after {
+  content: none;
+}
+
+.home--tv.settings--tv .settings-pane .volume-row.is-focused .volume-row__track {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.home--tv.settings--tv .settings-pane .volume-row.is-focused .volume-row__track i {
+  background: #1d1d20;
+}
+
+.settings--tv .settings-pane .tr-item__main.is-active {
+  box-shadow: inset 0 0 0 calc(2 * var(--u)) rgba(255, 255, 255, 0.7);
 }
