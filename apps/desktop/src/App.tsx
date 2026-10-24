@@ -116,7 +116,7 @@ export function App() {
   // PortoTV's screens (and, styled the same way, the genre category screens) are
   // full-window with their own header and scrolling — no app-shell top bar.
   const isFullScreen = useApp((s) =>
-    ["tv", "tv-categories", "tv-channels", "genre", "favorites"].includes(
+    ["tv", "tv-categories", "tv-channels", "genre"].includes(
       s.screen.name,
     ),
   );
@@ -129,7 +129,8 @@ export function App() {
       s.screen.name === "setup" ||
       s.screen.name === "diagnostics" ||
       s.screen.name === "catalog" ||
-      s.screen.name === "categories-hub",
+      s.screen.name === "categories-hub" ||
+      s.screen.name === "favorites",
   );
 
   useEffect(() => onBack(() => back()), [back]);
