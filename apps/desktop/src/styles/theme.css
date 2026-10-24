@@ -6875,3 +6875,9 @@ body .sidebar__item.is-focused .sidebar__icon {
 .home--tv.is-sheeted .mtv__credits {
   pointer-events: none;
 }
+
+/* The viewer's backdrop is solid: the film page behind it (its text, the bright buttons) showed through the
+   remaining 3% and flickered while the frames were flipped quickly. */
+.lightbox::before {
+  background: #030203;
+}
