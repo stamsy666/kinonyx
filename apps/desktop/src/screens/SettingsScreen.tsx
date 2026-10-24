@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { doesFocusableExist, setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { Focusable, FocusGroup, NextIcon, onBack } from "@kinonyx/ui";
 import { HomeChrome } from "../components/HomeChrome";
+import { CycleRow } from "../components/CycleRow";
 import { useApp } from "../store/app";
 import {
   configStatus,
@@ -362,20 +363,13 @@ export function SettingsScreen() {
             </section>
             <section className="settings__item">
               <div className="settings__label">Источник метаданных</div>
-              <div className="sound-options">
-                <FocusHighlight pad={6} radius={16} />
-                {SOURCE_OPTIONS.map((opt, i) => (
-                  <Focusable
-                    as="button"
-                    key={opt.key}
-                    focusKey={`settings:source:${i}`}
-                    className={`sound-option ${status?.metadata_source === opt.key ? "is-active" : ""}`}
-                    onPress={() => void switchSource(opt.key)}
-                  >
-                    {opt.label}
-                  </Focusable>
-                ))}
-              </div>
+              <CycleRow
+                label="Источник"
+                focusKey="settings:source:0"
+                options={SOURCE_OPTIONS.map((opt) => ({ value: opt.key, label: opt.label }))}
+                value={status?.metadata_source ?? "kinopoisk"}
+                onChange={(v) => void switchSource(v)}
+              />
               <div className="settings__hint">
                 Kinopoisk — основной источник, с русскими названиями и локальным
                 стримингом. TMDB — запасной вариант на случай, если у Kinopoisk
@@ -414,20 +408,13 @@ export function SettingsScreen() {
             </section>
             <section className="settings__item">
               <div className="settings__label">Cookies YouTube для трейлеров</div>
-              <div className="sound-options">
-                <FocusHighlight pad={6} radius={16} />
-                {COOKIES_OPTIONS.map((opt, i) => (
-                  <Focusable
-                    as="button"
-                    key={opt.key || "off"}
-                    focusKey={`settings:cookies:${i}`}
-                    className={`sound-option ${(status?.youtube_cookies_browser ?? "") === opt.key ? "is-active" : ""}`}
-                    onPress={() => void switchCookies(opt.key)}
-                  >
-                    {opt.label}
-                  </Focusable>
-                ))}
-              </div>
+              <CycleRow
+                label="Браузер"
+                focusKey="settings:cookies:0"
+                options={COOKIES_OPTIONS.map((opt) => ({ value: opt.key, label: opt.label }))}
+                value={(status?.youtube_cookies_browser ?? "")}
+                onChange={(v) => void switchCookies(v)}
+              />
               <div className="settings__hint">
                 Если YouTube отвечает «подтвердите, что вы не бот», трейлеры можно открыть
                 через вашу сессию YouTube в выбранном браузере — нужно быть в нём
@@ -456,71 +443,42 @@ export function SettingsScreen() {
             </section>
             <section className="settings__item">
               <div className="settings__label">Размер кнопок плеера</div>
-              <div className="sound-options">
-                <FocusHighlight pad={6} radius={16} />
-                {UI_SCALE_OPTIONS.map((o, i) => (
-                  <Focusable
-                    as="button"
-                    key={o.value}
-                    focusKey={`settings:uiscale:${i}`}
-                    className={`sound-option ${playerPrefs.uiScale === o.value ? "is-active" : ""}`}
-                    onPress={() => setPlayerPrefs({ uiScale: o.value })}
-                  >
-                    {o.label}
-                  </Focusable>
-                ))}
-              </div>
+              <CycleRow
+                label="Размер"
+                focusKey="settings:uiscale:0"
+                options={UI_SCALE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                value={playerPrefs.uiScale}
+                onChange={(v) => setPlayerPrefs({ uiScale: v })}
+              />
               <div className="settings__hint">Размер кнопок, названия и времени на экране плеера — для большого экрана или пульта издалека.</div>
             </section>
             <section className="settings__item">
               <div className="settings__label">Скрывать кнопки плеера через</div>
-              <div className="sound-options">
-                <FocusHighlight pad={6} radius={16} />
-                {AUTO_HIDE_OPTIONS.map((o, i) => (
-                  <Focusable
-                    as="button"
-                    key={o.value}
-                    focusKey={`settings:autohide:${i}`}
-                    className={`sound-option ${playerPrefs.autoHideSec === o.value ? "is-active" : ""}`}
-                    onPress={() => setPlayerPrefs({ autoHideSec: o.value })}
-                  >
-                    {o.label}
-                  </Focusable>
-                ))}
-              </div>
+              <CycleRow
+                label="Скрывать через"
+                focusKey="settings:autohide:0"
+                options={AUTO_HIDE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                value={playerPrefs.autoHideSec}
+                onChange={(v) => setPlayerPrefs({ autoHideSec: v })}
+              />
               <div className="settings__hint">Сколько секунд без нажатий кнопки остаются на экране.</div>
             </section>
             <section className="settings__item">
               <div className="settings__label">Субтитры</div>
-              <div className="sound-options">
-                <FocusHighlight pad={6} radius={16} />
-                {SUBTITLE_SIZE_OPTIONS.map((o, i) => (
-                  <Focusable
-                    as="button"
-                    key={o.value}
-                    focusKey={`settings:subsize:${i}`}
-                    className={`sound-option ${playerPrefs.subtitleScale === o.value ? "is-active" : ""}`}
-                    onPress={() => setPlayerPrefs({ subtitleScale: o.value })}
-                  >
-                    {o.label}
-                  </Focusable>
-                ))}
-              </div>
-              <div className="sound-options" style={{ marginTop: 10 }}>
-                <FocusHighlight pad={6} radius={16} />
-                {SUBTITLE_COLOR_OPTIONS.map((o, i) => (
-                  <Focusable
-                    as="button"
-                    key={o.value}
-                    focusKey={`settings:subcolor:${i}`}
-                    className={`sound-option ${playerPrefs.subtitleColor === o.value ? "is-active" : ""}`}
-                    onPress={() => setPlayerPrefs({ subtitleColor: o.value })}
-                  >
-                    <span className="swatch" style={{ background: o.value }} />
-                    {o.label}
-                  </Focusable>
-                ))}
-              </div>
+              <CycleRow
+                label="Размер"
+                focusKey="settings:subsize:0"
+                options={SUBTITLE_SIZE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                value={playerPrefs.subtitleScale}
+                onChange={(v) => setPlayerPrefs({ subtitleScale: v })}
+              />
+              <CycleRow
+                label="Цвет"
+                focusKey="settings:subcolor:0"
+                options={SUBTITLE_COLOR_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                value={playerPrefs.subtitleColor}
+                onChange={(v) => setPlayerPrefs({ subtitleColor: v })} swatch={(v) => String(v)}
+              />
               <div className="settings__hint">Размер и цвет текста субтитров применяются со следующего запуска видео.</div>
             </section>
             <section className="settings__item">
@@ -548,35 +506,21 @@ export function SettingsScreen() {
             <section className="settings__item">
               <div className="settings__label">Картинка</div>
               <div className="settings__sublabel">Масштабирование</div>
-              <div className="sound-options">
-                <FocusHighlight pad={6} radius={16} />
-                {UPSCALE_OPTIONS.map((o, i) => (
-                  <Focusable
-                    as="button"
-                    key={o.value}
-                    focusKey={`settings:upscale:${i}`}
-                    className={`sound-option ${playerPrefs.upscale === o.value ? "is-active" : ""}`}
-                    onPress={() => setPlayerPrefs({ upscale: o.value })}
-                  >
-                    {o.label}
-                  </Focusable>
-                ))}
-              </div>
+              <CycleRow
+                label="Режим"
+                focusKey="settings:upscale:0"
+                options={UPSCALE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                value={playerPrefs.upscale}
+                onChange={(v) => setPlayerPrefs({ upscale: v })}
+              />
               <div className="settings__sublabel">HDR на обычном экране</div>
-              <div className="sound-options">
-                <FocusHighlight pad={6} radius={16} />
-                {TONE_OPTIONS.map((o, i) => (
-                  <Focusable
-                    as="button"
-                    key={o.value}
-                    focusKey={`settings:tone:${i}`}
-                    className={`sound-option ${playerPrefs.toneMapping === o.value ? "is-active" : ""}`}
-                    onPress={() => setPlayerPrefs({ toneMapping: o.value })}
-                  >
-                    {o.label}
-                  </Focusable>
-                ))}
-              </div>
+              <CycleRow
+                label="Режим"
+                focusKey="settings:tone:0"
+                options={TONE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                value={playerPrefs.toneMapping}
+                onChange={(v) => setPlayerPrefs({ toneMapping: v })}
+              />
               <Focusable
                 as="button"
                 className={`checkbox ${playerPrefs.deband ? "is-on" : ""}`}
@@ -636,20 +580,13 @@ export function SettingsScreen() {
           <>
             <section className="settings__item">
               <div className="settings__label">Обновление программы передач</div>
-              <div className="sound-options">
-                <FocusHighlight pad={6} radius={16} />
-                {EPG_REFRESH_OPTIONS.map((opt, i) => (
-                  <Focusable
-                    as="button"
-                    key={opt.key}
-                    focusKey={`settings:epg:${i}`}
-                    className={`sound-option ${epgRefreshInterval === opt.key ? "is-active" : ""}`}
-                    onPress={() => setEpgRefreshInterval(opt.key)}
-                  >
-                    {opt.label}
-                  </Focusable>
-                ))}
-              </div>
+              <CycleRow
+                label="Обновлять"
+                focusKey="settings:epg:0"
+                options={EPG_REFRESH_OPTIONS.map((opt) => ({ value: opt.key, label: opt.label }))}
+                value={epgRefreshInterval}
+                onChange={(v) => setEpgRefreshInterval(v)}
+              />
               <div className="settings__hint">
                 Уже загруженная программа передач остаётся в памяти, пока не истечёт
                 выбранный срок — заходить в «Каналы» заново не значит ждать загрузку
@@ -704,20 +641,13 @@ export function SettingsScreen() {
             ))}
             <section className="settings__item">
               <div className="settings__label">Масштаб программы</div>
-              <div className="sound-options">
-                <FocusHighlight pad={6} radius={16} />
-                {ZOOM_OPTIONS.map((o, i) => (
-                  <Focusable
-                    as="button"
-                    key={o.value}
-                    focusKey={`settings:zoom:${i}`}
-                    className={`sound-option ${uiZoom === o.value ? "is-active" : ""}`}
-                    onPress={() => setUiZoom(o.value)}
-                  >
-                    {o.label}
-                  </Focusable>
-                ))}
-              </div>
+              <CycleRow
+                label="Масштаб"
+                focusKey="settings:zoom:0"
+                options={ZOOM_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                value={uiZoom}
+                onChange={(v) => setUiZoom(v)}
+              />
               <div className="settings__hint">
                 Увеличивает весь интерфейс целиком — для большого телевизора или просмотра издалека. 100% — обычный размер.
               </div>
