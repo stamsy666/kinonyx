@@ -3,10 +3,10 @@ import { nowNext, type Channel, type Programme } from "@kinonyx/epg";
 import { CarouselIcon, Focusable, FocusGroup, HomeIcon, MicIcon, SearchIcon } from "@kinonyx/ui";
 import { useApp } from "../../store/app";
 import { useTv, UNGROUPED } from "../../store/tv";
-import { TvScreenHeader } from "../../components/TvScreenHeader";
+import { HomeChrome } from "../../components/HomeChrome";
+import { useHomeFeel } from "../../components/useHomeFeel";
 import { TextField } from "../../components/TextField";
 import { ChannelTile } from "../../components/ChannelTile";
-import { FocusHighlight } from "../../components/FocusHighlight";
 import { ChannelCarousel } from "../../components/ChannelCarousel";
 import { VoiceSearchModal } from "../../components/VoiceSearchModal";
 import { digitsFromWords, looseName } from "../../data/voiceText";
@@ -41,7 +41,7 @@ export function TvChannelsScreen({ group }: { group?: string }) {
   const lastChannelFocus = useTv((s) => s.lastChannelFocus);
   const setLastChannelFocus = useTv((s) => s.setLastChannelFocus);
   const navigate = useApp((s) => s.navigate);
-  const back = useApp((s) => s.back);
+  useHomeFeel(null);
   const [query, setQuery] = useState("");
   const [voiceOpen, setVoiceOpen] = useState(false);
   // "Сетка" (default) or "Карусель" — the viewer's choice, remembered.
@@ -84,33 +84,42 @@ export function TvChannelsScreen({ group }: { group?: string }) {
   const rememberedChannelExists = channels.some((c) => `ch:${c.id}` === rememberedChannelFocus);
 
   return (
-    <FocusGroup focusKey="screen:channels" className="screen">
-      <TvScreenHeader title={title} onBack={() => back()} onSettings={() => navigate({ name: "settings" })} />
-      <div className="row screen__search">
-        <TextField
-          focusKey="ch:search"
-          type="search"
-          value={query}
-          onChange={setQuery}
-          placeholder="Поиск по каналам"
-          icon={<SearchIcon />}
-          className="field--grow"
-        />
-        <Focusable as="button" className="icon-btn" focusKey="ch:voice" onPress={() => setVoiceOpen(true)} scroll={false}>
-          <MicIcon />
-        </Focusable>
-        <Focusable as="button" className="icon-btn" focusKey="ch:layout" onPress={toggleLayout} scroll={false}>
-          {layout === "grid" ? <CarouselIcon /> : <HomeIcon />}
-        </Focusable>
-      </div>
-      <div className="screen__body">
+    <FocusGroup focusKey="screen:channels" className="screen-pad home home--tv home--nohero ctv">
+      <HomeChrome
+        id="tvch"
+        label={title}
+        hideSearch
+        extra={
+          <>
+            <Focusable as="button" className="home-round" focusKey="ch:voice" onPress={() => setVoiceOpen(true)} scroll={false}>
+              <MicIcon />
+            </Focusable>
+            <Focusable as="button" className="home-round" focusKey="ch:layout" onPress={toggleLayout} scroll={false}>
+              {layout === "grid" ? <CarouselIcon /> : <HomeIcon />}
+            </Focusable>
+          </>
+        }
+      />
+      <div className="home__rows">
+        <div className="ctv__search">
+          <TextField
+            focusKey="ch:search"
+            type="search"
+            value={query}
+            onChange={setQuery}
+            placeholder="Поиск по каналам"
+            icon={<SearchIcon />}
+            className="field--grow"
+          />
+        </div>
         {channels.length === 0 ? (
           <div className="empty">Ничего не найдено.</div>
         ) : layout === "carousel" ? (
-          <ChannelCarousel key={query} channels={channels} guide={guide} programmesFor={programmesFor} now={now} onOpen={open} startKey={query ? undefined : rememberedChannelFocus} />
+          <div className="ctv__carousel">
+            <ChannelCarousel key={query} channels={channels} guide={guide} programmesFor={programmesFor} now={now} onOpen={open} startKey={query ? undefined : rememberedChannelFocus} />
+          </div>
         ) : (
           <div className="grid grid--channels">
-            <FocusHighlight />
             {channels.map((c, i) => {
               const autoFocus = query ? i === 0 : rememberedChannelExists ? `ch:${c.id}` === rememberedChannelFocus : i === 0;
               return <ChannelTile key={c.id} channel={c} nowNext={guide.get(c.id)} onOpen={open} autoFocus={autoFocus} />;
