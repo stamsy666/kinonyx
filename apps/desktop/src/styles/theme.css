@@ -6931,3 +6931,61 @@ body .sidebar__item.is-focused .sidebar__icon {
 .lightbox .lightbox__btn.is-focused::after {
   content: none;
 }
+
+/* ----- Channels: the playlist entry in the settings look ----- */
+.settings--tv .settings-pane .pl-item {
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  margin-bottom: calc(10 * var(--u));
+}
+
+.settings--tv .settings-pane .pl-item .cycle-row {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.pl-dot {
+  flex: none;
+  width: calc(14 * var(--u));
+  height: calc(14 * var(--u));
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.pl-dot--ok {
+  background: #4cc38a;
+}
+
+.pl-dot--loading {
+  background: #e0b341;
+}
+
+.pl-dot--error {
+  background: #ff5a5f;
+}
+
+.pl-item__name {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pl-item__meta {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: calc(14 * var(--u));
+  font-weight: 600;
+  text-align: right;
+  opacity: 0.65;
+}
+
+.settings--tv .settings-pane .cycle-row.is-over {
+  background: rgba(255, 255, 255, 0.28);
+}

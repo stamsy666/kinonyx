@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Focusable } from "@kinonyx/ui";
+import { Focusable, NextIcon } from "@kinonyx/ui";
 import { isTauri } from "../data/io";
 
 interface Props {
@@ -12,6 +12,8 @@ interface Props {
   hint: string;
   /** Extensions (lower-case, no dot) accepted from a drop; others are ignored. */
   extensions: string[];
+  /** The settings look: one pill row instead of the dashed box. */
+  row?: boolean;
 }
 
 /**
@@ -24,7 +26,7 @@ interface Props {
  * drop event carries no file path there); in the browser preview the animation still plays,
  * but a dropped file can't be used (no path), so it says so.
  */
-export function FileDropZone({ focusKey, onPick, onDropPaths, hint, extensions }: Props) {
+export function FileDropZone({ focusKey, onPick, onDropPaths, hint, extensions, row }: Props) {
   const [over, setOver] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const handler = useRef(onDropPaths);
@@ -81,6 +83,30 @@ export function FileDropZone({ focusKey, onPick, onDropPaths, hint, extensions }
           setNote("Перетаскивание файлов работает в приложении (в браузерном превью нет пути к файлу)");
         },
       };
+
+  if (row) {
+    return (
+      <div className="dropzone-row" {...browserDrag}>
+        <Focusable
+          as="button"
+          className={`cycle-row ${over ? "is-over" : ""}`}
+          focusKey={focusKey}
+          onPress={() => {
+            setNote(null);
+            onPick();
+          }}
+        >
+          <svg className="dropzone-row__icon" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+          </svg>
+          <span className="cycle-row__label">{over ? "Отпустите файл здесь" : "Выбрать файл"}</span>
+          <span className="cycle-row__value">{hint}</span>
+          <NextIcon size={20} />
+        </Focusable>
+        {note && <div className="settings__hint settings__hint--error">{note}</div>}
+      </div>
+    );
+  }
 
   return (
     <>
