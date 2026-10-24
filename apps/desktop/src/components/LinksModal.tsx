@@ -32,7 +32,7 @@ export function LinksModal({
     return (
       <Modal focusKey="links-modal" preferredChildFocusKey="link:0" className="links-tv" onClose={onClose}>
         <h3 className="links-tv__title">{heading}</h3>
-        <div className="links-tv__list">
+        <div className="links-tv__list links-tv__scroll">
           {links === null && (
             <div className="links-tv__wait">
               <Spinner />
@@ -53,10 +53,10 @@ export function LinksModal({
               <NextIcon size={20} />
             </Focusable>
           ))}
-          <Focusable as="button" back focusKey="link:close" className="links-tv__row links-tv__row--close" scroll={false} onPress={onClose}>
-            <span className="links-tv__name">Закрыть</span>
-          </Focusable>
         </div>
+        <Focusable as="button" back focusKey="link:close" className="links-tv__row links-tv__row--close links-tv__foot" scroll={false} onPress={onClose}>
+          <span className="links-tv__name">Закрыть</span>
+        </Focusable>
       </Modal>
     );
   }

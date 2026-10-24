@@ -7440,3 +7440,87 @@ body .sidebar__item.is-focused .sidebar__icon {
   font-weight: 700;
   color: #fff;
 }
+/* ----- The film page's backdrop: a still frame first, then screenshots that grow and melt into each other ----- */
+.mtv__slides {
+  position: absolute;
+  inset: 0;
+  transform: translateY(var(--parallax));
+}
+
+.mtv__slide {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0;
+}
+
+/* The new frame comes in over the old one, which stays whole under it until it is fully there: no dip to dark. */
+.mtv__slide.is-prev {
+  z-index: 1;
+  opacity: 1;
+}
+
+.mtv__slide.is-active {
+  z-index: 2;
+  opacity: 1;
+  transition: opacity 2000ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mtv__slide.is-active.is-still {
+  transition: none;
+}
+
+.mtv__slide img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+.mtv__slide.is-growing img {
+  animation: mtv-grow 13000ms linear forwards;
+}
+
+@keyframes mtv-grow {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.14);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mtv__slide.is-growing img {
+    animation: none;
+  }
+}
+
+/* the windows' lists: the title and the closing row stay, what is between scrolls */
+.modal-panel.links-tv {
+  max-height: 88vh;
+}
+
+.links-tv__scroll {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: calc(6 * var(--mu));
+  margin: calc(-6 * var(--mu));
+}
+
+.links-tv__scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.links-tv__foot {
+  flex: none;
+  margin-top: calc(14 * var(--mu));
+}
+
+/* The loader is white everywhere, like the rest of the page's light parts. */
+.spinner {
+  --dot: #fff;
+}

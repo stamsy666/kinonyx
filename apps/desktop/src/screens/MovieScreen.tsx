@@ -34,6 +34,7 @@ import { Modal } from "../components/Modal";
 import { ProgressiveImg } from "../components/ProgressiveImg";
 import { holdMusic } from "../data/music";
 import { fadeThrough } from "../data/transition";
+import { MovieSlides } from "../components/MovieSlides";
 import { HomeChrome } from "../components/HomeChrome";
 import { useHomeFeel } from "../components/useHomeFeel";
 
@@ -242,7 +243,10 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
   const isUpcoming = premiere ? premiere.getTime() > Date.now() : !hasRating && year != null && year >= new Date().getFullYear();
   const releaseLabel = premiere ? `Премьера: ${formatPremiere(premiere)}` : year ? `Ожидается в ${year} году` : "Дата выхода неизвестна";
   // The frame across the whole window: the film's first still at its original size.
-  const backdropUrl = images[0]?.imageUrl ? img(images[0].imageUrl) : undefined;
+  const slides = images
+    .slice(0, 8)
+    .map((im) => ({ src: img(im.imageUrl) ?? "", preview: img(im.previewUrl) }))
+    .filter((sl) => sl.src);
   const actors = staff.filter((p) => p.professionKey === "ACTOR").slice(0, 20);
   const cast = actors.slice(0, 3).map((p) => p.nameRu || p.nameEn).filter(Boolean);
   const director = staff.find((p) => p.professionKey === "DIRECTOR");
@@ -267,8 +271,8 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
       {/* The first screen: a frame of the film across the whole window, the title and what to do with it
           at the lower left, who is in it at the lower right. */}
       <div className="mtv__hero">
-        {backdropUrl ? (
-          <ProgressiveImg className="mtv__backdrop" src={backdropUrl} placeholder={img(images[0]?.previewUrl) ?? img(film.posterUrlPreview)} alt={title} />
+        {slides.length > 0 ? (
+          <MovieSlides slides={slides} />
         ) : (
           <ProgressiveImg className="mtv__backdrop mtv__backdrop--poster" src={img(film.posterUrl)} placeholder={img(film.posterUrlPreview)} alt={title} />
         )}
