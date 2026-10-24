@@ -86,10 +86,11 @@ function scrollableY(el: HTMLElement | null): HTMLElement | null {
  * Brings `el` into view inside its shelf (`.row-scroll__track`, horizontally: just far enough, like
  * `inline: "nearest"`) and inside the page's scrolling body (vertically, as `block`).
  */
-export function glideIntoView(el: HTMLElement, block: ScrollLogicalPosition, track: HTMLElement) {
+export function glideIntoView(el: HTMLElement, block: ScrollLogicalPosition, track: HTMLElement | null) {
   const r = el.getBoundingClientRect();
 
-  // ---- horizontal, in the shelf ----
+  // ---- horizontal, in the shelf (an element outside a shelf only moves the page) ----
+  if (track) {
   const tr = track.getBoundingClientRect();
   const padX = parseFloat(getComputedStyle(track).scrollPaddingLeft) || 12;
   const gx = pending(track);
@@ -101,9 +102,10 @@ export function glideIntoView(el: HTMLElement, block: ScrollLogicalPosition, tra
   gx.tx = clamp(tx, 0, track.scrollWidth - track.clientWidth);
   gx.tau = 55;
   run(track, gx);
+  }
 
   // ---- vertical, in the page body ----
-  const page = scrollableY(track);
+  const page = scrollableY(track ?? el);
   if (page) {
     const pr = page.getBoundingClientRect();
     const gy = pending(page);
@@ -118,7 +120,7 @@ export function glideIntoView(el: HTMLElement, block: ScrollLogicalPosition, tra
     else if (top < ty + padY) ty = top - padY;
     else if (bottom > ty + page.clientHeight - padY) ty = bottom - page.clientHeight + padY;
     gy.ty = clamp(ty, 0, page.scrollHeight - page.clientHeight);
-    gy.tau = 80;
+    gy.tau = 60;
     run(page, gy);
   }
 }

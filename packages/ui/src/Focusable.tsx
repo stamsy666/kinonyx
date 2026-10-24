@@ -82,14 +82,10 @@ export function Focusable({
           cancelGlides();
           if (!visible) el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
         } else {
-          // Cards of a horizontal shelf glide (one retargetable animation, see glide.ts) so holding
-          // an arrow keeps up; everything else keeps the browser's smooth scroll.
+          // Every focus move glides (one retargetable animation, see glide.ts) so holding an arrow keeps up.
           const track = el?.closest(".row-scroll__track") as HTMLElement | null;
-          if (el && track) glideIntoView(el, scrollBlock, track);
-          else {
-            cancelGlides(); // a shelf glide must not pull the page back after the browser scrolled it
-            el?.scrollIntoView({ block: scrollBlock, inline: "nearest", behavior: "smooth" });
-          }
+          // Grids, tiles, keys and lists scroll the page the same way (instant to follow, never queued).
+          if (el) glideIntoView(el, scrollBlock, track);
         }
       }
     },
