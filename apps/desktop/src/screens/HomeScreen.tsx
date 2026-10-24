@@ -3,6 +3,7 @@ import { FullscreenButton } from "../components/FullscreenButton";
 import { WhatToWatchModal } from "../components/WhatToWatchModal";
 import { PopcornIcon } from "../components/AnimatedIcons";
 import { Focusable, FocusGroup, SearchIcon, Spinner } from "@kinonyx/ui";
+import logoMark from "../assets/logo-mark.png";
 import { useApp } from "../store/app";
 import { useFavorites } from "../store/favorites";
 import { useChannelFavorites } from "../store/channelFavorites";
@@ -255,6 +256,12 @@ export function HomeScreen() {
             </g>
           </svg>
         </Focusable>
+        <div className="topbar__logo home__brand" aria-hidden="true">
+          <img className="topbar__logo-mark" src={logoMark} alt="" />
+          <span>
+            KINON<em>YX</em>
+          </span>
+        </div>
         <div className="home__chrome-right">
           <Focusable as="button" className="home-round" focusKey="home:search" scroll={false} onPress={() => navigate({ name: "search" })}>
             <SearchIcon size={24} />

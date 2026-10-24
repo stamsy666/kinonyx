@@ -5003,3 +5003,13 @@ body:not(.mpv-active) .mini-player {
 .home--tv .hero__slide--offset-right .hero__info {
   transform: translateX(calc(36 * var(--u)));
 }
+
+/* The brand in the middle of the home page's top row. */
+.home__brand {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  text-shadow: 0 1px calc(10 * var(--u)) rgba(0, 0, 0, 0.5);
+}
