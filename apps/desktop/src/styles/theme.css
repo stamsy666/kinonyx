@@ -5177,3 +5177,73 @@ body .sidebar__item.is-focused .sidebar__icon {
 .home--tv .grid-cards .movie-card__poster {
   width: 100%;
 }
+
+/* "Категории": tiles with a colour of their own and the picture of a title of the genre. */
+.cats__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(300 * var(--u)), 1fr));
+  gap: calc(22 * var(--u));
+  padding: calc(14 * var(--u));
+  margin: calc(-14 * var(--u));
+}
+
+.cats__tile {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: calc(18 * var(--u));
+  background: linear-gradient(135deg, hsl(var(--tile-hue) 55% 34%), hsl(calc(var(--tile-hue) + 40) 60% 18%));
+  color: #fff;
+  text-align: left;
+  transition: transform 240ms var(--ease);
+}
+
+.cats__tile-art {
+  position: absolute;
+  inset: 0;
+}
+
+.cats__tile-art img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 22%;
+  opacity: 0.62;
+  mix-blend-mode: luminosity;
+  animation: fade-in 500ms var(--ease) both;
+}
+
+.cats__tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.1) 60%);
+}
+
+.cats__tile-name {
+  position: absolute;
+  z-index: 2;
+  left: calc(20 * var(--u));
+  right: calc(20 * var(--u));
+  bottom: calc(16 * var(--u));
+  font-size: calc(22 * var(--u));
+  font-weight: 800;
+  text-shadow: 0 1px calc(10 * var(--u)) rgba(0, 0, 0, 0.5);
+}
+
+.home--tv .cats__tile.is-focused {
+  transform: scale(1.06);
+  box-shadow: 0 0 0 calc(4 * var(--u)) rgba(255, 255, 255, 0.95);
+}
+
+.home--tv .cats__tile.is-focused .cats__tile-art img {
+  opacity: 0.9;
+  mix-blend-mode: normal;
+}
+
+.home--tv .cats__tile.is-focused::after {
+  content: none;
+}
