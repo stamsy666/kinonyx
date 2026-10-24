@@ -604,14 +604,13 @@ export function SettingsScreen() {
         {tab === "look" && (
           <>
             {[
-              { title: "Обычные темы", kinds: PLAIN_KINDS, hint: "Без анимации — спокойный однотонный фон." },
-              { title: "Анимированные темы", kinds: ANIMATED_KINDS, hint: "Живой фон; акцентный цвет интерфейса меняется вместе с ним." },
-              { title: "Эксклюзивные темы", kinds: EXCLUSIVE_KINDS, hint: "При выборе такой темы меняются музыка и звуки интерфейса (набор PS4 или PS5)." },
+              { title: "Тема", kinds: PLAIN_KINDS, hint: "" },
+              { title: "Анимированный фон", kinds: ANIMATED_KINDS, hint: "Цвет интерфейса меняется вместе с фоном." },
+              { title: "Эксклюзивные темы", kinds: EXCLUSIVE_KINDS, hint: "Вместе с темой меняются музыка и звуки (PS4 или PS5)." },
             ].map((group) => (
               <section className="settings__item" key={group.title}>
                 <div className="settings__label">{group.title}</div>
-                <div className="bg-options">
-                  <FocusHighlight pad={8} radius={20} />
+                <div className="sound-options">
                   {group.kinds.map((kind) => {
                     const palette = BG_PALETTES[kind];
                     return (
@@ -619,14 +618,14 @@ export function SettingsScreen() {
                         as="button"
                         key={kind}
                         focusKey={`settings:bg:${kind}`}
-                        className={`bg-option ${backgroundKind === kind ? "is-active" : ""}`}
+                        className={`sound-option ${backgroundKind === kind ? "is-active" : ""}`}
                         onPress={() => {
                           setBackgroundKind(kind);
                           applyThemeKit(kind);
                         }}
                       >
-                        <span
-                          className="bg-option__swatch"
+                        <i
+                          className="swatch"
                           style={{
                             background:
                               kind === "light"
@@ -641,24 +640,18 @@ export function SettingsScreen() {
                     );
                   })}
                 </div>
-                <div className="settings__hint">{group.hint}</div>
+                {group.hint && <div className="settings__hint">{group.hint}</div>}
               </section>
             ))}
             <section className="settings__item">
-              <div className="settings__label">Масштаб программы</div>
+              <div className="settings__label">Интерфейс</div>
               <CycleRow
-                label="Масштаб"
+                label="Масштаб программы"
                 focusKey="settings:zoom:0"
                 options={ZOOM_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
                 value={uiZoom}
                 onChange={(v) => setUiZoom(v)}
               />
-              <div className="settings__hint">
-                Увеличивает весь интерфейс целиком — для большого телевизора или просмотра издалека. 100% — обычный размер.
-              </div>
-            </section>
-            <section className="settings__item">
-              <div className="settings__label">Эффект клика мышью</div>
               <Focusable
                 as="button"
                 className={`checkbox ${clickSparkEnabled ? "is-on" : ""}`}
@@ -667,26 +660,14 @@ export function SettingsScreen() {
               >
                 <span className="checkbox__box">
                   {clickSparkEnabled && (
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="3.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   )}
                 </span>
-                Включить
+                Искры при клике мышью
               </Focusable>
-              <div className="settings__hint">
-                Искры от курсора на каждый клик мышью — только для мыши, пульт и
-                геймпад не затронуты.
-              </div>
+              <div className="settings__hint">Масштаб увеличивает весь интерфейс — для телевизора и просмотра издалека.</div>
             </section>
           </>
         )}
