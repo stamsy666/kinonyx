@@ -5161,8 +5161,9 @@ body .sidebar__item.is-focused .sidebar__icon {
 
 /* The favourites grid in the home page's unit. */
 .home--tv .grid-cards {
-  /* Four cards a row, stretched across the whole width; the gap is fixed by the unit. */
-  grid-template-columns: repeat(4, 1fr);
+  /* About four cards a row on a wide screen, stretched across the whole width. Their least width and the gap
+     are in the page unit, so the count follows the window and the zoom (fewer when it is zoomed in). */
+  grid-template-columns: repeat(auto-fill, minmax(calc(240 * var(--u)), 1fr));
   gap: calc(44 * var(--u)) calc(22 * var(--u));
   margin-top: 0;
 }
