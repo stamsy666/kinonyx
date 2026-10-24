@@ -4941,3 +4941,10 @@ body:not(.mpv-active) .mini-player {
 .home--tv .home__rows > :first-child .row-scroll__group > * {
   scroll-margin-top: 16vh;
 }
+
+/* The banner's lower edge dissolves into the theme's background instead of ending in a line. */
+.home--tv .hero__backdrop,
+.home--tv .hero__slide::after {
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 24vh), transparent 100%);
+  mask-image: linear-gradient(180deg, #000 calc(100% - 24vh), transparent 100%);
+}
