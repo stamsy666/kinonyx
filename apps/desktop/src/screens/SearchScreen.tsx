@@ -47,11 +47,31 @@ export function SearchScreen() {
   // keyboard (the nearest-neighbour search would pick the buttons at the top instead).
   useEffect(() => {
     const onArrow = (e: KeyboardEvent) => {
-      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft" && e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
       if (document.querySelector(".modal, [role=dialog]")) return;
+      // Down from the top bar: the menu button to the keyboard, the other two to the right side.
+      if (e.key === "ArrowDown") {
+        const key = document.querySelector<HTMLElement>(".is-focused[data-fk]")?.dataset.fk;
+        const target = key === "home:menu" ? "search:kbd" : key === "search:voice" || key === "search:fullscreen" ? "search:side" : null;
+        if (target) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          setFocus(target);
+        }
+        return;
+      }
       const el = document.querySelector<HTMLElement>(".sx .is-focused");
       if (!el) return;
       const r = el.getBoundingClientRect();
+      // Up from the top row of either half goes to the top bar (menu on the left, the microphone on the right).
+      if (e.key === "ArrowUp") {
+        const top = el.closest(".sx__modes") ? "home:menu" : el.closest(".sx__side") && r.top <= el.closest(".sx__side")!.getBoundingClientRect().top + 40 ? "search:voice" : null;
+        if (!top) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setFocus(top);
+        return;
+      }
       if (e.key === "ArrowRight" && el.closest(".sx__kbd")) {
         const edge = el.closest(".sx__kbd")!.getBoundingClientRect().right;
         if (r.right < edge - 12) return;
