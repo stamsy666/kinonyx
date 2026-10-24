@@ -379,6 +379,14 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
             ))}
           </RowScroll>
 
+          <RowScroll label="Жанры" count={genreNames.length}>
+            {genreNames.map((name, i) => (
+              <Focusable key={name} as="button" focusKey={`movie:genre:${i}`} className="mtv-genre" onPress={() => openGenre(name)}>
+                {name}
+              </Focusable>
+            ))}
+          </RowScroll>
+
           <RowScroll label="Похожие фильмы" count={similars.length}>
             {similars.map((s, i) => (
               <MovieCard
@@ -387,14 +395,6 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
                 focusKey={`similar:${i}`}
                 onPress={() => navigate({ name: "movie", id: s.filmId })}
               />
-            ))}
-          </RowScroll>
-
-          <RowScroll label="Жанры" count={genreNames.length}>
-            {genreNames.map((name, i) => (
-              <Focusable key={name} as="button" focusKey={`movie:genre:${i}`} className="mtv-genre" onPress={() => openGenre(name)}>
-                {name}
-              </Focusable>
             ))}
           </RowScroll>
         </div>
