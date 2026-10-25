@@ -202,6 +202,14 @@ export function App() {
   useEffect(() => {
     void applyUiZoom(uiZoom);
   }, [uiZoom]);
+  // The player's controls are drawn in plain pixels for a 1080-high page; on a lower one they shrink in proportion
+  // (`--ps`, used by the players' CSS), never grow.
+  useEffect(() => {
+    const set = () => document.documentElement.style.setProperty("--ps", String(Math.min(1, Math.max(0.55, window.innerHeight / 1080))));
+    set();
+    window.addEventListener("resize", set);
+    return () => window.removeEventListener("resize", set);
+  }, []);
   useEffect(() => installInputModeTracker(), []);
 
   useEffect(() => {

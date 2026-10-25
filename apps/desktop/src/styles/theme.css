@@ -2703,7 +2703,7 @@ body.mpv-active::after {
 /* `zoom` (Chromium/WebView2) scales the whole control cluster — buttons, text, gaps — in one go. */
 .player__top,
 .player__bottom {
-  zoom: var(--osd-scale, 1);
+  zoom: calc(var(--osd-scale, 1) * var(--ps, 1));
 }
 
 .player__top {
@@ -8670,4 +8670,10 @@ body .sidebar__item.is-focused .sidebar__icon {
 .links-tv__row--primary.is-focused {
   background: #fff;
   color: #111;
+}
+
+/* The wait/failure cards and the "next episode" card shrink with the page's height like the controls do. */
+.player--tvos .player__center-card,
+.player--tvos .autonext__card {
+  zoom: var(--ps, 1);
 }

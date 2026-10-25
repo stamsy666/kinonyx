@@ -33,8 +33,10 @@ import { resetScroll } from "../data/focusRestore";
 import { useUpdater } from "../store/updater";
 import { isTauri, openExternal } from "../data/io";
 
-/** Whole-program zoom steps; 100% is the design size and the default. */
+/** Whole-program zoom steps; 100% is the design size (a Full HD screen — 4K screens are brought to it by themselves) and the default. */
 const ZOOM_OPTIONS = [
+  { value: 0.75, label: "75%" },
+  { value: 0.9, label: "90%" },
   { value: 1, label: "100%" },
   { value: 1.15, label: "115%" },
   { value: 1.3, label: "130%" },
@@ -681,7 +683,9 @@ export function SettingsScreen() {
                 </span>
                 Трейлер на фоне страницы фильма
               </Focusable>
-              <div className="settings__hint">Масштаб увеличивает весь интерфейс — для телевизора и просмотра издалека.</div>
+              <div className="settings__hint">
+                100% — как на экране Full HD, на 4K масштаб подбирается сам. Больше — для телевизора и просмотра издалека, меньше — если всё крупно.
+              </div>
             </section>
           </>
         )}
