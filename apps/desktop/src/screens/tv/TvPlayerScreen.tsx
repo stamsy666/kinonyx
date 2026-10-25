@@ -39,7 +39,6 @@ import { isTauri } from "../../data/io";
 import { SeekBar } from "../../components/SeekBar";
 import { useMpvReveal } from "../../components/useMpvReveal";
 import { MiniPlayerChrome, useCloseOnOutsidePress } from "../../components/MiniPlayer";
-import { FocusHighlight } from "../../components/FocusHighlight";
 import { VolumeSlider } from "../../components/VolumeSlider";
 import { Modal } from "../../components/Modal";
 import { FullscreenButton } from "../../components/FullscreenButton";
@@ -452,7 +451,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   // silent black screen with no back button and no way to tell what went wrong.
   if (!channel) {
     return (
-      <FocusGroup focusKey="screen:player" className="player" isFocusBoundary>
+      <FocusGroup focusKey="screen:player" className="player player--tvos" isFocusBoundary>
         <div className="player__osd" style={{ "--osd-dim": playerDim * 2, "--osd-scale": prefs.uiScale } as React.CSSProperties}>
           <div className="player__top">
             <Focusable back as="button" className="icon-btn" focusKey="pl:back" onPress={() => back()} autoFocus scroll={false}>
@@ -484,7 +483,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   }
 
   return (
-    <FocusGroup focusKey="screen:player" className={`player ${isTauri ? "player--mpv" : ""} ${revealed ? "player--revealed" : ""} ${osd ? "" : "player--idle"}`} isFocusBoundary>
+    <FocusGroup focusKey="screen:player" className={`player player--tvos ${isTauri ? "player--mpv" : ""} ${revealed ? "player--revealed" : ""} ${osd ? "" : "player--idle"}`} isFocusBoundary>
       {isTauri ? <div className="player__video-hole" /> : <video ref={videoRef} playsInline autoPlay />}
 
       {showStreamStats && <StreamStats stats={state.stats} live={state.live} bufferedAhead={state.bufferedAhead} />}
@@ -536,8 +535,11 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
           <p className="player__now player__now--center">
             {nowInfo ? (
               <>
-                <b>{nowInfo.title}</b> · {timeRange(nowInfo)}
-                {!archive && guide.next && <span style={{ color: "var(--text-faint)" }}> · далее: {guide.next.title}</span>}
+                <b>{nowInfo.title}</b>
+                <span className="player__now-meta">
+                  {timeRange(nowInfo)}
+                  {!archive && guide.next && <> · далее: {guide.next.title}</>}
+                </span>
               </>
             ) : (
               <span style={{ color: "var(--text-faint)" }}>Нет данных программы</span>
@@ -673,16 +675,14 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
         <Modal
           focusKey="player:menu"
           preferredChildFocusKey="menu:0"
+          className="links-tv"
           onClose={() => {
             setMenu(null);
             bump();
           }}
         >
-          <div className="modal-panel__header">
-            <h3>{menu === "audio" ? "Аудиодорожка" : "Субтитры"}</h3>
-          </div>
-          <div className="modal-panel__list">
-            <FocusHighlight pad={0} radius="var(--radius-sm)" />
+          <h3 className="links-tv__title">{menu === "audio" ? "Аудиодорожка" : "Субтитры"}</h3>
+          <div className="links-tv__list links-tv__scroll">
             {menu === "subtitle" && (
               <TrackItem
                 focusKey="menu:off"
@@ -705,7 +705,9 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
                 onPress={toggleTranslation}
               />
             )}
-            {tracks.length === 0 && menu === "audio" && !(isTauri && translationEnabled && voiceEnabled) && <div className="empty">Только одна дорожка</div>}
+            {tracks.length === 0 && menu === "audio" && !(isTauri && translationEnabled && voiceEnabled) && (
+              <p className="links-tv__text">Только одна дорожка</p>
+            )}
             {tracks.map((t, i) => (
               <TrackItem
                 key={t.id}
@@ -745,6 +747,19 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
               />
             )}
           </div>
+          <Focusable
+            as="button"
+            back
+            focusKey="menu:close"
+            className="links-tv__row links-tv__row--close links-tv__foot"
+            scroll={false}
+            onPress={() => {
+              setMenu(null);
+              bump();
+            }}
+          >
+            <span className="links-tv__name">Закрыть</span>
+          </Focusable>
         </Modal>
       )}
 
@@ -752,26 +767,24 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
         <Modal
           focusKey="player:archive"
           preferredChildFocusKey="arch:0"
+          className="links-tv arch-tv"
           onClose={() => {
             setArchiveOpen(false);
             bump();
           }}
         >
-          <div className="modal-panel__header">
-            <h3>Архив эфира</h3>
-            <span className="archive-panel__range">{channel.catchup?.days ?? DEFAULT_CATCHUP_DAYS} дн.</span>
-          </div>
+          <h3 className="links-tv__title">Архив эфира</h3>
+          <p className="arch-tv__range">за {channel.catchup?.days ?? DEFAULT_CATCHUP_DAYS} дн.</p>
           <div
-            className="modal-panel__list"
+            className="links-tv__list links-tv__scroll"
             onScroll={(e) => {
               const el = e.currentTarget;
               if (el.scrollHeight - el.scrollTop - el.clientHeight < 300) loadMoreArchive();
             }}
           >
-            <FocusHighlight pad={0} radius="var(--radius-sm)" />
-            {archiveDays.length === 0 && <div className="empty">Нет данных программы за доступный период архива</div>}
+            {archiveDays.length === 0 && <p className="links-tv__text">Нет данных программы за доступный период архива</p>}
             {visibleArchiveDays.map((day, di) => (
-              <div key={day.key}>
+              <div key={day.key} className="arch-tv__day">
                 <div className="archive-panel__day">{day.label}</div>
                 {day.items.map((p, i) => {
                   const isLastRendered = di === visibleArchiveDays.length - 1 && i === day.items.length - 1;
@@ -791,6 +804,19 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
             ))}
             {archiveVisible < archiveTotal && <div className="archive-panel__more">Загрузка ещё…</div>}
           </div>
+          <Focusable
+            as="button"
+            back
+            focusKey="arch:close"
+            className="links-tv__row links-tv__row--close links-tv__foot"
+            scroll={false}
+            onPress={() => {
+              setArchiveOpen(false);
+              bump();
+            }}
+          >
+            <span className="links-tv__name">Закрыть</span>
+          </Focusable>
         </Modal>
       )}
     </FocusGroup>
@@ -816,6 +842,14 @@ function PlayerLogo({ src, name }: { src?: string; name: string }) {
   );
 }
 
+function CheckMark() {
+  return (
+    <svg className="links-tv__check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
 function TrackItem({
   focusKey,
   label,
@@ -834,14 +868,15 @@ function TrackItem({
   return (
     <Focusable
       as="button"
-      className={`list-option list-option--row ${active ? "is-active" : ""}`}
+      className={`links-tv__row ${active ? "is-active" : ""}`}
       focusKey={focusKey}
       onPress={onPress}
       autoFocus={autoFocus}
       scroll={false}
     >
-      <span className="list-option__label">{label}</span>
-      {hint && hint.trim().toLowerCase() !== label.trim().toLowerCase() && <span className="list-option__hint">{hint}</span>}
+      <span className="links-tv__name">{label}</span>
+      {hint && hint.trim().toLowerCase() !== label.trim().toLowerCase() && <span className="links-tv__hint">{hint}</span>}
+      {active && <CheckMark />}
     </Focusable>
   );
 }
@@ -864,15 +899,18 @@ function ArchiveItem({
   return (
     <Focusable
       as="button"
-      className={`list-option list-option--stack ${active ? "is-active" : ""}`}
+      className={`links-tv__row links-tv__row--stack ${active ? "is-active" : ""}`}
       focusKey={focusKey}
       onPress={onPress}
       onFocus={onFocus}
       autoFocus={autoFocus}
       scroll={true}
     >
-      <span className="archive-item__time">{timeRange(programme)}</span>
-      <span className="archive-item__title">{programme.title}</span>
+      <span className="links-tv__stack">
+        <span className="archive-item__time">{timeRange(programme)}</span>
+        <span className="archive-item__title">{programme.title}</span>
+      </span>
+      {active && <CheckMark />}
     </Focusable>
   );
 }
