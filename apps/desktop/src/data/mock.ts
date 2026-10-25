@@ -216,6 +216,12 @@ export const MOCK = {
       }
       case "kp_videos":
         return { total: 0, items: [] } as T;
+      case "resolve_trailer_url":
+        // Preview only: a short sample clip stands in for a trailer so the backdrop can be seen.
+        return {
+          qualities: [{ height: 360, url: "https://www.w3schools.com/html/mov_bbb.mp4", audioUrl: null }],
+          defaultIndex: 0,
+        } as T;
       case "kp_external_sources":
         return { total: 0, items: [] } as T;
       case "torapi_search_title":

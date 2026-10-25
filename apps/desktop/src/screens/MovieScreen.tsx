@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { cancelGlides, FavoriteIcon, Focusable, FocusGroup, NextIcon, PlayIcon, PlusIcon, Spinner } from "@kinonyx/ui";
 import { useApp } from "../store/app";
@@ -34,7 +34,8 @@ import { Modal } from "../components/Modal";
 import { ProgressiveImg } from "../components/ProgressiveImg";
 import { holdMusic } from "../data/music";
 import { fadeThrough } from "../data/transition";
-import { MovieSlides } from "../components/MovieSlides";
+import { MovieBackdrop } from "../components/MovieBackdrop";
+import { isYoutubeUrl } from "../data/backdropTrailer";
 import { HomeChrome } from "../components/HomeChrome";
 import { useHomeFeel } from "../components/useHomeFeel";
 
@@ -91,14 +92,7 @@ type Modal = "watch" | "quality" | "trailer" | null;
 // at its own embeddable widget player (widgets.kinopoisk.ru/.../trailer/...) — those
 // only work inside a browser frame on kinopoisk.ru itself, yt-dlp has no extractor for
 // them, and mpv can't play them either. Only route the former into the app's own player.
-function isYoutubeUrl(url: string): boolean {
-  try {
-    const host = new URL(url).hostname.replace(/^www\./, "");
-    return host === "youtube.com" || host === "m.youtube.com" || host === "youtu.be";
-  } catch {
-    return false;
-  }
-}
+// (isYoutubeUrl — data/backdropTrailer.ts)
 
 /** Pseudo-entry in the trailer list: no YouTube link to open, search Rutube by name instead. */
 const RUTUBE_AUTO = "rutube:auto";
@@ -118,6 +112,28 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
   const [error, setError] = useState<string | null>(null);
   const [trailerResolving, setTrailerResolving] = useState(false);
   const [trailerError, setTrailerError] = useState<{ message: string; url: string } | null>(null);
+  // The trailer is the backdrop (`trailerLive`) and, once "Трейлер" is pressed, grows over the whole page (`expanded`).
+  // `settling` keeps the fade of the page's text on for a moment after either change.
+  const [trailerLive, setTrailerLive] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [settling, setSettling] = useState(false);
+  const collapseTrailer = useCallback(() => setExpanded(false), []);
+  useEffect(() => {
+    setSettling(true);
+    const t = window.setTimeout(() => setSettling(false), 800);
+    return () => window.clearTimeout(t);
+  }, [expanded]);
+  // The page stands still under a grown trailer.
+  useEffect(() => {
+    if (!expanded) return;
+    const body = document.querySelector<HTMLElement>(".app-body");
+    if (!body) return;
+    const was = body.style.overflow;
+    body.style.overflow = "hidden";
+    return () => {
+      body.style.overflow = was;
+    };
+  }, [expanded]);
 
   // The trailer is about to play: the background music is already fading while it is being found.
   useEffect(() => (trailerResolving ? holdMusic() : undefined), [trailerResolving]);
@@ -211,6 +227,11 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
       })
       .catch(() => setTrailers([rutube]));
   };
+  const growTrailer = () => {
+    cancelGlides();
+    document.querySelector(".app-body")?.scrollTo({ top: 0, behavior: "instant" });
+    setExpanded(true);
+  };
   const isFav = useFavorites((s) => s.items.some((f) => f.kinopoiskId === id));
   const toggleFavorite = useFavorites((s) => s.toggle);
   const lastRelease = useLastRelease((s) => s.items[id]);
@@ -265,17 +286,21 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
     });
 
   return (
-    <FocusGroup focusKey="movie" className="screen-pad home home--tv home--nohero mtv">
+    <FocusGroup focusKey="movie" className={`screen-pad home home--tv home--nohero mtv ${expanded ? "is-trailer" : ""} ${settling ? "is-trailer-fx" : ""}`}>
       <HomeChrome id="movie" />
 
       {/* The first screen: a frame of the film across the whole window, the title and what to do with it
           at the lower left, who is in it at the lower right. */}
       <div className="mtv__hero">
-        {slides.length > 0 ? (
-          <MovieSlides slides={slides} />
-        ) : (
-          <ProgressiveImg className="mtv__backdrop mtv__backdrop--poster" src={img(film.posterUrl)} placeholder={img(film.posterUrlPreview)} alt={title} />
-        )}
+        <MovieBackdrop
+          id={id}
+          film={film}
+          slides={slides}
+          fallback={<ProgressiveImg className="mtv__backdrop mtv__backdrop--poster" src={img(film.posterUrl)} placeholder={img(film.posterUrlPreview)} alt={title} />}
+          expanded={expanded}
+          onLive={setTrailerLive}
+          onCollapse={collapseTrailer}
+        />
         <div className="mtv__shade" />
 
         <div className="mtv__info">
@@ -291,7 +316,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
             {isUpcoming ? (
               <>
                 <span className="mtv__release">{releaseLabel}</span>
-                <Focusable as="button" focusKey="movie:trailer" className="hero__btn hero__btn--pill" onPress={openTrailers} autoFocus scroll={false} onFocus={toTop}>
+                <Focusable as="button" focusKey="movie:trailer" className="hero__btn hero__btn--pill" onPress={trailerLive ? growTrailer : openTrailers} autoFocus scroll={false} onFocus={toTop}>
                   Трейлер
                 </Focusable>
               </>
@@ -301,7 +326,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
                   <PlayIcon size={20} />
                   {continueLabel(id) ?? "Смотреть"}
                 </Focusable>
-                <Focusable as="button" focusKey="movie:trailer" className="hero__btn hero__btn--pill" onPress={openTrailers} scroll={false} onFocus={toTop}>
+                <Focusable as="button" focusKey="movie:trailer" className="hero__btn hero__btn--pill" onPress={trailerLive ? growTrailer : openTrailers} scroll={false} onFocus={toTop}>
                   Трейлер
                 </Focusable>
                 <Focusable as="button" focusKey="movie:quality" className="hero__btn hero__btn--pill" onPress={() => setModal("quality")} scroll={false} onFocus={toTop}>

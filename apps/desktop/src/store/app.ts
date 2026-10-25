@@ -128,6 +128,7 @@ const UI_ZOOM_KEY = "kinonyx.uiZoom";
 const VOLUME_KEY = "kinonyx.sfxVolume";
 const MUSIC_ENABLED_KEY = "kinonyx.musicEnabled";
 const CLICK_SPARK_KEY = "kinonyx.clickSpark";
+const BACKDROP_TRAILER_KEY = "kinonyx.backdropTrailer";
 const MUSIC_VOLUME_KEY = "kinonyx.musicVolume";
 const SOUND_PINNED_KEY = "kinonyx.soundPinned";
 const EPG_REFRESH_KEY = "kinonyx.epgRefreshInterval";
@@ -295,6 +296,8 @@ interface AppState {
   /** Small spark lines radiating from the cursor on a real mouse click (never remote/
    *  keyboard/gamepad — those call a Focusable's `onPress` directly, no click event). */
   clickSparkEnabled: boolean;
+  /** The film page's backdrop plays the film's trailer (muted) after the first frame. */
+  backdropTrailer: boolean;
   /** Whole-program zoom (1 = as designed); for big TVs. Applied by data/uiZoom.ts. */
   uiZoom: number;
   backgroundKind: BgKind;
@@ -345,6 +348,7 @@ interface AppState {
   toggleFullscreen: () => Promise<void>;
   setShowStreamStats: (on: boolean) => void;
   setClickSparkEnabled: (on: boolean) => void;
+  setBackdropTrailer: (on: boolean) => void;
   setUiZoom: (zoom: number) => void;
   setBackgroundKind: (kind: BgKind) => void;
   setSoundChoice: (category: SoundCategory, id: string | null) => void;
@@ -369,6 +373,7 @@ export const useApp = create<AppState>((set, get) => ({
   fullscreen: false,
   showStreamStats: readBool(STATS_KEY),
   clickSparkEnabled: readBool(CLICK_SPARK_KEY, true),
+  backdropTrailer: readBool(BACKDROP_TRAILER_KEY, true),
   uiZoom: readUiZoom(),
   backgroundKind: initialBgKind,
   soundChoice: readSoundChoice(),
@@ -483,6 +488,15 @@ export const useApp = create<AppState>((set, get) => ({
       set({ fullscreen: next });
     } catch (e) {
       console.warn("[fullscreen]", e instanceof Error ? e.message : e);
+    }
+  },
+
+  setBackdropTrailer(on) {
+    set({ backdropTrailer: on });
+    try {
+      localStorage.setItem(BACKDROP_TRAILER_KEY, on ? "1" : "0");
+    } catch {
+      /* localStorage unavailable — the choice just won't survive a restart */
     }
   },
 

@@ -143,6 +143,8 @@ export function SettingsScreen() {
   const uiZoom = useApp((s) => s.uiZoom);
   const setUiZoom = useApp((s) => s.setUiZoom);
   const setClickSparkEnabled = useApp((s) => s.setClickSparkEnabled);
+  const backdropTrailer = useApp((s) => s.backdropTrailer);
+  const setBackdropTrailer = useApp((s) => s.setBackdropTrailer);
   const backgroundKind = useApp((s) => s.backgroundKind);
   const setBackgroundKind = useApp((s) => s.setBackgroundKind);
   const sfxVolume = useApp((s) => s.sfxVolume);
@@ -665,6 +667,21 @@ export function SettingsScreen() {
                   )}
                 </span>
                 Искры при клике мышью
+              </Focusable>
+              <Focusable
+                as="button"
+                className={`checkbox ${backdropTrailer ? "is-on" : ""}`}
+                focusKey="settings:backdropTrailer"
+                onPress={() => setBackdropTrailer(!backdropTrailer)}
+              >
+                <span className="checkbox__box">
+                  {backdropTrailer && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </span>
+                Трейлер на фоне страницы фильма
               </Focusable>
               <div className="settings__hint">Масштаб увеличивает весь интерфейс — для телевизора и просмотра издалека.</div>
             </section>
