@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BackIcon, GearIcon, MiniPlayerIcon, MuteIcon, onBack, PauseIcon, PlayIcon, VolumeIcon } from "@kinonyx/ui";
+import { BackIcon, EpisodesIcon, GearIcon, MiniPlayerIcon, MuteIcon, onBack, PauseIcon, PlayIcon, VolumeIcon } from "@kinonyx/ui";
 import { loadBackdropTrailer, type BackdropTrailer } from "../data/backdropTrailer";
 import { holdMusic } from "../data/music";
 import { useApp } from "../store/app";
@@ -33,7 +33,7 @@ const clock = (s: number) => {
 };
 
 /** Where the remote's focus is in the grown trailer's bar. */
-type Item = "back" | "play" | "vol" | "seek" | "quality" | "pip";
+type Item = "back" | "list" | "play" | "vol" | "seek" | "quality" | "pip";
 interface Ui {
   /** The bar has the focus (arrows move along it); otherwise arrows seek. */
   bar: boolean;
@@ -65,6 +65,7 @@ export function MovieBackdrop({
   chosen,
   onLive,
   onCollapse,
+  onList,
 }: {
   id: number;
   film: FilmNames;
@@ -76,6 +77,8 @@ export function MovieBackdrop({
   /** The trailer is on screen as the backdrop (so "Трейлер" can grow it instead of listing trailers). */
   onLive: (live: boolean) => void;
   onCollapse: () => void;
+  /** Opens the list of the film's trailers (the page's window) to pick another one. */
+  onList: () => void;
 }) {
   const enabled = useApp((s) => s.backdropTrailer);
   const hasNames = Boolean(film.nameRu || film.nameOriginal);
@@ -373,6 +376,8 @@ export function MovieBackdrop({
 
   const togglePipRef = useRef(togglePip);
   togglePipRef.current = togglePip;
+  const onListRef = useRef(onList);
+  onListRef.current = onList;
   useEffect(() => {
     if (!expanded) return;
     const v = videoRef.current;
@@ -392,6 +397,8 @@ export function MovieBackdrop({
     const key = (e: KeyboardEvent) => {
       // The page under the trailer must not move: the keys are the trailer's alone while it is grown.
       if (e.key === "Escape" || e.key === "Backspace" || e.key === "BrowserBack" || e.key === "GoBack") return;
+      // A window (the list of trailers) is open over the trailer: the keys are its own.
+      if (document.querySelector(".modal-panel")) return;
       e.preventDefault();
       e.stopImmediatePropagation();
       const k = e.key;
@@ -428,10 +435,16 @@ export function MovieBackdrop({
       }
       // the bar has the focus: the arrows go from button to button
       if (u.bar) {
-        // the way back, at the top left: down returns to the bar, OK leaves the trailer
-        if (u.item === "back") {
+        // the way back (top left) and the list of trailers (top right): down returns to the bar, left/right go
+        // from one to the other, OK does what the button says
+        if (u.item === "back" || u.item === "list") {
           if (k === "ArrowDown") setUi({ item: "play" });
-          else if (ok) onCollapse();
+          else if (k === "ArrowRight" && u.item === "back") setUi({ item: "list" });
+          else if (k === "ArrowLeft" && u.item === "list") setUi({ item: "back" });
+          else if (ok) {
+            if (u.item === "back") onCollapse();
+            else onListRef.current();
+          }
           return;
         }
         const at = Math.max(0, L.items.indexOf(u.item));
@@ -583,6 +596,17 @@ export function MovieBackdrop({
             }}
           >
             <BackIcon size={24} />
+          </button>
+          <button
+            type="button"
+            className={`mtv__tclose mtv__tlist ${focused("list")}`}
+            aria-label="Трейлеры"
+            onClick={(e) => {
+              e.stopPropagation();
+              onList();
+            }}
+          >
+            <EpisodesIcon size={24} />
           </button>
           <div className="mtv__tbar" onClick={(e) => e.stopPropagation()}>
             <button type="button" className={`mtv__tbtn ${focused("play")}`} aria-label={paused ? "Играть" : "Пауза"} onClick={togglePlay}>

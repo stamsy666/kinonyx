@@ -309,6 +309,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
           chosen={chosen}
           onLive={setTrailerLive}
           onCollapse={collapseTrailer}
+          onList={openTrailers}
         />
         <div className="mtv__shade" />
 

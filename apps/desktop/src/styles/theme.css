@@ -7770,6 +7770,12 @@ body .sidebar__item.is-focused .sidebar__icon {
   transition: opacity 400ms ease, transform 160ms ease, background 160ms ease, color 160ms ease;
 }
 
+/* The list of trailers: the same button, at the other corner. */
+.mtv__tlist {
+  left: auto;
+  right: var(--page-x);
+}
+
 .mtv__tclose:hover,
 .mtv__tclose.is-focus {
   transform: scale(1.06);
