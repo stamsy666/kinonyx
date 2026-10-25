@@ -13,6 +13,7 @@ import type { Channel } from "@kinonyx/epg";
 import { kpCollection, kpSimilars, KP_COLLECTIONS, type KpCollectionItem } from "../data/api";
 import { HeroCarousel } from "../components/HeroCarousel";
 import { useHomeFeel } from "../components/useHomeFeel";
+import { fadeThrough } from "../data/transition";
 import { LazyShelf } from "../components/LazyShelf";
 import { RowScroll } from "../components/RowScroll";
 import { MovieCard } from "../components/MovieCard";
@@ -195,7 +196,8 @@ export function HomeScreen() {
       channels.find((c) => c.name === saved.name);
     if (!current) return setChannelError("Этого канала больше нет в плейлисте.");
     if (current.id !== saved.id) useChannelFavorites.getState().relink(playlistId, saved.id, current);
-    navigate({ name: "tv-player", channelId: current.id });
+    // The same soft hand-over as from the channel list: the page goes dark, the player opens under it.
+    fadeThrough(() => navigate({ name: "tv-player", channelId: current.id }));
   };
 
   return (
