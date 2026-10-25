@@ -127,7 +127,10 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   // remote opens it with OK and then holds the focus in it. Only the second takes the focus.
   const [volumeByMouse, setVolumeByMouse] = useState(false);
   const volumeLeave = useRef(0);
-  const [archive, setArchive] = useState<{ programme: Programme } | null>(programme ? { programme } : null);
+  // `offset`: seconds into the programme the archive stream starts at (it starts at its beginning when absent).
+  const [archive, setArchive] = useState<{ programme: Programme; offset?: number } | null>(programme ? { programme } : null);
+  // The latest "move by N seconds along the programme" (the media keys' handler lives longer than a render).
+  const seekByRef = useRef<(delta: number) => void>(() => {});
   const hideTimer = useRef<number>(0);
 
   // The guide often finishes loading after the player opens, and "now playing" must
@@ -213,8 +216,9 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   const baseSource: PlaySource | null = useMemo(() => {
     if (!channel) return null;
     if (archive) {
-      const durationSec = Math.max(60, (archive.programme.stop - archive.programme.start) / 1000);
-      const url = buildCatchupUrl(channel.url, channel.catchup, { start: new Date(archive.programme.start), durationSec });
+      const offset = archive.offset ?? 0;
+      const durationSec = Math.max(60, (archive.programme.stop - archive.programme.start) / 1000 - offset);
+      const url = buildCatchupUrl(channel.url, channel.catchup, { start: new Date(archive.programme.start + offset * 1000), durationSec });
       return { url, title: `${channel.name} · ${archive.programme.title}`, live: false, mpvOptions: subtitleOptions };
     }
     return { url: channel.url, title: channel.name, live: true, mpvOptions: subtitleOptions };
@@ -334,9 +338,8 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
     if (mini) return; // …and does not swallow the keys of the screen the viewer is on
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === "Backspace") return;
-      const a = adapterRef.current;
-      if (e.key === "MediaRewind") void a?.seekBy(-SEEK_STEP);
-      else if (e.key === "MediaFastForward") void a?.seekBy(SEEK_STEP);
+      if (e.key === "MediaRewind") seekByRef.current(-SEEK_STEP);
+      else if (e.key === "MediaFastForward") seekByRef.current(SEEK_STEP);
       else if (e.key === "m") setMenu((m) => (m ? null : "audio"));
       else if (e.key === "p" || e.key === "MediaPlayPause") void togglePlay();
       else if (!osd) {
@@ -386,11 +389,6 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
     if (channel) setLastArchiveFocus(channel.id, programme.start);
     bump();
     void setFocus("pl:play");
-  };
-
-  const resumeLive = () => {
-    setArchive(null);
-    bump();
   };
 
   // A failed translator (no GPU, missing model, crashed engine) falls back to the normal
@@ -474,14 +472,59 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   }
 
   const tracks = state.tracks.filter((t) => t.kind === menu);
-  const bufferProgress = Number.isFinite(state.duration) && state.duration > 0 ? state.position / state.duration : 0;
-  // Near the live edge the guide-based progress reads smoother than the DVR buffer ratio;
-  // once the viewer rewinds away from the edge, follow the buffer so the bar tracks the seek.
-  const atLiveEdge = state.live && Number.isFinite(state.duration) && state.duration - state.position < 15;
-  const progress =
-    !archive && state.live && (atLiveEdge || sessionOn) && guide.progress !== undefined ? guide.progress : bufferProgress;
   const isPlaying = state.status === "playing";
   const nowInfo = archive ? archive.programme : guide.now;
+
+  // The bar is the programme that is on (or the archive's): its start at the left, its end at the right. The place on
+  // it is the time of the picture seen — the wall clock of now, less how far behind the live edge the viewer is. With
+  // no guide for the channel it is the buffer, as it was.
+  const prog = nowInfo;
+  const progLen = prog ? Math.max(1, (prog.stop - prog.start) / 1000) : 0;
+  const wallNow = Date.now();
+  const nowSec = prog ? (wallNow - prog.start) / 1000 : 0;
+  const behind = !archive && state.live && Number.isFinite(state.duration) ? Math.max(0, state.duration - state.position) : 0;
+  const timeline = prog != null;
+  const viewSec = !prog ? 0 : archive ? (archive.offset ?? 0) + (Number.isFinite(state.position) ? state.position : 0) : nowSec - behind;
+  const progress = timeline
+    ? Math.min(1, Math.max(0, viewSec / progLen))
+    : Number.isFinite(state.duration) && state.duration > 0
+      ? state.position / state.duration
+      : 0;
+  // Where "now" is, when the viewer is not at it: behind the live edge, or in the archive of the programme on.
+  const programmeOn = prog != null && prog.start <= wallNow && wallNow < prog.stop;
+  const liveMark = timeline && programmeOn && (archive ? true : behind > 8) ? Math.min(1, Math.max(0, nowSec / progLen)) : undefined;
+  const behindLive = archive != null || behind > 10;
+
+  const goLive = () => {
+    if (archive) setArchive(null);
+    else if (Number.isFinite(state.duration)) void adapterRef.current?.seek(state.duration);
+    bump();
+  };
+  // A place on the programme's bar, in seconds from its start: the live edge if it is there, else the buffer if the
+  // moment is still in it, else the channel's archive from that moment (the way back never stops at the buffer).
+  const seekTimeline = (targetSec: number) => {
+    const a = adapterRef.current;
+    if (!a || !prog) return;
+    const t = Math.min(progLen, Math.max(0, targetSec));
+    if (programmeOn && t >= nowSec - 12) {
+      goLive();
+      return;
+    }
+    if (archive) {
+      const inStream = t - (archive.offset ?? 0);
+      if (inStream >= 0) void a.seek(inStream);
+      else setArchive({ programme: archive.programme, offset: t });
+      return;
+    }
+    const inBuffer = state.duration - (nowSec - t);
+    if (Number.isFinite(state.duration) && inBuffer >= 1) void a.seek(inBuffer);
+    else if (canArchive) setArchive({ programme: prog, offset: t });
+    else void a.seek(0);
+  };
+  const seekAlong = (delta: number) => (timeline ? seekTimeline(viewSec + delta) : void adapterRef.current?.seekBy(delta));
+  seekByRef.current = seekAlong;
+  // What the picture seen is, as a time of day — shown when it is not "now".
+  const viewClock = prog ? timeOf(prog.start + viewSec * 1000) : "";
 
   if (mini) {
     return <MiniPlayerChrome title={channel.name} playing={isPlaying} onToggle={() => void togglePlay()} onExpand={expandPlayer} onClose={closePlayer} />;
@@ -522,8 +565,8 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
             <h2 className="player__channel">{channel.name}</h2>
           </div>
           <div className="player__status">
-            {archive ? (
-              <Focusable as="button" className="btn btn--ghost archive-badge" focusKey="pl:live" onPress={resumeLive} scroll={false}>
+            {behindLive ? (
+              <Focusable as="button" className="btn btn--ghost archive-badge" focusKey="pl:live" onPress={goLive} scroll={false}>
                 В эфир
               </Focusable>
             ) : state.live ? (
@@ -543,6 +586,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
                 <b>{nowInfo.title}</b>
                 <span className="player__now-meta">
                   {timeRange(nowInfo)}
+                  {behindLive && programmeOn && <> · смотрите {viewClock}</>}
                   {!archive && guide.next && <> · далее: {guide.next.title}</>}
                 </span>
               </>
@@ -553,11 +597,12 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
           <SeekBar
             focusKey="pl:seek"
             progress={progress}
-            duration={state.duration}
+            duration={timeline ? progLen : state.duration}
             seekStep={SEEK_STEP}
             onActivity={bump}
-            onSeekBy={(delta) => void adapterRef.current?.seekBy(delta)}
-            onSeekTo={(pos) => void adapterRef.current?.seek(pos)}
+            onSeekBy={seekAlong}
+            onSeekTo={(pos) => (timeline ? seekTimeline(pos) : void adapterRef.current?.seek(pos))}
+            marker={liveMark}
           />
           <div className="player__controls">
             <div className="player__controls-side player__controls-side--left">
@@ -592,13 +637,13 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
                   <PrevChannelIcon />
                 </Focusable>
               )}
-              <Focusable as="button" className="icon-btn" focusKey="pl:rew" onPress={() => void adapterRef.current?.seekBy(-SEEK_STEP)} scroll={false}>
+              <Focusable as="button" className="icon-btn" focusKey="pl:rew" onPress={() => seekAlong(-SEEK_STEP)} scroll={false}>
                 <RewindIcon />
               </Focusable>
               <Focusable as="button" className="icon-btn icon-btn--lg" focusKey="pl:play" autoFocus onPress={() => void togglePlay()} scroll={false}>
                 {isPlaying ? <PauseIcon /> : <PlayIcon />}
               </Focusable>
-              <Focusable as="button" className="icon-btn" focusKey="pl:fwd" onPress={() => void adapterRef.current?.seekBy(SEEK_STEP)} scroll={false}>
+              <Focusable as="button" className="icon-btn" focusKey="pl:fwd" onPress={() => seekAlong(SEEK_STEP)} scroll={false}>
                 <ForwardIcon />
               </Focusable>
               {neighbours && (

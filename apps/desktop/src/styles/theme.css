@@ -8099,6 +8099,7 @@ body .sidebar__item.is-focused .sidebar__icon {
 .player--tvos .archive-badge {
   height: 44px;
   padding: 0 22px;
+  border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.24);
   background: rgba(40, 40, 46, 0.42);
   -webkit-backdrop-filter: blur(20px);
@@ -8352,4 +8353,17 @@ body .sidebar__item.is-focused .sidebar__icon {
 .player--tvos .player__osd .player__controls .icon-btn:hover {
   background: rgba(255, 255, 255, 0.92);
   color: #111;
+}
+
+/* Where the live edge is on the programme's bar while the viewer is behind it. */
+.player--tvos .seekbar__live {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ff3b57;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
