@@ -11,13 +11,11 @@ interface SeekBarProps {
   seekStep: number;
   onActivity: () => void;
   focusKey?: string;
-  /** 0..1 — a mark on the bar (where the live edge is while the viewer is behind it). */
-  marker?: number;
 }
 
 /** The playback timeline: focusable so Left/Right scrub without moving focus
  *  off the bar, and click-to-seek with the mouse. */
-export function SeekBar({ progress, duration, onSeekTo, onSeekBy, seekStep, onActivity, focusKey, marker }: SeekBarProps) {
+export function SeekBar({ progress, duration, onSeekTo, onSeekBy, seekStep, onActivity, focusKey }: SeekBarProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const canClickSeek = Number.isFinite(duration) && duration > 0;
 
@@ -60,7 +58,6 @@ export function SeekBar({ progress, duration, onSeekTo, onSeekBy, seekStep, onAc
       <div className="seekbar__track" ref={trackRef}>
         <i style={{ width: `${Math.round(progress * 100)}%` }} />
         <span className="seekbar__thumb" style={{ left: `${Math.round(progress * 100)}%` }} />
-        {marker != null && <span className="seekbar__live" style={{ left: `${marker * 100}%` }} />}
       </div>
     </div>
   );

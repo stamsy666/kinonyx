@@ -492,9 +492,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
     : Number.isFinite(state.duration) && state.duration > 0
       ? state.position / state.duration
       : 0;
-  // Where "now" is, when the viewer is not at it: behind the live edge, or in the archive of the programme on.
   const programmeOn = prog != null && prog.start <= wallNow && wallNow < prog.stop;
-  const liveMark = timeline && programmeOn && (archive ? true : behind > 8) ? Math.min(1, Math.max(0, nowSec / progLen)) : undefined;
   const behindLive = archive != null || behind > 10;
 
   const goLive = () => {
@@ -605,7 +603,6 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
             onActivity={bump}
             onSeekBy={seekAlong}
             onSeekTo={(pos) => (timeline ? seekTimeline(pos) : void adapterRef.current?.seek(pos))}
-            marker={liveMark}
           />
           <div className="player__controls">
             <div className="player__controls-side player__controls-side--left">

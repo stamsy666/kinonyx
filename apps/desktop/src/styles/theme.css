@@ -8356,19 +8356,6 @@ body .sidebar__item.is-focused .sidebar__icon {
   color: #111;
 }
 
-/* Where the live edge is on the programme's bar while the viewer is behind it. */
-.player--tvos .seekbar__live {
-  position: absolute;
-  top: 50%;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #ff3b57;
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
 /* "В эфир": a glass pill like the buttons round it, with the red dot of the LIVE badge before the words (it is what
    LIVE turns into when the viewer is behind the broadcast); white when chosen. */
 .player--tvos .player__status .archive-badge.btn {
