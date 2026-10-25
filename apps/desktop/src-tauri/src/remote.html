@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0a0708">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Пульт">
 <title>KINONYX — пульт</title>
 <style>
   /* Colours: the app's own (the theme chosen in Settings) are put in front of these by the server and refreshed by the page. */
@@ -27,6 +31,9 @@
   svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
   svg .fill { fill: currentColor; stroke: none; }
 
+  /* No answer from the app (the PC is off, KINONYX is closed, another network): said in words, not only by the dot. */
+  .offline { display: none; align-items: center; justify-content: center; text-align: center; min-height: 40px; padding: 8px 16px; border-radius: 20px; background: rgba(255,59,74,.16); color: #ffb3ba; font-size: 14px; font-weight: 600; }
+  .offline.on { display: flex; animation: rise .3s cubic-bezier(.2,.8,.2,1) both; }
   header { position: relative; display: flex; align-items: center; justify-content: center; min-height: 40px; }
   .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .22em; font-size: 16px; }
   .brand img { width: 28px; height: 28px; object-fit: contain; filter: var(--logo-filter); }
@@ -164,6 +171,8 @@
     <i class="dot" id="dot" aria-label="связь"></i>
   </header>
 
+  <div class="offline" id="offline">Нет связи с KINONYX. Запустите программу на компьютере и проверьте, что телефон в той же сети Wi-Fi.</div>
+
   <main>
     <div class="side" id="side">
       <div class="media">
@@ -207,7 +216,20 @@
 <script>
   const t = new URLSearchParams(location.search).get("t") || "";
   const dot = document.getElementById("dot");
-  const mark = ok => dot.classList.toggle("off", !ok);
+  const offlineNote = document.getElementById("offline");
+  let failures = 0;
+  // The note shows only after a few answers in a row are missing — one lost packet is not "no connection".
+  const mark = ok => {
+    dot.classList.toggle("off", !ok);
+    failures = ok ? 0 : failures + 1;
+    offlineNote.classList.toggle("on", failures >= 2);
+  };
+  // The page can be kept on the home screen: the icon opens it at this same address.
+  (() => {
+    const add = (rel, href) => { const l = document.createElement("link"); l.rel = rel; l.href = href; document.head.appendChild(l); };
+    add("manifest", "/manifest.json?t=" + encodeURIComponent(t));
+    add("apple-touch-icon", "/logo.png?t=" + encodeURIComponent(t));
+  })();
   document.getElementById("logo").src = "/logo.png?t=" + encodeURIComponent(t);
   const send = (path, extra) => fetch(path + "?t=" + encodeURIComponent(t) + (extra || ""), { cache: "no-store" })
     .then(r => { mark(r.ok); return r.ok; }).catch(() => { mark(false); return false; });

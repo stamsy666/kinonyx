@@ -109,7 +109,15 @@ fn qr_svg(text: &str) -> String {
 }
 
 fn info(port: u16, token: &str) -> RemoteInfo {
-    let urls: Vec<String> = lan_addresses().into_iter().map(|ip| format!("http://{ip}:{port}/?t={token}")).collect();
+    let mut urls: Vec<String> = lan_addresses().into_iter().map(|ip| format!("http://{ip}:{port}/?t={token}")).collect();
+    // The PC's own name too (`NAME.local`): it does not change when the router hands the PC a new address,
+    // so a bookmark made with it keeps working. Most phones resolve it on a home network.
+    if let Ok(name) = std::env::var("COMPUTERNAME") {
+        let name = name.trim().to_ascii_lowercase();
+        if !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+            urls.push(format!("http://{name}.local:{port}/?t={token}"));
+        }
+    }
     let qr = urls.first().map(|u| qr_svg(u)).unwrap_or_default();
     RemoteInfo { urls, qr }
 }
@@ -279,6 +287,16 @@ async fn handle(mut socket: TcpStream, emit: Emit, token: String, theme: Arc<Mut
             respond(&mut socket, "200 OK", "application/json; charset=utf-8", if json.is_empty() { b"{}" } else { json.as_bytes() }).await;
         }
         "/logo.png" => respond(&mut socket, "200 OK", "image/png", LOGO).await,
+        // What a phone needs to keep the remote on its home screen as an app of its own: opened from the
+        // icon it starts at the same address (the secret included) and has no browser bars.
+        "/manifest.json" => {
+            let start = format!("/?t={token}");
+            let icon = format!("/logo.png?t={token}");
+            let body = format!(
+                "{{\"name\":\"KINONYX — пульт\",\"short_name\":\"Пульт\",\"start_url\":\"{start}\",\"scope\":\"/\",\"display\":\"standalone\",\"orientation\":\"portrait\",\"background_color\":\"#0a0708\",\"theme_color\":\"#0a0708\",\"icons\":[{{\"src\":\"{icon}\",\"sizes\":\"267x260\",\"type\":\"image/png\",\"purpose\":\"any\"}}]}}"
+            );
+            respond(&mut socket, "200 OK", "application/manifest+json; charset=utf-8", body.as_bytes()).await;
+        }
         "/ping" => respond(&mut socket, "204 No Content", "text/plain", b"").await,
         "/k" => {
             match query_of(query, "k") {
@@ -362,6 +380,9 @@ mod tests {
         let (status, _) = get(port, "/logo.png?t=secret12").await;
         assert!(status.contains("200"));
         assert!(get(port, "/logo.png").await.0.contains("403"));
+        let (status, manifest) = get(port, "/manifest.json?t=secret12").await;
+        assert!(status.contains("200") && manifest.contains("\"start_url\":\"/?t=secret12\"") && manifest.contains("standalone"), "{status} {manifest}");
+        assert!(get(port, "/manifest.json").await.0.contains("403"), "the manifest carries the secret, so it needs it too");
         let _ = stop.send(true);
 
         let got = got.lock().unwrap().clone();

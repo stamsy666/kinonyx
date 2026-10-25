@@ -951,6 +951,11 @@ function RemotePane() {
           <Focusable as="button" className="btn settings__site-btn" focusKey="settings:remote:renew" onPress={() => void renew()}>
             Сменить код
           </Focusable>
+          <div className="settings__hint">
+            Код сохраняется: один раз отсканировали — и в следующие разы пульт откроется сам, когда KINONYX запущен. Откройте адрес в браузере телефона и
+            добавьте его на главный экран («Поделиться» → «На экран Домой» в Safari, меню ⋮ → «Добавить на главный экран» в Chrome) — получится значок.
+            Адрес с «.local» не меняется, даже если роутер выдал компьютеру новый номер.
+          </div>
           <div className="settings__hint">После смены кода прежние телефоны перестанут работать — отсканируйте новый.</div>
         </section>
       )}
