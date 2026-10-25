@@ -7997,7 +7997,16 @@ body .sidebar__item.is-focused .sidebar__icon {
 }
 
 .mtv__ttime {
-  min-width: calc(110 * var(--u));
-  text-align: right;
+  flex: none;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+
+/* The round buttons are 46u wide round a 24u icon, so 11u of nothing lies between a neighbour and the icon you see:
+   pulled in by that much, the gaps to the bar, the time and the icons all read the same (the time is no longer
+   pushed to the right by a wider box either). */
+.mtv__tvol + .mtv__tslider--seek,
+.mtv__ttime + .mtv__tq,
+.mtv__ttime + .mtv__tbtn {
+  margin-left: calc(-11 * var(--u));
 }
