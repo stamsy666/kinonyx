@@ -8733,3 +8733,17 @@ body .sidebar__item.is-focused .sidebar__icon {
 .mtv__tcontrols.is-shown::before {
   opacity: 1;
 }
+
+/* "В эфир" bare too, like the buttons round it: white words with the red dot, no glass; chosen, it is a white pill. */
+.player--tvos .player__status .archive-badge.btn {
+  border-color: transparent;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+}
+
+.player--tvos .player__status .archive-badge.btn.is-focused,
+.player--tvos .player__status .archive-badge.btn:hover {
+  text-shadow: none;
+}
