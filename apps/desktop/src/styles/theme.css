@@ -7684,26 +7684,30 @@ body .sidebar__item.is-focused .sidebar__icon {
   opacity: 1;
 }
 
+/* The way back: the page's own round glass button, where its menu button stands. */
 .mtv__tclose {
   position: absolute;
-  top: calc(28 * var(--u));
-  right: var(--page-x);
-  height: calc(48 * var(--u));
-  padding: 0 calc(26 * var(--u));
-  border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.22);
-  -webkit-backdrop-filter: blur(calc(24 * var(--u)));
-  backdrop-filter: blur(calc(24 * var(--u)));
+  top: calc(26 * var(--u));
+  left: var(--page-x);
+  display: grid;
+  place-items: center;
+  width: calc(46 * var(--u));
+  height: calc(46 * var(--u));
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 50%;
+  background: rgba(40, 40, 46, 0.42);
+  -webkit-backdrop-filter: blur(calc(20 * var(--u)));
+  backdrop-filter: blur(calc(20 * var(--u)));
   color: #fff;
-  font: inherit;
-  font-size: calc(17 * var(--u));
-  font-weight: 700;
   cursor: pointer;
+  transition: opacity 400ms ease, transform 160ms ease, background 160ms ease, color 160ms ease;
 }
 
 .mtv__tclose:hover {
-  background: rgba(255, 255, 255, 0.34);
+  transform: scale(1.06);
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
 }
 
 .mtv__tbar {

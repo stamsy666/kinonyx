@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { MuteIcon, onBack, PauseIcon, PlayIcon, VolumeIcon } from "@kinonyx/ui";
+import { BackIcon, MuteIcon, onBack, PauseIcon, PlayIcon, VolumeIcon } from "@kinonyx/ui";
 import { loadBackdropTrailer, type BackdropTrailer } from "../data/backdropTrailer";
 import { holdMusic } from "../data/music";
 import { useApp } from "../store/app";
@@ -369,12 +369,13 @@ export function MovieBackdrop({
           <button
             type="button"
             className="mtv__tclose"
+            aria-label="Назад"
             onClick={(e) => {
               e.stopPropagation();
               onCollapse();
             }}
           >
-            Назад
+            <BackIcon size={24} />
           </button>
           <div className="mtv__tbar" onClick={(e) => e.stopPropagation()}>
             <button type="button" className="mtv__tbtn" aria-label={paused ? "Играть" : "Пауза"} onClick={togglePlay}>
