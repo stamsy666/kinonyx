@@ -35,7 +35,7 @@ import { ProgressiveImg } from "../components/ProgressiveImg";
 import { holdMusic } from "../data/music";
 import { fadeThrough } from "../data/transition";
 import { MovieBackdrop } from "../components/MovieBackdrop";
-import { isYoutubeUrl } from "../data/backdropTrailer";
+import { isYoutubeUrl, makeTrailer, type BackdropTrailer } from "../data/backdropTrailer";
 import { HomeChrome } from "../components/HomeChrome";
 import { useHomeFeel } from "../components/useHomeFeel";
 
@@ -116,6 +116,8 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
   // `settling` keeps the fade of the page's text on for a moment after either change.
   const [trailerLive, setTrailerLive] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  // A trailer picked from the list: the page's own player plays it (grown), in place of the backdrop's.
+  const [chosen, setChosen] = useState<BackdropTrailer | null>(null);
   const [settling, setSettling] = useState(false);
   // `settling` is raised in the same breath as `expanded`: the transitions only run if their class is already on
   // when the page changes (set a frame later, the text would just vanish).
@@ -304,6 +306,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
           slides={slides}
           fallback={<ProgressiveImg className="mtv__backdrop mtv__backdrop--poster" src={img(film.posterUrl)} placeholder={img(film.posterUrlPreview)} alt={title} />}
           expanded={expanded}
+          chosen={chosen}
           onLive={setTrailerLive}
           onCollapse={collapseTrailer}
         />
@@ -506,22 +509,12 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
             setTrailerError(null);
             setTrailerResolving(true);
             resolveTrailerUrl(viaRutube ? "" : l.url, film)
-              .then(
-                (r) =>
-                  new Promise<void>((done) => {
-                    const started = fadeThrough(() => {
-                      navigate({
-                        name: "player",
-                        title: `${title} — ${l.title}`,
-                        url: r.qualities[r.defaultIndex].url,
-                        qualities: r.qualities,
-                        qualityIndex: r.defaultIndex,
-                      });
-                      done();
-                    });
-                    if (!started) done();
-                  }),
-              )
+              .then(async (r) => {
+                const t = await makeTrailer(r);
+                if (!t) throw new Error("yt-dlp не вернул ни одной ссылки на видео");
+                setChosen(t);
+                growTrailer();
+              })
               .catch((e) => setTrailerError({ message: e instanceof Error ? e.message : String(e),
                 url: viaRutube
                   ? `https://rutube.ru/search/?query=${encodeURIComponent(`${title} ${film.year ?? ""} трейлер`)}`

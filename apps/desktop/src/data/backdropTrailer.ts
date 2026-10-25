@@ -2,9 +2,12 @@ import { kpVideos, resolveTrailerUrl, type TrailerQuality, type TrailerStoryboar
 
 /** The trailer picked for the film page's backdrop: one stream to look at, and (YouTube) a separate one to hear. */
 export interface BackdropTrailer {
-  url: string;
-  audioUrl: string | null;
-  height: number;
+  /** Every quality there is (ascending by height); a separate `audioUrl` where the sound is a stream of its own. */
+  qualities: TrailerQuality[];
+  /** Shown as the backdrop: the sharpest one that is still light. */
+  index: number;
+  /** Shown when the trailer is watched on purpose: the sharpest up to 1080p. */
+  fullIndex: number;
   /** Black bars burnt into the picture, as parts of the frame's height (a trailer of a wide film in a 16:9 frame). */
   bars: { top: number; bottom: number } | null;
 }
@@ -94,12 +97,16 @@ export function isYoutubeUrl(url: string): boolean {
 /** A backdrop does not need more than this: it is cheap to decode and sharp enough behind the text. */
 const BACKDROP_MAX_HEIGHT = 720;
 
-function pick(qualities: TrailerQuality[], bars: BackdropTrailer["bars"]): BackdropTrailer | null {
-  if (qualities.length === 0) return null;
+/** Makes the backdrop's trailer of what the resolver returned (the bars are looked for on the way). */
+export async function makeTrailer(r: Awaited<ReturnType<typeof resolveTrailerUrl>>): Promise<BackdropTrailer | null> {
+  if (r.qualities.length === 0) return null;
   // Ascending by height: the sharpest one that is still light, else the lightest there is.
-  const fit = qualities.filter((q) => q.height <= BACKDROP_MAX_HEIGHT);
-  const q = fit.length > 0 ? fit[fit.length - 1] : qualities[0];
-  return { url: q.url, audioUrl: q.audioUrl ?? null, height: q.height, bars };
+  let index = 0;
+  r.qualities.forEach((q, i) => {
+    if (q.height <= BACKDROP_MAX_HEIGHT) index = i;
+  });
+  const fullIndex = Math.min(Math.max(r.defaultIndex, 0), r.qualities.length - 1);
+  return { qualities: r.qualities, index, fullIndex, bars: await measureBars(r.storyboard) };
 }
 
 // One try per film per session, failures included: every try is a yt-dlp run against YouTube, and
@@ -127,7 +134,7 @@ export function loadBackdropTrailer(
     if (youtube) {
       try {
         const r = await resolveTrailerUrl(youtube, film);
-        const p = pick(r.qualities, await measureBars(r.storyboard));
+        const p = await makeTrailer(r);
         if (p) return p;
       } catch {
         /* blocked or gone — Rutube next */
@@ -135,7 +142,7 @@ export function loadBackdropTrailer(
     }
     try {
       const r = await resolveTrailerUrl("", film);
-      return pick(r.qualities, await measureBars(r.storyboard));
+      return await makeTrailer(r);
     } catch {
       return null;
     }

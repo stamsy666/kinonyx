@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BackIcon, MuteIcon, onBack, PauseIcon, PlayIcon, VolumeIcon } from "@kinonyx/ui";
+import { BackIcon, GearIcon, MiniPlayerIcon, MuteIcon, onBack, PauseIcon, PlayIcon, VolumeIcon } from "@kinonyx/ui";
 import { loadBackdropTrailer, type BackdropTrailer } from "../data/backdropTrailer";
 import { holdMusic } from "../data/music";
 import { useApp } from "../store/app";
@@ -32,11 +32,29 @@ const clock = (s: number) => {
   return `${m}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 };
 
+/** Where the remote's focus is in the grown trailer's bar. */
+type Item = "play" | "vol" | "seek" | "quality" | "pip";
+interface Ui {
+  /** The bar has the focus (arrows move along it); otherwise arrows seek. */
+  bar: boolean;
+  item: Item;
+  /** A small list/level is open over the focused button. */
+  popup: "vol" | "quality" | null;
+  /** The row of the quality list under the cursor (0 = the sharpest). */
+  cursor: number;
+  /** The time bar is being scrubbed: left/right seek, OK or up/down let go. */
+  scrub: boolean;
+}
+const IDLE_UI: Ui = { bar: false, item: "play", popup: null, cursor: 0, scrub: false };
+
+const pipSupported = () => typeof document !== "undefined" && document.pictureInPictureEnabled === true;
+
 /**
- * The film page's backdrop. The first frame stands still as before; then, if the film has a trailer that was
- * found by then, it melts in over the frames and plays without sound (the screenshots wait under it, and
- * come back when it is over). `expanded` — the viewer pressed "Трейлер": the page's text goes away elsewhere,
- * here the sound comes on and a thin bar appears; Back (or the end of the trailer) gives the page back.
+ * The film page's backdrop — and the trailer player. The first frame stands still as before; then, if the film has
+ * a trailer that was found by then, it melts in over the frames and plays without sound (the screenshots wait
+ * under it, and come back when it is over). `expanded` — the trailer is grown over the page: the sound comes on and
+ * a bar appears (play, volume, a bar to take hold of, quality, picture in picture); Back (or the end) gives the page
+ * back. `chosen` — a trailer picked from the list: it plays at once, in place of the backdrop's own.
  */
 export function MovieBackdrop({
   id,
@@ -44,6 +62,7 @@ export function MovieBackdrop({
   slides,
   fallback,
   expanded,
+  chosen,
   onLive,
   onCollapse,
 }: {
@@ -53,22 +72,32 @@ export function MovieBackdrop({
   /** What is shown when the film has no screenshots. */
   fallback: ReactNode;
   expanded: boolean;
+  chosen: BackdropTrailer | null;
   /** The trailer is on screen as the backdrop (so "Трейлер" can grow it instead of listing trailers). */
   onLive: (live: boolean) => void;
   onCollapse: () => void;
 }) {
   const enabled = useApp((s) => s.backdropTrailer);
   const hasNames = Boolean(film.nameRu || film.nameOriginal);
-  const [trailer, setTrailer] = useState<BackdropTrailer | null>(null);
+  const [found, setFound] = useState<BackdropTrailer | null>(null);
+  const [broken, setBroken] = useState<BackdropTrailer | null>(null);
+  const candidate = chosen ?? found;
+  // A stream that would not play is dropped (the frames stay).
+  const current = candidate && candidate !== broken ? candidate : null;
+  const [sel, setSel] = useState(0);
   const [canPlay, setCanPlay] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const [ended, setEnded] = useState(false);
   const [holdOver, setHoldOver] = useState(false);
+  const [inPip, setInPip] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  // Where to go on and whether to play, after the quality was changed (the stream is loaded anew).
+  const resumeRef = useRef<{ t: number; playing: boolean } | null>(null);
   // The window's size, for placing a picture that has black bars burnt in so that the bars fall outside it.
   const [box, setBox] = useState({ w: 0, h: 0 });
   const [ratio, setRatio] = useState(16 / 9);
-  const audioRef = useRef<HTMLAudioElement>(null);
 
   // The first frame's moment (the same as the slideshow's own) — the trailer does not come in before it is over.
   useEffect(() => {
@@ -80,17 +109,25 @@ export function MovieBackdrop({
 
   // Looked for as soon as the page knows the film's name, so it is usually found by the time the hold is over.
   useEffect(() => {
-    setTrailer(null);
-    setCanPlay(false);
-    setEnded(false);
+    setFound(null);
     if (!enabled || !hasNames) return;
     let cancelled = false;
-    void loadBackdropTrailer(id, film).then((t) => !cancelled && setTrailer(t));
+    void loadBackdropTrailer(id, film).then((t) => !cancelled && setFound(t));
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, enabled, hasNames]);
+
+  // Another trailer on the element: from its beginning, in its own default quality.
+  useEffect(() => {
+    resumeRef.current = null;
+    setCanPlay(false);
+    setSwitching(false);
+    setEnded(false);
+    if (current) setSel(chosen ? current.fullIndex : current.index);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current]);
 
   useEffect(() => {
     const el = boxRef.current;
@@ -100,11 +137,11 @@ export function MovieBackdrop({
     const ro = new ResizeObserver(read);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [trailer]);
+  }, [current]);
 
   // Without bars the picture just covers the window; with them, the frame is made larger and moved so that the
   // part with the picture covers it and the bars are cut off by the window's edge.
-  const bars = trailer?.bars ?? null;
+  const bars = current?.bars ?? null;
   const frameStyle = (() => {
     if (!bars || box.w === 0 || box.h === 0) return undefined;
     const c = 1 - bars.top - bars.bottom; // part of the frame's height that is picture
@@ -121,31 +158,41 @@ export function MovieBackdrop({
     };
   })();
 
+  const quality = current ? current.qualities[Math.min(sel, current.qualities.length - 1)] : null;
+  const videoUrl = quality?.url ?? null;
+  const audioUrl = quality?.audioUrl ?? null;
+
   // The stream goes onto the element: HLS (Rutube) through hls.js, anything else as it is.
   useEffect(() => {
     const v = videoRef.current;
-    if (!v || !trailer) return;
+    if (!v || !videoUrl || !current) return;
     let hls: { destroy: () => void } | null = null;
     let cancelled = false;
-    const fail = () => !cancelled && setTrailer(null);
+    const fail = () => {
+      if (cancelled) return;
+      setBroken(current);
+      if (chosen) onCollapse();
+    };
     v.addEventListener("error", fail);
-    if (/\.m3u8(\?|$)/i.test(trailer.url)) {
+    const resume = resumeRef.current;
+    if (resume) v.addEventListener("loadedmetadata", () => (v.currentTime = resume.t), { once: true });
+    if (/\.m3u8(\?|$)/i.test(videoUrl)) {
       void import("hls.js")
         .then(({ default: Hls }) => {
           if (cancelled) return;
           if (Hls.isSupported()) {
             const h = new Hls({ capLevelToPlayerSize: true });
             h.on(Hls.Events.ERROR, (_e, data) => data.fatal && fail());
-            h.loadSource(trailer.url);
+            h.loadSource(videoUrl);
             h.attachMedia(v);
             hls = h;
           } else {
-            v.src = trailer.url;
+            v.src = videoUrl;
           }
         })
         .catch(fail);
     } else {
-      v.src = trailer.url;
+      v.src = videoUrl;
     }
     return () => {
       cancelled = true;
@@ -154,9 +201,24 @@ export function MovieBackdrop({
       v.removeAttribute("src");
       v.load();
     };
-  }, [trailer]);
+    // `current` too: the same address picked again must start over, not stay at the end of the last run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoUrl, current]);
 
-  const visible = enabled && holdOver && canPlay && !ended && trailer !== null;
+  // Taking another quality loads the stream anew — from the same place, and while that goes on the picture stays.
+  const selectQuality = (i: number) => {
+    const v = videoRef.current;
+    if (!current || !v || i === sel) return;
+    resumeRef.current = { t: v.currentTime, playing: !v.paused };
+    setSwitching(true);
+    setCanPlay(false);
+    setSel(i);
+  };
+
+  // A trailer picked on purpose is not held back by the hold or the setting.
+  const visible = current !== null && !ended && (chosen !== null || (enabled && holdOver)) && (canPlay || switching);
+  // In the picture-in-picture window the page's own copy is empty: the frames show again.
+  const shown = visible && !inPip;
 
   useEffect(() => {
     onLive(visible);
@@ -177,11 +239,42 @@ export function MovieBackdrop({
     if (!v) return;
     const done = () => {
       setEnded(true);
+      if (document.pictureInPictureElement === v) void document.exitPictureInPicture().catch(() => undefined);
       onCollapse();
     };
     v.addEventListener("ended", done);
     return () => v.removeEventListener("ended", done);
-  }, [onCollapse, trailer]);
+  }, [onCollapse, current]);
+
+  // ---- picture in picture: the video goes to a small window of its own and the page is free to be browsed
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const enter = () => setInPip(true);
+    const leave = () => setInPip(false);
+    v.addEventListener("enterpictureinpicture", enter);
+    v.addEventListener("leavepictureinpicture", leave);
+    return () => {
+      v.removeEventListener("enterpictureinpicture", enter);
+      v.removeEventListener("leavepictureinpicture", leave);
+    };
+  }, [current]);
+  // Grown again (the "Трейлер" button): the picture comes back from its window.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (expanded && v && document.pictureInPictureElement === v) void document.exitPictureInPicture().catch(() => undefined);
+  }, [expanded]);
+  const togglePip = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (document.pictureInPictureElement === v) {
+      void document.exitPictureInPicture().catch(() => undefined);
+      return;
+    }
+    v.requestPictureInPicture()
+      .then(() => onCollapse())
+      .catch((e) => console.warn("[pip]", e instanceof Error ? e.message : e));
+  };
 
   const [volume, setVolume] = useState(readVolume);
   const [muted, setMuted] = useState(false);
@@ -201,14 +294,15 @@ export function MovieBackdrop({
     }
   };
 
-  // ---- the sound, only while grown: it comes up over a second as the page goes dark, and dies away as it returns.
-  // `fade` (0..1) is that rise and fall; `audible` stays on until the fall is over, so nothing is cut off.
+  // ---- the sound, only while grown (or in the small window): it comes up over a second as the page goes dark, and
+  // dies away as it returns. `fade` (0..1) is that rise and fall; `audible` stays on until the fall is over.
   const fadeRef = useRef(0);
   const volumeNow = useRef(volume);
   volumeNow.current = volume;
   const [audible, setAudible] = useState(false);
+  const soundWanted = visible && (expanded || inPip);
   useEffect(() => {
-    const target = expanded && visible ? 1 : 0;
+    const target = soundWanted ? 1 : 0;
     if (target === 1) setAudible(true);
     const from = fadeRef.current;
     if (from === target) {
@@ -229,10 +323,10 @@ export function MovieBackdrop({
       }
     }, 40);
     return () => window.clearInterval(timer);
-  }, [expanded, visible]);
+  }, [soundWanted]);
 
   // YouTube keeps the sound in a stream of its own: a second element follows the picture.
-  const separateAudio = trailer?.audioUrl != null;
+  const separateAudio = audioUrl != null;
   useEffect(() => {
     const v = videoRef.current;
     const a = audioRef.current;
@@ -271,15 +365,31 @@ export function MovieBackdrop({
       v.removeEventListener("seeked", play);
       a.pause();
     };
-  }, [audible, separateAudio, volume, muted]);
+  }, [audible, audioUrl, separateAudio, volume, muted]);
 
   // The page's own music gives way to the trailer's sound.
-  useEffect(() => (expanded && visible ? holdMusic() : undefined), [expanded, visible]);
+  useEffect(() => (soundWanted ? holdMusic() : undefined), [soundWanted]);
 
   // ---- the bar and the keys while grown
   const [time, setTime] = useState({ at: 0, total: 0 });
   const [paused, setPaused] = useState(false);
   const [controls, setControls] = useState(true);
+  const [qOpen, setQOpen] = useState(false);
+  const [ui, setUiState] = useState<Ui>(IDLE_UI);
+  const uiRef = useRef<Ui>(IDLE_UI);
+  const setUi = (patch: Partial<Ui>) => {
+    uiRef.current = { ...uiRef.current, ...patch };
+    setUiState(uiRef.current);
+  };
+  // What the key handler needs from the latest render (it lives longer than one).
+  const latest = useRef({
+    items: [] as Item[],
+    rows: [] as number[],
+    sel: 0,
+    selectQuality: (_i: number) => {},
+    togglePlay: () => {},
+    togglePip: () => {},
+  });
   // The key handler lives as long as the grown trailer does, so it reads the level through a ref.
   const volumeRef = useRef(volume);
   volumeRef.current = volume;
@@ -287,9 +397,15 @@ export function MovieBackdrop({
   const touch = () => {
     setControls(true);
     window.clearTimeout(hideTimer.current);
-    hideTimer.current = window.setTimeout(() => setControls(false), CONTROLS_MS);
+    hideTimer.current = window.setTimeout(() => {
+      setControls(false);
+      setQOpen(false);
+      setUi(IDLE_UI);
+    }, CONTROLS_MS);
   };
 
+  const togglePipRef = useRef(togglePip);
+  togglePipRef.current = togglePip;
   useEffect(() => {
     if (!expanded) return;
     const v = videoRef.current;
@@ -303,25 +419,78 @@ export function MovieBackdrop({
     v.addEventListener("timeupdate", sync);
     v.addEventListener("pause", sync);
     v.addEventListener("play", sync);
+    const seekBy = (d: number) => {
+      v.currentTime = Math.max(0, Math.min(v.duration || Infinity, v.currentTime + d));
+    };
     const key = (e: KeyboardEvent) => {
       // The page under the trailer must not move: the keys are the trailer's alone while it is grown.
       if (e.key === "Escape" || e.key === "Backspace" || e.key === "BrowserBack" || e.key === "GoBack") return;
       e.preventDefault();
       e.stopImmediatePropagation();
-      if (e.repeat && (e.key === "Enter" || e.key === " ")) return;
+      const k = e.key;
+      const ok = k === "Enter" || k === " ";
+      if (e.repeat && ok) return;
       touch();
-      if (e.key === "ArrowUp") changeVolume(volumeRef.current + VOLUME_STEP);
-      else if (e.key === "ArrowDown") changeVolume(volumeRef.current - VOLUME_STEP);
-      else if (e.key === "m" || e.key === "M") setMuted((m) => !m);
-      else if (e.key === "ArrowLeft") v.currentTime = Math.max(0, v.currentTime - SEEK_S);
-      else if (e.key === "ArrowRight") v.currentTime = Math.min(v.duration || Infinity, v.currentTime + SEEK_S);
-      else if (e.key === "Enter" || e.key === " ") {
-        if (v.paused) void v.play();
-        else v.pause();
+      const L = latest.current;
+      const u = uiRef.current;
+      if (k === "m" || k === "M") return setMuted((m) => !m);
+      if (k === "p" || k === "P") return L.togglePip();
+
+      // a level or a list is open over a button: it takes the arrows
+      if (u.popup === "vol") {
+        if (k === "ArrowUp") changeVolume(volumeRef.current + VOLUME_STEP);
+        else if (k === "ArrowDown") changeVolume(volumeRef.current - VOLUME_STEP);
+        else if (k === "ArrowLeft" || k === "ArrowRight" || ok) setUi({ popup: null });
+        return;
       }
+      if (u.popup === "quality") {
+        if (k === "ArrowUp") setUi({ cursor: Math.max(0, u.cursor - 1) });
+        else if (k === "ArrowDown") setUi({ cursor: Math.min(L.rows.length - 1, u.cursor + 1) });
+        else if (ok) {
+          L.selectQuality(L.rows[u.cursor]);
+          setUi({ popup: null });
+        } else if (k === "ArrowLeft" || k === "ArrowRight") setUi({ popup: null });
+        return;
+      }
+      // the time bar is held: it is moved by the arrows
+      if (u.scrub) {
+        if (k === "ArrowLeft") seekBy(-SEEK_S);
+        else if (k === "ArrowRight") seekBy(SEEK_S);
+        else if (ok || k === "ArrowUp" || k === "ArrowDown") setUi({ scrub: false });
+        return;
+      }
+      // the bar has the focus: the arrows go from button to button
+      if (u.bar) {
+        const at = Math.max(0, L.items.indexOf(u.item));
+        if (k === "ArrowLeft") setUi({ item: L.items[Math.max(0, at - 1)] });
+        else if (k === "ArrowRight") setUi({ item: L.items[Math.min(L.items.length - 1, at + 1)] });
+        else if (k === "ArrowDown") setUi({ bar: false });
+        else if (k === "ArrowUp" && u.item === "vol") setUi({ popup: "vol" });
+        else if ((k === "ArrowUp" || ok) && u.item === "quality") setUi({ popup: "quality", cursor: Math.max(0, L.rows.indexOf(L.sel)) });
+        else if (ok) {
+          if (u.item === "play") L.togglePlay();
+          else if (u.item === "vol") setMuted((m) => !m);
+          else if (u.item === "seek") setUi({ scrub: true });
+          else if (u.item === "pip") L.togglePip();
+        }
+        return;
+      }
+      // nothing is focused: the arrows seek, OK pauses, up/down bring the bar's focus in
+      if (k === "ArrowLeft") seekBy(-SEEK_S);
+      else if (k === "ArrowRight") seekBy(SEEK_S);
+      else if (k === "ArrowUp" || k === "ArrowDown") setUi({ bar: true, item: "play" });
+      else if (ok) L.togglePlay();
     };
     window.addEventListener("keydown", key, true);
-    const unback = onBack(() => (onCollapse(), true));
+    // Back lets go of the innermost thing first: a list, the held bar, the focus; only then the trailer.
+    const unback = onBack(() => {
+      const u = uiRef.current;
+      if (u.popup) setUi({ popup: null });
+      else if (u.scrub) setUi({ scrub: false });
+      else if (u.bar) setUi({ bar: false });
+      else onCollapse();
+      return true;
+    });
     return () => {
       window.removeEventListener("keydown", key, true);
       v.removeEventListener("timeupdate", sync);
@@ -331,7 +500,12 @@ export function MovieBackdrop({
       unback();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expanded, onCollapse]);
+  }, [expanded, onCollapse, current]);
+
+  useEffect(() => {
+    if (!expanded) setUi(IDLE_UI);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded]);
 
   // The bar and the button are kept for a moment after the way back starts, so they fade rather than vanish.
   const live = expanded && visible;
@@ -379,11 +553,19 @@ export function MovieBackdrop({
     }
   };
 
+  // Sharpest first in the list.
+  const choices = current ? current.qualities.map((q, i) => ({ q, i })).reverse() : [];
+  const items: Item[] = ["play", "vol", "seek"];
+  if (current && current.qualities.length > 1) items.push("quality");
+  if (pipSupported()) items.push("pip");
+  latest.current = { items, rows: choices.map((c) => c.i), sel, selectQuality, togglePlay, togglePip };
+  const focused = (i: Item) => (ui.bar && ui.item === i ? "is-focus" : "");
+
   return (
     <>
-      {slides.length > 0 ? <MovieSlides slides={slides} paused={visible} /> : fallback}
-      {trailer && (
-        <div ref={boxRef} className={`mtv__bgvideo ${visible ? "is-on" : ""}`} aria-hidden="true">
+      {slides.length > 0 ? <MovieSlides slides={slides} paused={shown} /> : fallback}
+      {current && (
+        <div ref={boxRef} className={`mtv__bgvideo ${shown ? "is-on" : ""}`} aria-hidden="true">
           <video
             ref={videoRef}
             style={frameStyle}
@@ -394,13 +576,25 @@ export function MovieBackdrop({
               const { videoWidth: w, videoHeight: h } = e.currentTarget;
               if (w > 0 && h > 0) setRatio(w / h);
             }}
-            onCanPlay={() => setCanPlay(true)}
+            onCanPlay={() => {
+              setCanPlay(true);
+              const resume = resumeRef.current;
+              if (resume) {
+                resumeRef.current = null;
+                setSwitching(false);
+                if (resume.playing) void videoRef.current?.play().catch(() => undefined);
+              }
+            }}
           />
         </div>
       )}
-      {trailer?.audioUrl && <audio ref={audioRef} src={trailer.audioUrl} preload="auto" />}
+      {audioUrl && <audio ref={audioRef} src={audioUrl} preload="auto" />}
       {overlay !== "off" && (
         <div
+          // A dialog for the page's own key handlers (the shelves' up/down, the "Up to the menu"): they stand aside
+          // while one is open, and the arrows are the trailer's.
+          role="dialog"
+          aria-label="Трейлер"
           className={`mtv__tcontrols ${controls ? "is-shown" : ""} ${overlay === "leaving" ? "is-leaving" : ""}`}
           onMouseMove={touch}
           onClick={togglePlay}
@@ -421,13 +615,13 @@ export function MovieBackdrop({
             <BackIcon size={24} />
           </button>
           <div className="mtv__tbar" onClick={(e) => e.stopPropagation()}>
-            <button type="button" className="mtv__tbtn" aria-label={paused ? "Играть" : "Пауза"} onClick={togglePlay}>
+            <button type="button" className={`mtv__tbtn ${focused("play")}`} aria-label={paused ? "Играть" : "Пауза"} onClick={togglePlay}>
               {paused ? <PlayIcon size={26} /> : <PauseIcon size={26} />}
             </button>
-            <div className={`mtv__tvol ${volShown ? "is-shown" : ""}`}>
+            <div className={`mtv__tvol ${volShown || ui.popup === "vol" ? "is-shown" : ""}`}>
               <button
                 type="button"
-                className="mtv__tbtn"
+                className={`mtv__tbtn ${focused("vol")}`}
                 aria-label="Звук"
                 onClick={() => {
                   touch();
@@ -445,7 +639,7 @@ export function MovieBackdrop({
                 </div>
               </div>
             </div>
-            <div className="mtv__tslider mtv__tslider--seek" {...drag(seekTo)}>
+            <div className={`mtv__tslider mtv__tslider--seek ${focused("seek")} ${ui.scrub ? "is-scrub" : ""}`} {...drag(seekTo)}>
               <div className="mtv__ttrack">
                 <div className="mtv__tfill" style={{ width: `${time.total > 0 ? Math.min(100, (time.at / time.total) * 100) : 0}%` }} />
               </div>
@@ -453,6 +647,48 @@ export function MovieBackdrop({
             <span className="mtv__ttime">
               {clock(time.at)} / {clock(time.total)}
             </span>
+            {current && current.qualities.length > 1 && (
+              <div className={`mtv__tq ${qOpen || ui.popup === "quality" ? "is-open" : ""}`}>
+                <button
+                  type="button"
+                  className={`mtv__tbtn ${focused("quality")}`}
+                  aria-label="Качество"
+                  onClick={() => {
+                    touch();
+                    setQOpen((o) => !o);
+                  }}
+                >
+                  <GearIcon size={24} />
+                </button>
+                <div className="mtv__tmenu">
+                  <div className="mtv__tmenu-title">Качество</div>
+                  {choices.map(({ q, i }, row) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className={`mtv__tqrow ${i === sel ? "is-current" : ""} ${ui.popup === "quality" && ui.cursor === row ? "is-cursor" : ""}`}
+                      onClick={() => {
+                        touch();
+                        selectQuality(i);
+                        setQOpen(false);
+                      }}
+                    >
+                      <span>{q.height}p</span>
+                      {i === sel && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {pipSupported() && (
+              <button type="button" className={`mtv__tbtn ${focused("pip")}`} aria-label="Картинка в картинке" onClick={togglePip}>
+                <MiniPlayerIcon size={24} />
+              </button>
+            )}
           </div>
         </div>
       )}

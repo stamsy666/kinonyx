@@ -7814,6 +7814,26 @@ body .sidebar__item.is-focused .sidebar__icon {
   background: rgba(255, 255, 255, 0.22);
 }
 
+/* The remote's focus: the same white as the page's buttons when chosen. */
+.mtv__tbtn.is-focus {
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+  transform: scale(1.1);
+}
+
+.mtv__tslider--seek.is-focus .mtv__ttrack {
+  height: calc(10 * var(--u));
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: calc(5 * var(--u));
+}
+
+/* Held: the bar is moved by the arrows. */
+.mtv__tslider--seek.is-scrub .mtv__ttrack {
+  height: calc(14 * var(--u));
+  background: rgba(255, 255, 255, 0.4);
+  outline-offset: calc(6 * var(--u));
+}
+
 .mtv__tvol {
   position: relative;
   flex: none;
@@ -7856,6 +7876,74 @@ body .sidebar__item.is-focused .sidebar__icon {
   height: calc(30 * var(--u));
   cursor: pointer;
   touch-action: none;
+}
+
+/* Quality: a small list over the gear, opened by pointing at it or by a click. It touches the button, so the mouse
+   crosses no gap on its way up. */
+.mtv__tq {
+  position: relative;
+  flex: none;
+}
+
+.mtv__tmenu {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  min-width: calc(150 * var(--u));
+  padding: calc(10 * var(--u));
+  border-radius: calc(20 * var(--u));
+  background: rgba(20, 20, 24, 0.7);
+  -webkit-backdrop-filter: blur(calc(24 * var(--u)));
+  backdrop-filter: blur(calc(24 * var(--u)));
+  transform: translateY(calc(8 * var(--u)));
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 160ms ease, transform 160ms ease, visibility 0s linear 160ms;
+}
+
+.mtv__tq:hover .mtv__tmenu,
+.mtv__tq.is-open .mtv__tmenu {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition-delay: 0s;
+}
+
+.mtv__tmenu-title {
+  padding: calc(6 * var(--u)) calc(12 * var(--u)) calc(8 * var(--u));
+  font-size: calc(13 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.mtv__tqrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(16 * var(--u));
+  width: 100%;
+  height: calc(40 * var(--u));
+  padding: 0 calc(12 * var(--u));
+  border: 0;
+  border-radius: calc(12 * var(--u));
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: calc(16 * var(--u));
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.mtv__tqrow:hover,
+.mtv__tqrow.is-cursor {
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+}
+
+.mtv__tqrow.is-current {
+  font-weight: 800;
 }
 
 .mtv__tslider--vol {

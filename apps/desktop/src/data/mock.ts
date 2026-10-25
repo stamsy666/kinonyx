@@ -219,8 +219,11 @@ export const MOCK = {
       case "resolve_trailer_url":
         // Preview only: a short sample clip stands in for a trailer so the backdrop can be seen.
         return {
-          qualities: [{ height: 360, url: "https://www.w3schools.com/html/mov_bbb.mp4", audioUrl: null }],
-          defaultIndex: 0,
+          qualities: [
+            { height: 240, url: "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4", audioUrl: null },
+            { height: 360, url: "https://www.w3schools.com/html/mov_bbb.mp4", audioUrl: null },
+          ],
+          defaultIndex: 1,
           // `/?bars` — a sheet of frames with black bars top and bottom, to see them cropped away.
           storyboard: location.search.includes("bars") ? { url: mockBarsSheet(), cols: 5, rows: 5, width: 160, height: 90 } : null,
         } as T;
