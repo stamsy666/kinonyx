@@ -8465,3 +8465,24 @@ body .sidebar__item.is-focused .sidebar__icon {
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.62);
 }
+
+/* The channel's logo and name are centred on the window itself: with the back button at one end and the badge at the
+   other (they are not the same width), a flexible middle was shifted toward the narrower one. Three columns, the two
+   outer ones equal, put the middle exactly in the middle at any window width. */
+.player--tvos .player__top--tv {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: start;
+}
+
+.player--tvos .player__top--tv .player__info {
+  max-width: 60vw;
+}
+
+.player--tvos .player__top--tv > :first-child {
+  justify-self: start;
+}
+
+.player--tvos .player__top--tv .player__status {
+  justify-self: end;
+}
