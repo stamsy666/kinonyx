@@ -40,6 +40,7 @@ import { SeekBar } from "../../components/SeekBar";
 import { useMpvReveal } from "../../components/useMpvReveal";
 import { MiniPlayerChrome, useCloseOnOutsidePress } from "../../components/MiniPlayer";
 import { VolumeSlider } from "../../components/VolumeSlider";
+import { PlayerVolumeBar } from "../../components/PlayerVolumeBar";
 import { Modal } from "../../components/Modal";
 import { FullscreenButton } from "../../components/FullscreenButton";
 import { LiveSubtitles, useLiveTranslation } from "../../components/LiveSubtitles";
@@ -54,6 +55,8 @@ import { usePresence } from "../../components/usePresence";
 /** PortoTV's live-TV player: live guide, DVR seek, catch-up archive — ported as-is. */
 
 const SEEK_STEP = 30;
+/** What the phone remote's and the media keys' "back/forward" move by (the remote's buttons say 15 seconds). */
+const REMOTE_SEEK = 15;
 const DEFAULT_CATCHUP_DAYS = 3;
 const ARCHIVE_PAGE_SIZE = 20;
 
@@ -119,6 +122,8 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   const videoRef = useRef<HTMLVideoElement>(null);
   const adapterRef = useRef<PlayerAdapter | null>(null);
   const [state, setState] = useState<PlayerState>(INITIAL_STATE);
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const [osd, setOsd] = useState(true);
   const [menu, setMenu] = useState<TrackKind | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -131,6 +136,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   const [archive, setArchive] = useState<{ programme: Programme; offset?: number } | null>(programme ? { programme } : null);
   // The latest "move by N seconds along the programme" (the media keys' handler lives longer than a render).
   const seekByRef = useRef<(delta: number) => void>(() => {});
+  const pendingSeek = useRef<{ target: number; until: number } | null>(null);
   const hideTimer = useRef<number>(0);
 
   // The guide often finishes loading after the player opens, and "now playing" must
@@ -338,8 +344,8 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
     if (mini) return; // …and does not swallow the keys of the screen the viewer is on
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === "Backspace") return;
-      if (e.key === "MediaRewind") seekByRef.current(-SEEK_STEP);
-      else if (e.key === "MediaFastForward") seekByRef.current(SEEK_STEP);
+      if (e.key === "MediaRewind") seekByRef.current(-REMOTE_SEEK);
+      else if (e.key === "MediaFastForward") seekByRef.current(REMOTE_SEEK);
       else if (e.key === "m") setMenu((m) => (m ? null : "audio"));
       else if (e.key === "p" || e.key === "MediaPlayPause") void togglePlay();
       else if (!osd) {
@@ -357,10 +363,12 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [osd, bump, mini]);
 
+  // Read from the latest state, not the render the key handler was made in (see the film player).
   const togglePlay = async () => {
     const a = adapterRef.current;
     if (!a) return;
-    if (state.status === "playing") await a.pause();
+    const st = stateRef.current.status;
+    if (st === "playing" || st === "buffering") await a.pause();
     else await a.play();
   };
 
@@ -521,7 +529,19 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
     else if (canArchive) setArchive({ programme: prog, offset: t });
     else void a.seek(0);
   };
-  const seekAlong = (delta: number) => (timeline ? seekTimeline(viewSec + delta) : void adapterRef.current?.seekBy(delta));
+  // Presses of "back"/"forward" that come faster than the position is reported (a held button of the remote) add up:
+  // each is counted from where the last one was going, not from the position as it was on the screen a moment ago.
+  const seekAlong = (delta: number) => {
+    if (!timeline) {
+      void adapterRef.current?.seekBy(delta);
+      return;
+    }
+    const now = Date.now();
+    const base = pendingSeek.current && now < pendingSeek.current.until ? pendingSeek.current.target : viewSec;
+    const target = Math.min(progLen, Math.max(0, base + delta));
+    pendingSeek.current = { target, until: now + 900 };
+    seekTimeline(target);
+  };
   seekByRef.current = seekAlong;
 
   if (mini) {
@@ -558,6 +578,15 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
       )}
 
       <div className={`player__osd ${osd ? "" : "is-hidden"}`} style={{ "--osd-dim": playerDim * 2, "--osd-scale": prefs.uiScale } as React.CSSProperties}>
+        <PlayerVolumeBar
+          volume={state.volume}
+          muted={state.muted}
+          onChange={(v) => {
+            void adapterRef.current?.setVolume(v);
+            if (v > 0 && state.muted) void adapterRef.current?.setMuted(false);
+          }}
+          onActivity={bump}
+        />
         <div className="player__top player__top--tv">
           <Focusable back as="button" className="icon-btn" focusKey="pl:back" onPress={() => back()} scroll={false}>
             <BackIcon />

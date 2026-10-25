@@ -48,6 +48,7 @@ import { SeekBar } from "../components/SeekBar";
 import { useMpvReveal } from "../components/useMpvReveal";
 import { Modal } from "../components/Modal";
 import { VolumeSlider } from "../components/VolumeSlider";
+import { PlayerVolumeBar } from "../components/PlayerVolumeBar";
 import { FullscreenButton } from "../components/FullscreenButton";
 import { MiniPlayerChrome, useCloseOnOutsidePress } from "../components/MiniPlayer";
 
@@ -429,10 +430,13 @@ export function PlayerScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [osd, mini]);
 
+  // Read from the latest state, not the render the key handler was made in: the phone remote's "play" is a key
+  // press, and a handler that remembered an old status paused a playing picture "to play" it and the other way round.
   const togglePlay = async () => {
     const a = adapterRef.current;
     if (!a) return;
-    if (state.status === "playing") await a.pause();
+    const st = stateRef.current.status;
+    if (st === "playing" || st === "buffering") await a.pause();
     else await a.play();
   };
 
@@ -508,6 +512,15 @@ export function PlayerScreen({
       )}
 
       <div className={`player__osd ${osd ? "" : "is-hidden"}`} style={{ "--osd-dim": playerDim * 2, "--osd-scale": prefs.uiScale } as React.CSSProperties}>
+        <PlayerVolumeBar
+          volume={state.volume}
+          muted={state.muted}
+          onChange={(v) => {
+            void adapterRef.current?.setVolume(v);
+            if (v > 0 && state.muted) void adapterRef.current?.setMuted(false);
+          }}
+          onActivity={bump}
+        />
         <div className="player__top">
           <Focusable back as="button" className="icon-btn" focusKey="pl:back" onPress={() => back()} scroll={false}>
             <BackIcon />
