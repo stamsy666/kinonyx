@@ -131,6 +131,30 @@
   }
   .side { display: contents; }
   @media (orientation: landscape) and (max-height: 560px) { .side { display: flex; } }
+
+  /* ---- The look of the app's pages: soft rounded keys, light fill when pressed, a white OK. ---- */
+  .key { border: 0; background: rgba(255,255,255,.14); border-radius: 22px; transition: transform .1s, background .14s, color .14s; }
+  .key.down { transform: scale(.95); background: rgba(244,244,247,.95); color: #1d1d20; }
+  .key.down small { color: rgba(29,29,32,.6); }
+  .rip { background: #fff; opacity: .35; }
+  .key.down .rip { background: #1d1d20; opacity: .12; }
+  .media .main { background: rgba(244,244,247,.95); color: #111; border: 0; }
+  .media .main.down { background: #d3d3da; }
+  .media .main .rip { background: #000; opacity: .12; }
+
+  .pad { border: 0; background: rgba(255,255,255,.12); }
+  .pad::before, .pad::after { background: rgba(255,255,255,.07); }
+  .pad .arrow { color: rgba(255,255,255,.78); }
+  .pad .arrow::before { background: rgba(244,244,247,.95); }
+  .pad .arrow.down { color: #111; }
+  .pad .ok { background: rgba(244,244,247,.95); color: #111; }
+  .pad .ok.down { background: #cfcfd6; }
+  .pad .ok::after { border-color: #fff; }
+
+  .typing input { border: 0; border-radius: 999px; background: rgba(255,255,255,.14); padding: 0 22px; transition: background .14s, color .14s, box-shadow .14s; }
+  .typing input:focus { background: rgba(244,244,247,.95); color: #1d1d20; box-shadow: 0 0 0 2px rgba(255,255,255,.9); }
+  .typing .key { border-radius: 50%; }
+  .typing .go { background: rgba(244,244,247,.95); color: #111; }
 </style>
 <style id="app-theme">/*THEME*/</style>
 </head>
