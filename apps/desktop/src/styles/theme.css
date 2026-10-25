@@ -8493,12 +8493,11 @@ body .sidebar__item.is-focused .sidebar__icon {
 .player--tvos .player__logo {
   width: 184px;
   height: 184px;
-  margin: 0 auto -16px;
-}
-
-/* The initials disc is smaller than the logo's box: it needs less of the overlap to keep a hair of air under it. */
-.player--tvos .player__logo:has(.player__logo-initials) {
-  margin-bottom: -4px;
+  /* The logo sits on the bottom edge of its box, so the name under it is the same distance from it whatever its
+     proportions (a wide logo used to float in the middle of a tall box, a square one filled it: the gap differed,
+     and pulling the name up with a negative margin ran it over a square logo). */
+  place-items: end center;
+  margin: 0 auto 6px;
 }
 
 .player--tvos .player__logo img {
