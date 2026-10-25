@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { onBack } from "@kinonyx/ui";
+import { MuteIcon, onBack, PauseIcon, PlayIcon, VolumeIcon } from "@kinonyx/ui";
 import { loadBackdropTrailer, type BackdropTrailer } from "../data/backdropTrailer";
 import { holdMusic } from "../data/music";
 import { useApp } from "../store/app";
@@ -12,6 +12,17 @@ interface FilmNames {
 }
 
 const SEEK_S = 10;
+const VOLUME_STEP = 0.1;
+const VOLUME_KEY = "kinonyx.trailerVolume";
+const readVolume = () => {
+  try {
+    const v = Number.parseFloat(localStorage.getItem(VOLUME_KEY) ?? "");
+    return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1;
+  } catch {
+    return 1;
+  }
+};
+const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 /** How long the bar and the buttons stay after the last touch of the remote or the mouse. */
 const CONTROLS_MS = 3500;
 
@@ -172,6 +183,19 @@ export function MovieBackdrop({
     return () => v.removeEventListener("ended", done);
   }, [onCollapse, trailer]);
 
+  const [volume, setVolume] = useState(readVolume);
+  const [muted, setMuted] = useState(false);
+  const changeVolume = (to: number) => {
+    const v = clamp01(to);
+    setVolume(v);
+    setMuted(false);
+    try {
+      localStorage.setItem(VOLUME_KEY, String(v));
+    } catch {
+      /* the level just will not be remembered */
+    }
+  };
+
   // ---- the sound, only while grown. YouTube keeps it in a stream of its own: a second element follows the picture.
   const separateAudio = trailer?.audioUrl != null;
   useEffect(() => {
@@ -179,7 +203,12 @@ export function MovieBackdrop({
     const a = audioRef.current;
     if (!v) return;
     const sound = expanded && visible;
-    v.muted = !sound || separateAudio;
+    v.muted = !sound || separateAudio || muted;
+    v.volume = volume;
+    if (a) {
+      a.volume = volume;
+      a.muted = muted;
+    }
     if (!a) return;
     if (!sound) {
       a.pause();
@@ -207,7 +236,7 @@ export function MovieBackdrop({
       v.removeEventListener("seeked", play);
       a.pause();
     };
-  }, [expanded, visible, separateAudio]);
+  }, [expanded, visible, separateAudio, volume, muted]);
 
   // The page's own music gives way to the trailer's sound.
   useEffect(() => (expanded && visible ? holdMusic() : undefined), [expanded, visible]);
@@ -216,6 +245,9 @@ export function MovieBackdrop({
   const [time, setTime] = useState({ at: 0, total: 0 });
   const [paused, setPaused] = useState(false);
   const [controls, setControls] = useState(true);
+  // The key handler lives as long as the grown trailer does, so it reads the level through a ref.
+  const volumeRef = useRef(volume);
+  volumeRef.current = volume;
   const hideTimer = useRef(0);
   const touch = () => {
     setControls(true);
@@ -243,7 +275,10 @@ export function MovieBackdrop({
       e.stopImmediatePropagation();
       if (e.repeat && (e.key === "Enter" || e.key === " ")) return;
       touch();
-      if (e.key === "ArrowLeft") v.currentTime = Math.max(0, v.currentTime - SEEK_S);
+      if (e.key === "ArrowUp") changeVolume(volumeRef.current + VOLUME_STEP);
+      else if (e.key === "ArrowDown") changeVolume(volumeRef.current - VOLUME_STEP);
+      else if (e.key === "m" || e.key === "M") setMuted((m) => !m);
+      else if (e.key === "ArrowLeft") v.currentTime = Math.max(0, v.currentTime - SEEK_S);
       else if (e.key === "ArrowRight") v.currentTime = Math.min(v.duration || Infinity, v.currentTime + SEEK_S);
       else if (e.key === "Enter" || e.key === " ") {
         if (v.paused) void v.play();
@@ -271,6 +306,31 @@ export function MovieBackdrop({
     else v.pause();
   };
 
+  // A bar the mouse can take hold of: press and drag set the place along it.
+  const along = (e: React.PointerEvent<HTMLElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return clamp01((e.clientX - r.left) / r.width);
+  };
+  const drag = (apply: (fraction: number) => void) => ({
+    onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
+      e.stopPropagation();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      touch();
+      apply(along(e));
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLElement>) => {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) apply(along(e));
+    },
+    onClick: (e: React.MouseEvent) => e.stopPropagation(),
+  });
+  const seekTo = (fraction: number) => {
+    const v = videoRef.current;
+    if (v && Number.isFinite(v.duration)) {
+      v.currentTime = fraction * v.duration;
+      setTime({ at: v.currentTime, total: v.duration });
+    }
+  };
+
   return (
     <>
       {slides.length > 0 ? <MovieSlides slides={slides} paused={visible} /> : fallback}
@@ -292,7 +352,15 @@ export function MovieBackdrop({
       )}
       {trailer?.audioUrl && <audio ref={audioRef} src={trailer.audioUrl} preload="auto" />}
       {expanded && visible && (
-        <div className={`mtv__tcontrols ${controls ? "is-shown" : ""}`} onMouseMove={touch} onClick={togglePlay}>
+        <div
+          className={`mtv__tcontrols ${controls ? "is-shown" : ""}`}
+          onMouseMove={touch}
+          onClick={togglePlay}
+          onWheel={(e) => {
+            touch();
+            changeVolume(volume + (e.deltaY < 0 ? VOLUME_STEP : -VOLUME_STEP));
+          }}
+        >
           <button
             type="button"
             className="mtv__tclose"
@@ -303,10 +371,32 @@ export function MovieBackdrop({
           >
             Назад
           </button>
-          <div className="mtv__tbar">
-            <span className="mtv__tstate">{paused ? "Пауза" : ""}</span>
-            <div className="mtv__ttrack">
-              <div className="mtv__tfill" style={{ width: `${time.total > 0 ? Math.min(100, (time.at / time.total) * 100) : 0}%` }} />
+          <div className="mtv__tbar" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="mtv__tbtn" aria-label={paused ? "Играть" : "Пауза"} onClick={togglePlay}>
+              {paused ? <PlayIcon size={26} /> : <PauseIcon size={26} />}
+            </button>
+            <div className="mtv__tvol">
+              <button
+                type="button"
+                className="mtv__tbtn"
+                aria-label="Звук"
+                onClick={() => {
+                  touch();
+                  setMuted((m) => !m);
+                }}
+              >
+                {muted || volume === 0 ? <MuteIcon size={24} /> : <VolumeIcon size={24} />}
+              </button>
+              <div className="mtv__tslider" {...drag(changeVolume)}>
+                <div className="mtv__ttrack mtv__ttrack--vol">
+                  <div className="mtv__tfill" style={{ width: `${(muted ? 0 : volume) * 100}%` }} />
+                </div>
+              </div>
+            </div>
+            <div className="mtv__tslider mtv__tslider--seek" {...drag(seekTo)}>
+              <div className="mtv__ttrack">
+                <div className="mtv__tfill" style={{ width: `${time.total > 0 ? Math.min(100, (time.at / time.total) * 100) : 0}%` }} />
+              </div>
             </div>
             <span className="mtv__ttime">
               {clock(time.at)} / {clock(time.total)}

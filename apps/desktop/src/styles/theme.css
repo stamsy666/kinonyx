@@ -7640,12 +7640,22 @@ body .sidebar__item.is-focused .sidebar__icon {
   transition: opacity 600ms ease;
 }
 
+/* Hidden for good, not only transparent: the buttons under a grown trailer (search, full screen, "Качество"...)
+   still caught the mouse (`.home__chrome > *` takes it back from its parent), and a click went to them. */
+.home--tv.mtv.is-trailer.is-trailer-fx .mtv__info,
+.home--tv.mtv.is-trailer.is-trailer-fx .mtv__credits,
+.home--tv.mtv.is-trailer.is-trailer-fx .mtv__sheet,
+.home--tv.mtv.is-trailer.is-trailer-fx .home__chrome {
+  transition: opacity 600ms ease, visibility 0s linear 600ms;
+}
+
 .home--tv.mtv.is-trailer .mtv__info,
 .home--tv.mtv.is-trailer .mtv__credits,
 .home--tv.mtv.is-trailer .mtv__sheet,
 .home--tv.mtv.is-trailer .home__chrome {
   opacity: 0;
   pointer-events: none;
+  visibility: hidden;
 }
 
 .home--tv.mtv.is-trailer .mtv__shade {
@@ -7700,18 +7710,62 @@ body .sidebar__item.is-focused .sidebar__icon {
   position: absolute;
   left: var(--page-x);
   right: var(--page-x);
-  bottom: calc(44 * var(--u));
+  bottom: calc(40 * var(--u));
   display: flex;
   align-items: center;
-  gap: calc(18 * var(--u));
+  gap: calc(14 * var(--u));
   color: #fff;
   font-size: calc(15 * var(--u));
   font-weight: 600;
   text-shadow: 0 1px calc(8 * var(--u)) rgba(0, 0, 0, 0.7);
 }
 
-.mtv__tstate {
-  min-width: calc(56 * var(--u));
+.mtv__tcontrols:not(.is-shown) .mtv__tbar,
+.mtv__tcontrols:not(.is-shown) .mtv__tclose {
+  pointer-events: none;
+}
+
+.mtv__tbtn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: calc(46 * var(--u));
+  height: calc(46 * var(--u));
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.mtv__tbtn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.mtv__tvol {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: calc(4 * var(--u));
+}
+
+/* The bars have a tall invisible touch area around a thin line, so they are easy to hit with the mouse. */
+.mtv__tslider {
+  display: flex;
+  align-items: center;
+  height: calc(30 * var(--u));
+  cursor: pointer;
+  touch-action: none;
+}
+
+.mtv__tvol .mtv__tslider {
+  width: calc(110 * var(--u));
+}
+
+.mtv__tslider--seek {
+  flex: 1;
 }
 
 .mtv__ttrack {
@@ -7720,6 +7774,11 @@ body .sidebar__item.is-focused .sidebar__icon {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.28);
   overflow: hidden;
+  transition: height 140ms ease;
+}
+
+.mtv__tslider:hover .mtv__ttrack {
+  height: calc(10 * var(--u));
 }
 
 .mtv__tfill {
