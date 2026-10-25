@@ -8493,7 +8493,7 @@ body .sidebar__item.is-focused .sidebar__icon {
 .player--tvos .player__logo {
   width: 184px;
   height: 184px;
-  margin: 0 auto 14px;
+  margin: 0 auto 2px;
 }
 
 .player--tvos .player__logo img {
