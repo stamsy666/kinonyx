@@ -6,14 +6,7 @@ import { HomeChrome } from "../../components/HomeChrome";
 import { useHomeFeel } from "../../components/useHomeFeel";
 import { cleanGroupName } from "../../data/groupName";
 
-/** A colour of its own for each name, the same every time. */
-function hueOf(name: string): number {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
-  return h;
-}
-
-/** The categories of the opened playlist: coloured tiles like the film categories, "Все каналы" first. */
+/** The categories of the opened playlist: plain rows, the name and how many channels, "Все каналы" first. */
 export function TvCategoriesScreen() {
   const playlist = useTv((s) => s.playlist);
   const epgStatus = useTv((s) => s.epgStatus);
@@ -44,36 +37,36 @@ export function TvCategoriesScreen() {
       <HomeChrome id="tvcat" label="Категории" hideSearch />
       <div className="home__rows">
         {epgHint && <p className="ctv__note">{epgHint}</p>}
-        <div className="cats__tiles">
+        <div className="ctv__rows">
           <Focusable
-            className="cats__tile ctv__tile"
+            as="button"
+            className="ctv__row"
             focusKey="cat:all"
-            style={{ ["--tile-hue" as string]: 215 }}
             autoFocus={!rememberedCategoryExists}
             onPress={() => {
               setLastCategoryFocus("cat:all");
               navigate({ name: "tv-channels" });
             }}
           >
+            <span className="ctv__name">Все каналы</span>
             <span className="ctv__count">{total}</span>
-            <span className="cats__tile-name">Все каналы</span>
           </Focusable>
           {rows.map((r) => {
             const focusKeyStr = `cat:${r.key || UNGROUPED}`;
             return (
               <Focusable
                 key={r.key || UNGROUPED}
-                className="cats__tile ctv__tile"
+                as="button"
+                className="ctv__row"
                 focusKey={focusKeyStr}
-                style={{ ["--tile-hue" as string]: hueOf(r.name) }}
                 autoFocus={focusKeyStr === lastCategoryFocus}
                 onPress={() => {
                   setLastCategoryFocus(focusKeyStr);
                   navigate({ name: "tv-channels", group: r.key || UNGROUPED });
                 }}
               >
+                <span className="ctv__name">{cleanGroupName(r.name)}</span>
                 <span className="ctv__count">{r.count}</span>
-                <span className="cats__tile-name">{cleanGroupName(r.name)}</span>
               </Focusable>
             );
           })}
