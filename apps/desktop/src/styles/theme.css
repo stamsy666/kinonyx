@@ -8486,3 +8486,49 @@ body .sidebar__item.is-focused .sidebar__icon {
 .player--tvos .player__top--tv .player__status {
   justify-self: end;
 }
+
+/* The channel at the top: its logo larger and lifted off the picture by a soft shadow, the name in a glass capsule under
+   it (the way the "В эфир" pill and the buttons are drawn). A channel without a logo gets its initials in a glass disc. */
+.player--tvos .player__logo {
+  width: 132px;
+  height: 132px;
+  margin: 0 auto 14px;
+}
+
+.player--tvos .player__logo img {
+  filter: drop-shadow(0 8px 26px rgba(0, 0, 0, 0.6));
+}
+
+.player--tvos .player__logo-initials {
+  display: grid;
+  place-items: center;
+  width: 112px;
+  height: 112px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 50%;
+  background: rgba(40, 40, 46, 0.42);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  font-family: inherit;
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: 0;
+  color: #fff;
+}
+
+.player--tvos .player__channel {
+  display: inline-block;
+  max-width: 100%;
+  margin: 0;
+  padding: 9px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(40, 40, 46, 0.42);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-shadow: none;
+  vertical-align: top;
+}
