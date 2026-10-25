@@ -259,10 +259,18 @@ export interface TrailerQuality {
   url: string;
   audioUrl?: string | null;
 }
+/** A sheet of small frames from the video (YouTube only), for finding black bars burnt into the picture. */
+export interface TrailerStoryboard {
+  url: string;
+  cols: number;
+  rows: number;
+  width: number;
+  height: number;
+}
 /** `url` empty = the source listed no video; Rust then searches Rutube by name + year (it
  *  also does that when a YouTube link fails, so the film's names travel with every call). */
 export function resolveTrailerUrl(url: string, film?: { nameRu?: string; nameOriginal?: string; year?: string | number }) {
-  return invoke<{ qualities: TrailerQuality[]; defaultIndex: number }>("resolve_trailer_url", {
+  return invoke<{ qualities: TrailerQuality[]; defaultIndex: number; storyboard?: TrailerStoryboard | null }>("resolve_trailer_url", {
     url,
     nameRu: film?.nameRu ?? null,
     nameOriginal: film?.nameOriginal ?? null,

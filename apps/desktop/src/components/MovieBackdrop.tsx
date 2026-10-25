@@ -53,6 +53,10 @@ export function MovieBackdrop({
   const [ended, setEnded] = useState(false);
   const [holdOver, setHoldOver] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  // The window's size, for placing a picture that has black bars burnt in so that the bars fall outside it.
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  const [ratio, setRatio] = useState(16 / 9);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   // The first frame's moment (the same as the slideshow's own) — the trailer does not come in before it is over.
@@ -76,6 +80,35 @@ export function MovieBackdrop({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, enabled, hasNames]);
+
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const read = () => setBox({ w: el.clientWidth, h: el.clientHeight });
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [trailer]);
+
+  // Without bars the picture just covers the window; with them, the frame is made larger and moved so that the
+  // part with the picture covers it and the bars are cut off by the window's edge.
+  const bars = trailer?.bars ?? null;
+  const frameStyle = (() => {
+    if (!bars || box.w === 0 || box.h === 0) return undefined;
+    const c = 1 - bars.top - bars.bottom; // part of the frame's height that is picture
+    const windowRatio = box.w / box.h;
+    const pictureRatio = ratio / c;
+    const fh = pictureRatio >= windowRatio ? box.h / c : box.w / ratio;
+    const fw = fh * ratio;
+    return {
+      position: "absolute" as const,
+      width: fw,
+      height: fh,
+      left: (box.w - fw) / 2,
+      top: (box.h - c * fh) / 2 - bars.top * fh,
+    };
+  })();
 
   // The stream goes onto the element: HLS (Rutube) through hls.js, anything else as it is.
   useEffect(() => {
@@ -242,8 +275,19 @@ export function MovieBackdrop({
     <>
       {slides.length > 0 ? <MovieSlides slides={slides} paused={visible} /> : fallback}
       {trailer && (
-        <div className={`mtv__bgvideo ${visible ? "is-on" : ""}`} aria-hidden="true">
-          <video ref={videoRef} muted playsInline preload="auto" onCanPlay={() => setCanPlay(true)} />
+        <div ref={boxRef} className={`mtv__bgvideo ${visible ? "is-on" : ""}`} aria-hidden="true">
+          <video
+            ref={videoRef}
+            style={frameStyle}
+            muted
+            playsInline
+            preload="auto"
+            onLoadedMetadata={(e) => {
+              const { videoWidth: w, videoHeight: h } = e.currentTarget;
+              if (w > 0 && h > 0) setRatio(w / h);
+            }}
+            onCanPlay={() => setCanPlay(true)}
+          />
         </div>
       )}
       {trailer?.audioUrl && <audio ref={audioRef} src={trailer.audioUrl} preload="auto" />}

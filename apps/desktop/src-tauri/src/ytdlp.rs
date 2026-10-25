@@ -46,9 +46,22 @@ pub struct TrailerQuality {
     pub audio_url: Option<String>,
 }
 
+/// A sprite sheet of small frames from the video (YouTube's "storyboard"): `cols` × `rows` cells of `width` × `height`.
+/// The page reads it to find black bars burnt into the picture (trailers of wide films are matted inside a 16:9 frame).
+#[derive(serde::Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Storyboard {
+    pub url: String,
+    pub cols: u32,
+    pub rows: u32,
+    pub width: u32,
+    pub height: u32,
+}
+
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedTrailer {
+    pub storyboard: Option<Storyboard>,
     pub qualities: Vec<TrailerQuality>,
     /// Index into `qualities` to start with — the sharpest one up to `DEFAULT_MAX_HEIGHT`.
     pub default_index: usize,
@@ -113,6 +126,21 @@ fn pick_qualities(info: &serde_json::Value, allow_hls: bool) -> Vec<TrailerQuali
         }
     }
     by_height.into_values().map(|(_, _, q)| q).collect()
+}
+
+/// The sharpest storyboard, one sheet from the middle of the video (the start is logos and black, the last sheet is
+/// often half empty). Only YouTube has them.
+fn pick_storyboard(info: &serde_json::Value) -> Option<Storyboard> {
+    let formats = info["formats"].as_array()?;
+    let best = formats
+        .iter()
+        .filter(|f| f["format_note"].as_str() == Some("storyboard") || f["protocol"].as_str() == Some("mhtml"))
+        .filter(|f| f["fragments"].as_array().is_some_and(|a| !a.is_empty()))
+        .max_by_key(|f| f["width"].as_u64().unwrap_or(0))?;
+    let fragments = best["fragments"].as_array()?;
+    let url = fragments[fragments.len() / 2]["url"].as_str()?.to_string();
+    let n = |k: &str| best[k].as_u64().map(|v| v as u32).filter(|v| *v > 0);
+    Some(Storyboard { url, cols: n("columns")?, rows: n("rows")?, width: n("width")?, height: n("height")? })
 }
 
 /// Chain: the given YouTube link → Rutube search (when the film's name is known) → error,
@@ -267,7 +295,7 @@ async fn run_ytdlp(url: String, cookies_browser: String) -> Result<ResolvedTrail
     // Every quality is offered in the menu, but playback starts at the sharpest one up to
     // 1080p — a 4K/8K stream can stutter on a modest PC; the viewer opts into it.
     let default_index = qualities.iter().rposition(|q| q.height <= DEFAULT_MAX_HEIGHT).unwrap_or(0);
-    Ok(ResolvedTrailer { qualities, default_index })
+    Ok(ResolvedTrailer { storyboard: pick_storyboard(&info), qualities, default_index })
 }
 
 #[cfg(test)]
@@ -277,6 +305,22 @@ mod tests {
 
     fn video(height: u64, vcodec: &str, tbr: f64, url: &str) -> serde_json::Value {
         json!({ "protocol": "https", "url": url, "height": height, "vcodec": vcodec, "acodec": "none", "tbr": tbr })
+    }
+
+    #[test]
+    fn storyboard_is_the_sharpest_one_from_the_middle() {
+        let info = json!({ "formats": [
+            { "format_note": "storyboard", "protocol": "mhtml", "width": 48, "height": 27, "rows": 10, "columns": 10,
+              "fragments": [{ "url": "https://i.ytimg.com/small/0" }] },
+            { "format_note": "storyboard", "protocol": "mhtml", "width": 160, "height": 90, "rows": 5, "columns": 5,
+              "fragments": [{ "url": "https://i.ytimg.com/big/0" }, { "url": "https://i.ytimg.com/big/1" }, { "url": "https://i.ytimg.com/big/2" }] },
+            video(1080, "avc1", 3000.0, "https://v"),
+        ]});
+        assert_eq!(
+            pick_storyboard(&info),
+            Some(Storyboard { url: "https://i.ytimg.com/big/1".into(), cols: 5, rows: 5, width: 160, height: 90 })
+        );
+        assert_eq!(pick_storyboard(&json!({ "formats": [] })), None);
     }
 
     #[test]
