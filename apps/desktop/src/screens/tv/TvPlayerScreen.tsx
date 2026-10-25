@@ -123,6 +123,10 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   const [menu, setMenu] = useState<TrackKind | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [volumeOpen, setVolumeOpen] = useState(false);
+  // The level comes up when the mouse is on the volume button (and goes when it leaves), as in the trailer player; the
+  // remote opens it with OK and then holds the focus in it. Only the second takes the focus.
+  const [volumeByMouse, setVolumeByMouse] = useState(false);
+  const volumeLeave = useRef(0);
   const [archive, setArchive] = useState<{ programme: Programme } | null>(programme ? { programme } : null);
   const hideTimer = useRef<number>(0);
 
@@ -372,6 +376,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   const toggleVolume = () => {
     setMenu(null);
     setArchiveOpen(false);
+    setVolumeByMouse(false);
     setVolumeOpen((v) => !v);
   };
 
@@ -626,12 +631,31 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
                   <ArchiveIcon />
                 </Focusable>
               )}
-              <div className="volume-control">
+              <div
+                className="volume-control"
+                onMouseEnter={() => {
+                  window.clearTimeout(volumeLeave.current);
+                  if (osd && !volumeOpen && !menu && !archiveOpen) {
+                    setVolumeByMouse(true);
+                    setVolumeOpen(true);
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  // Held down on the level (dragging) — it stays until the press is over elsewhere.
+                  if (!volumeByMouse || e.buttons & 1) return;
+                  window.clearTimeout(volumeLeave.current);
+                  volumeLeave.current = window.setTimeout(() => {
+                    setVolumeOpen(false);
+                    void setFocus("pl:vol");
+                  }, 280);
+                }}
+              >
                 <Focusable
                   as="button"
                   className={`icon-btn ${volumeOpen ? "icon-btn--active" : ""}`}
                   focusKey="pl:vol"
-                  onPress={toggleVolume}
+                  // The level is already up under the mouse: a click on the button silences or restores the sound.
+                  onPress={() => (volumeOpen && volumeByMouse ? void adapterRef.current?.setMuted(!state.muted) : toggleVolume())}
                   scroll={false}
                 >
                   {state.muted || state.volume === 0 ? <MuteIcon /> : <VolumeIcon />}
@@ -640,7 +664,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
                   <FocusGroup focusKey="player:volume" className="volume-popup" preferredChildFocusKey="vol:slider" isFocusBoundary>
                     <VolumeSlider
                       focusKey="vol:slider"
-                      autoFocus
+                      autoFocus={!volumeByMouse}
                       volume={state.muted ? 0 : state.volume}
                       onChange={(v) => {
                         void adapterRef.current?.setVolume(v);
@@ -905,6 +929,12 @@ function ArchiveItem({
       onFocus={onFocus}
       autoFocus={autoFocus}
       scroll={true}
+      // A long list: "Закрыть" under it would be a hundred rows of Down away — Right jumps to it.
+      onArrowPress={(direction) => {
+        if (direction !== "right") return true;
+        void setFocus("arch:close");
+        return false;
+      }}
     >
       <span className="links-tv__stack">
         <span className="archive-item__time">{timeRange(programme)}</span>

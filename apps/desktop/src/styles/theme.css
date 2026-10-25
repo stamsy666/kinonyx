@@ -8176,12 +8176,31 @@ body .sidebar__item.is-focused .sidebar__icon {
     0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
-/* The volume level over its button: glass too, with a white fill. */
+/* The volume level over its button, as in the trailer player: a narrow glass capsule that touches the button (the
+   mouse crosses no gap to it), a thin white track, no figures. */
 .player--tvos .volume-popup {
+  bottom: 100%;
+  width: 54px;
+  gap: 6px;
+  padding: 16px 0 8px;
   border: 0;
+  border-radius: 27px;
   background: rgba(20, 20, 24, 0.7);
   -webkit-backdrop-filter: blur(24px);
   backdrop-filter: blur(24px);
+}
+
+.player--tvos .volume-slider__value {
+  display: none;
+}
+
+.player--tvos .volume-slider__track {
+  height: 120px;
+  transition: width 140ms ease;
+}
+
+.player--tvos .volume-slider:hover .volume-slider__track {
+  width: 10px;
 }
 
 .player--tvos .volume-slider__track {
