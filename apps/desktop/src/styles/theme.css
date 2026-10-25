@@ -8681,3 +8681,55 @@ body .sidebar__item.is-focused .sidebar__icon {
   opacity: 0 !important;
   transition: opacity 820ms ease 180ms;
 }
+
+/* The back button in every player (channels, films, the trailer) drawn like the rest of the buttons there: a bare white
+   chevron, larger, without the glass disc; chosen (or under the mouse) it turns into a white disc. The trailer's
+   button for its list of trailers is the same. */
+.player--tvos .player__osd .player__top .icon-btn,
+.mtv__tcontrols .mtv__tclose {
+  width: 64px;
+  height: 64px;
+  border-color: transparent;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  color: #fff;
+}
+
+.player--tvos .player__osd .player__top .icon-btn svg,
+.mtv__tcontrols .mtv__tclose svg {
+  width: 34px;
+  height: 34px;
+  filter: drop-shadow(0 1px 6px rgba(0, 0, 0, 0.55));
+}
+
+.player--tvos .player__osd .player__top .icon-btn.is-focused,
+.player--tvos .player__osd .player__top .icon-btn:hover,
+.mtv__tcontrols .mtv__tclose:hover,
+.mtv__tcontrols .mtv__tclose.is-focus {
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+}
+
+.player--tvos .player__osd .player__top .icon-btn.is-focused svg,
+.player--tvos .player__osd .player__top .icon-btn:hover svg,
+.mtv__tcontrols .mtv__tclose:hover svg,
+.mtv__tcontrols .mtv__tclose.is-focus svg {
+  filter: none;
+}
+
+/* Over a bright picture the bare chevron needs something dark behind it: a soft shade along the top, with the buttons. */
+.mtv__tcontrols::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 22vh;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent);
+  opacity: 0;
+  transition: opacity 400ms ease;
+  pointer-events: none;
+}
+
+.mtv__tcontrols.is-shown::before {
+  opacity: 1;
+}
