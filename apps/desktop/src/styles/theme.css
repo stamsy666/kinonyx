@@ -8296,13 +8296,16 @@ body .sidebar__item.is-focused .sidebar__icon {
   color: rgba(255, 255, 255, 0.5);
 }
 
-/* The transport buttons in the middle (channel back/forward, rewind, play, forward): bare white icons without the glass
-   disc, larger — the way the trailer player's bar draws its play button; the chosen one turns into a white disc. */
-.player--tvos .player__controls-center {
-  gap: 14px;
+/* Every button of the bottom row (the transport in the middle, the favourite / tracks / subtitles at the left, the
+   mini player / archive / volume / full screen at the right): bare white icons without the glass disc, larger — the
+   way the trailer player's bar draws its buttons; the chosen one turns into a white disc. The back button at the top
+   stays glass, as it does in the trailer player. */
+.player--tvos .player__controls-center,
+.player--tvos .player__controls-side {
+  gap: 12px;
 }
 
-.player--tvos .player__osd .player__controls-center .icon-btn {
+.player--tvos .player__osd .player__controls .icon-btn {
   width: 64px;
   height: 64px;
   border-color: transparent;
@@ -8311,23 +8314,23 @@ body .sidebar__item.is-focused .sidebar__icon {
   backdrop-filter: none;
 }
 
-.player--tvos .player__osd .player__controls-center .icon-btn svg {
+.player--tvos .player__osd .player__controls .icon-btn svg {
   width: 30px;
   height: 30px;
 }
 
-.player--tvos .player__osd .player__controls-center .icon-btn.icon-btn--lg {
+.player--tvos .player__osd .player__controls .icon-btn.icon-btn--lg {
   width: 92px;
   height: 92px;
 }
 
-.player--tvos .player__osd .player__controls-center .icon-btn.icon-btn--lg svg {
+.player--tvos .player__osd .player__controls .icon-btn.icon-btn--lg svg {
   width: 48px;
   height: 48px;
 }
 
-.player--tvos .player__osd .player__controls-center .icon-btn.is-focused,
-.player--tvos .player__osd .player__controls-center .icon-btn:hover {
+.player--tvos .player__osd .player__controls .icon-btn.is-focused,
+.player--tvos .player__osd .player__controls .icon-btn:hover {
   background: rgba(255, 255, 255, 0.92);
   color: #111;
 }
