@@ -525,8 +525,6 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   };
   const seekAlong = (delta: number) => (timeline ? seekTimeline(viewSec + delta) : void adapterRef.current?.seekBy(delta));
   seekByRef.current = seekAlong;
-  // What the picture seen is, as a time of day — shown when it is not "now".
-  const viewClock = prog ? timeOf(prog.start + viewSec * 1000) : "";
 
   if (mini) {
     return <MiniPlayerChrome title={channel.name} playing={isPlaying} onToggle={() => void togglePlay()} onExpand={expandPlayer} onClose={closePlayer} />;
@@ -592,7 +590,6 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
                 <b>{nowInfo.title}</b>
                 <span className="player__now-meta">
                   {timeRange(nowInfo)}
-                  {behindLive && programmeOn && <> · смотрите {viewClock}</>}
                   {!archive && guide.next && <> · далее: {guide.next.title}</>}
                 </span>
               </>

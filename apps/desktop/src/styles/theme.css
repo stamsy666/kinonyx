@@ -8133,15 +8133,16 @@ body .sidebar__item.is-focused .sidebar__icon {
 .player--tvos .player__now b {
   color: #fff;
   display: block;
-  font-size: 30px;
+  font-size: 42px;
+  line-height: 1.15;
   font-weight: 800;
   letter-spacing: -0.01em;
 }
 
 .player--tvos .player__now-meta {
   display: block;
-  margin-top: 4px;
-  font-size: 17px;
+  margin-top: 6px;
+  font-size: 21px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
