@@ -8295,3 +8295,39 @@ body .sidebar__item.is-focused .sidebar__icon {
   font-size: calc(15 * var(--mu));
   color: rgba(255, 255, 255, 0.5);
 }
+
+/* The transport buttons in the middle (channel back/forward, rewind, play, forward): bare white icons without the glass
+   disc, larger — the way the trailer player's bar draws its play button; the chosen one turns into a white disc. */
+.player--tvos .player__controls-center {
+  gap: 14px;
+}
+
+.player--tvos .player__osd .player__controls-center .icon-btn {
+  width: 64px;
+  height: 64px;
+  border-color: transparent;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.player--tvos .player__osd .player__controls-center .icon-btn svg {
+  width: 30px;
+  height: 30px;
+}
+
+.player--tvos .player__osd .player__controls-center .icon-btn.icon-btn--lg {
+  width: 92px;
+  height: 92px;
+}
+
+.player--tvos .player__osd .player__controls-center .icon-btn.icon-btn--lg svg {
+  width: 48px;
+  height: 48px;
+}
+
+.player--tvos .player__osd .player__controls-center .icon-btn.is-focused,
+.player--tvos .player__osd .player__controls-center .icon-btn:hover {
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+}
