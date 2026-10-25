@@ -81,6 +81,8 @@ export function MovieBackdrop({
   onList: () => void;
 }) {
   const enabled = useApp((s) => s.backdropTrailer);
+  // Settings → Плеер → «Размер кнопок»: the same scale as the other players' controls.
+  const uiScale = useApp((s) => s.playerPrefs.uiScale);
   const hasNames = Boolean(film.nameRu || film.nameOriginal);
   const [found, setFound] = useState<BackdropTrailer | null>(null);
   const [broken, setBroken] = useState<BackdropTrailer | null>(null);
@@ -578,6 +580,7 @@ export function MovieBackdrop({
           // while one is open, and the arrows are the trailer's.
           role="dialog"
           aria-label="Трейлер"
+          style={{ "--osd-scale": uiScale } as React.CSSProperties}
           className={`mtv__tcontrols ${controls ? "is-shown" : ""} ${overlay === "leaving" ? "is-leaving" : ""}`}
           onMouseMove={touch}
           onClick={togglePlay}

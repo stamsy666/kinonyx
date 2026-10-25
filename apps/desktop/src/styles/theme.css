@@ -7713,6 +7713,8 @@ body .sidebar__item.is-focused .sidebar__icon {
   position: absolute;
   inset: 0;
   z-index: 5;
+  /* The "размер кнопок" setting, as in the other players (their controls use the same `zoom`). */
+  zoom: var(--osd-scale, 1);
   cursor: none;
   /* it comes up after the page has gone dark, and goes first on the way back */
   animation: mtv-tc-in 650ms ease 520ms backwards;
@@ -8733,4 +8735,22 @@ body .sidebar__item.is-focused .sidebar__icon {
 .player--tvos .player__status .archive-badge.btn.is-focused,
 .player--tvos .player__status .archive-badge.btn:hover {
   text-shadow: none;
+}
+
+/* The scale (zoom) of the trailer's controls grows the distances to the window's edge too; they are divided back, so the
+   buttons keep the same margins as in the other players at any size. */
+.mtv__tcontrols .mtv__tclose {
+  top: calc(26 * var(--u) / var(--osd-scale, 1));
+  left: calc(var(--page-x) / var(--osd-scale, 1));
+}
+
+.mtv__tcontrols .mtv__tlist {
+  left: auto;
+  right: calc(var(--page-x) / var(--osd-scale, 1));
+}
+
+.mtv__tcontrols .mtv__tbar {
+  left: calc(var(--page-x) / var(--osd-scale, 1));
+  right: calc(var(--page-x) / var(--osd-scale, 1));
+  bottom: calc(40 * var(--u) / var(--osd-scale, 1));
 }
