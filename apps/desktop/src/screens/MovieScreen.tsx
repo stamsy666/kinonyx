@@ -119,6 +119,15 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
   // A trailer picked from the list: the page's own player plays it (grown), in place of the backdrop's.
   const [chosen, setChosen] = useState<BackdropTrailer | null>(null);
   const [settling, setSettling] = useState(false);
+  // Leaving for the player: the page's content goes dark in turn (as under a trailer), then the black hand-over.
+  const [leaving, setLeaving] = useState(false);
+  const leaveThen = (action: () => void) => {
+    if (leaving) return;
+    setLeaving(true);
+    window.setTimeout(() => {
+      if (!fadeThrough(action)) action();
+    }, 560);
+  };
   // `settling` is raised in the same breath as `expanded`: the transitions only run if their class is already on
   // when the page changes (set a frame later, the text would just vanish).
   const collapseTrailer = useCallback(() => {
@@ -294,7 +303,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
     });
 
   return (
-    <FocusGroup focusKey="movie" className={`screen-pad home home--tv home--nohero mtv ${expanded ? "is-trailer" : ""} ${settling ? "is-trailer-fx" : ""}`}>
+    <FocusGroup focusKey="movie" className={`screen-pad home home--tv home--nohero mtv ${expanded ? "is-trailer" : ""} ${settling ? "is-trailer-fx" : ""} ${leaving ? "is-leaving" : ""}`}>
       <HomeChrome id="movie" />
 
       {/* The first screen: a frame of the film across the whole window, the title and what to do with it
@@ -475,8 +484,9 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
           quality={quality}
           remembered={quality ? undefined : lastRelease}
           onClose={() => setModal(null)}
-          onReady={(source) =>
-            fadeThrough(() =>
+          onReady={(source) => {
+            setModal(null);
+            leaveThen(() =>
               navigate({
                 name: "player",
                 title: source.title,
@@ -487,8 +497,8 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
                 poster: film.posterUrlPreview ? img(film.posterUrlPreview) : undefined,
                 episodes: source.episodes,
               }),
-            )
-          }
+            );
+          }}
         />
       )}
       {modal === "trailer" && (

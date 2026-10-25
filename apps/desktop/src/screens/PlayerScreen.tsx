@@ -46,7 +46,6 @@ import { useEpisodeProgress } from "../store/episodeProgress";
 import { streamUrlFor, torrentSwarmStats, type SwarmStats, type TorrentFile, type TrailerQuality } from "../data/api";
 import { SeekBar } from "../components/SeekBar";
 import { useMpvReveal } from "../components/useMpvReveal";
-import { FocusHighlight } from "../components/FocusHighlight";
 import { Modal } from "../components/Modal";
 import { VolumeSlider } from "../components/VolumeSlider";
 import { FullscreenButton } from "../components/FullscreenButton";
@@ -125,6 +124,10 @@ export function PlayerScreen({
   const [osd, setOsd] = useState(true);
   const [menu, setMenu] = useState<TrackKind | null>(null);
   const [volumeOpen, setVolumeOpen] = useState(false);
+  // The level comes up when the mouse is on the volume button (and goes when it leaves); the remote opens it with OK
+  // and then holds the focus in it. Only the second takes the focus.
+  const [volumeByMouse, setVolumeByMouse] = useState(false);
+  const volumeLeave = useRef(0);
   const [episodesOpen, setEpisodesOpen] = useState(false);
   const [qualityOpen, setQualityOpen] = useState(false);
   const [pictureOpen, setPictureOpen] = useState(false);
@@ -444,6 +447,7 @@ export function PlayerScreen({
     setMenu(null);
     setEpisodesOpen(false);
     setQualityOpen(false);
+    setVolumeByMouse(false);
     setVolumeOpen((v) => !v);
   };
 
@@ -477,7 +481,7 @@ export function PlayerScreen({
   }
 
   return (
-    <FocusGroup focusKey="screen:player" className={`player ${isTauri ? "player--mpv" : ""} ${revealed ? "player--revealed" : ""} ${osd ? "" : "player--idle"}`} isFocusBoundary>
+    <FocusGroup focusKey="screen:player" className={`player player--tvos ${isTauri ? "player--mpv" : ""} ${revealed ? "player--revealed" : ""} ${osd ? "" : "player--idle"}`} isFocusBoundary>
       {isTauri ? <div className="player__video-hole" /> : <video ref={videoRef} playsInline autoPlay />}
 
       <LiveSubtitles cues={filmSubs.cues} position={state.position} active={filmTr} note={trHint} raised={osd} />
@@ -486,16 +490,20 @@ export function PlayerScreen({
 
       {(state.status === "loading" || state.status === "buffering") && (
         <div className="player__center">
-          <Spinner />
-          <p className="player__center-label">{state.status === "loading" ? "Подключение…" : "Буферизация…"}</p>
+          <div className="player__center-card">
+            <Spinner />
+            <p className="player__center-label">{state.status === "loading" ? "Подключение…" : "Буферизация…"}</p>
+          </div>
         </div>
       )}
 
       {state.status === "error" && (
         <div className="player__center">
-          <OfflineIcon />
-          <p className="player__center-label">Не удалось воспроизвести</p>
-          <p className="player__center-hint">{state.error ?? "Попробуйте другую раздачу."}</p>
+          <div className="player__center-card player__center-card--error">
+            <OfflineIcon className="player__center-icon" />
+            <p className="player__center-label">Не удалось воспроизвести</p>
+            <p className="player__center-hint">{state.error ?? "Попробуйте другую раздачу."}</p>
+          </div>
         </div>
       )}
 
@@ -504,14 +512,17 @@ export function PlayerScreen({
           <Focusable back as="button" className="icon-btn" focusKey="pl:back" onPress={() => back()} scroll={false}>
             <BackIcon />
           </Focusable>
-          <h2 className="player__title">{title}</h2>
-          <span style={{ width: 52 }} />
         </div>
 
         <div className="player__bottom">
-          <p className="player__now" style={{ textAlign: "right" }}>
-            {fmt(state.position)} / {fmt(state.duration)}
-          </p>
+          <div className="player__now-row">
+            <p className="player__now player__now--movie">
+              <b>{title}</b>
+            </p>
+            <span className="player__time">
+              {fmt(state.position)} / {fmt(state.duration)}
+            </span>
+          </div>
           <SeekBar
             focusKey="pl:seek"
             progress={progress}
@@ -590,12 +601,31 @@ export function PlayerScreen({
                   <MiniPlayerIcon />
                 </Focusable>
               )}
-              <div className="volume-control">
+              <div
+                className="volume-control"
+                onMouseEnter={() => {
+                  window.clearTimeout(volumeLeave.current);
+                  if (osd && !volumeOpen && !menu && !episodesOpen && !qualityOpen && !pictureOpen) {
+                    setVolumeByMouse(true);
+                    setVolumeOpen(true);
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  // Held down on the level (dragging) — it stays until the press is over elsewhere.
+                  if (!volumeByMouse || e.buttons & 1) return;
+                  window.clearTimeout(volumeLeave.current);
+                  volumeLeave.current = window.setTimeout(() => {
+                    setVolumeOpen(false);
+                    void setFocus("pl:vol");
+                  }, 280);
+                }}
+              >
                 <Focusable
                   as="button"
                   className={`icon-btn ${volumeOpen ? "icon-btn--active" : ""}`}
                   focusKey="pl:vol"
-                  onPress={toggleVolume}
+                  // The level is already up under the mouse: a click on the button silences or restores the sound.
+                  onPress={() => (volumeOpen && volumeByMouse ? void adapterRef.current?.setMuted(!state.muted) : toggleVolume())}
                   scroll={false}
                 >
                   {state.muted || state.volume === 0 ? <MuteIcon /> : <VolumeIcon />}
@@ -604,7 +634,7 @@ export function PlayerScreen({
                   <FocusGroup focusKey="player:volume" className="volume-popup" preferredChildFocusKey="vol:slider" isFocusBoundary>
                     <VolumeSlider
                       focusKey="vol:slider"
-                      autoFocus
+                      autoFocus={!volumeByMouse}
                       volume={state.muted ? 0 : state.volume}
                       onChange={(v) => {
                         void adapterRef.current?.setVolume(v);
@@ -639,66 +669,71 @@ export function PlayerScreen({
         <Modal
           focusKey="player:menu"
           preferredChildFocusKey="menu:0"
+          className="links-tv"
           onClose={() => {
             setMenu(null);
             bump();
           }}
         >
-            <div className="modal-panel__header">
-              <h3>{menu === "audio" ? "Аудиодорожка" : "Субтитры"}</h3>
-            </div>
-            <div className="modal-panel__list">
-              <FocusHighlight pad={0} radius="var(--radius-sm)" />
-              {menu === "subtitle" && (
-                <TrackItem
-                  focusKey="menu:off"
-                  label="Выключены"
-                  active={!filmTr && !tracks.some((t) => t.selected)}
-                  onPress={() => {
+          <h3 className="links-tv__title">{menu === "audio" ? "Аудиодорожка" : "Субтитры"}</h3>
+          <div className="links-tv__list links-tv__scroll">
+            {menu === "subtitle" && (
+              <TrackItem
+                focusKey="menu:off"
+                label="Выключены"
+                active={!filmTr && !tracks.some((t) => t.selected)}
+                onPress={() => {
+                  turnTranslationOff();
+                  void adapterRef.current?.selectTrack("subtitle", null);
+                }}
+                autoFocus
+              />
+            )}
+            {menu === "subtitle" && canTranslate && (
+              <TrackItem
+                focusKey="menu:translate"
+                label="Локальный перевод на русский"
+                hint={translatorReady ? undefined : "скачайте в настройках"}
+                active={filmTr}
+                onPress={() => {
+                  if (filmTr) {
                     turnTranslationOff();
+                  } else if (!translatorReady) {
+                    setTrHint("Для перевода скачайте движок и модели: Настройки → Локальный перевод.");
+                  } else {
+                    // Embedded subtitles never show on top of the translation.
                     void adapterRef.current?.selectTrack("subtitle", null);
-                  }}
-                  autoFocus
-                />
-              )}
-              {menu === "subtitle" && canTranslate && (
-                <TrackItem
-                  focusKey="menu:translate"
-                  label="Локальный перевод на русский"
-                  hint={translatorReady ? undefined : "скачайте в настройках"}
-                  active={filmTr}
-                  onPress={() => {
-                    if (filmTr) {
-                      turnTranslationOff();
-                    } else if (!translatorReady) {
-                      setTrHint("Для перевода скачайте движок и модели: Настройки → Локальный перевод.");
-                    } else {
-                      // Embedded subtitles never show on top of the translation.
-                      void adapterRef.current?.selectTrack("subtitle", null);
-                      setTrHint("Перевод запускается: первые строки появятся через полминуты.");
-                      setFilmTr(true);
-                    }
-                    setMenu(null);
-                    bump();
-                  }}
-                />
-              )}
-              {tracks.length === 0 && menu === "audio" && <div className="empty">Только одна дорожка</div>}
-              {tracks.map((t, i) => (
-                <TrackItem
-                  key={t.id}
-                  focusKey={`menu:${i}`}
-                  label={trackLabel(t, tracks, i)}
-                  active={t.selected && !(menu === "subtitle" && filmTr)}
-                  onPress={() => {
-                    // An embedded track replaces the translation — never both on screen.
-                    if (menu === "subtitle") turnTranslationOff();
-                    void adapterRef.current?.selectTrack(menu, t.id);
-                  }}
-                  autoFocus={menu === "audio" && i === 0}
-                />
-              ))}
-            </div>
+                    setTrHint("Перевод запускается: первые строки появятся через полминуты.");
+                    setFilmTr(true);
+                  }
+                  setMenu(null);
+                  bump();
+                }}
+              />
+            )}
+            {tracks.length === 0 && menu === "audio" && <p className="links-tv__text">Только одна дорожка</p>}
+            {tracks.map((t, i) => (
+              <TrackItem
+                key={t.id}
+                focusKey={`menu:${i}`}
+                label={trackLabel(t, tracks, i)}
+                active={t.selected && !(menu === "subtitle" && filmTr)}
+                onPress={() => {
+                  // An embedded track replaces the translation — never both on screen.
+                  if (menu === "subtitle") turnTranslationOff();
+                  void adapterRef.current?.selectTrack(menu, t.id);
+                }}
+                autoFocus={menu === "audio" && i === 0}
+              />
+            ))}
+          </div>
+          <CloseRow
+            focusKey="menu:close"
+            onPress={() => {
+              setMenu(null);
+              bump();
+            }}
+          />
         </Modal>
       )}
 
@@ -706,17 +741,15 @@ export function PlayerScreen({
         <Modal
           focusKey="player:picture"
           preferredChildFocusKey="pic:hdr"
+          className="links-tv"
           onClose={() => {
             setPictureOpen(false);
             bump();
           }}
         >
-          <div className="modal-panel__header">
-            <h3>Картинка</h3>
-          </div>
-          {pictureInfo && <div className="settings__hint">{pictureInfo}</div>}
-          <div className="modal-panel__list">
-            <FocusHighlight pad={0} radius="var(--radius-sm)" />
+          <h3 className="links-tv__title">Картинка</h3>
+          {pictureInfo && <p className="links-tv__text">{pictureInfo}</p>}
+          <div className="links-tv__list links-tv__scroll">
             <TrackItem
               focusKey="pic:hdr"
               label="HDR-вывод на экран"
@@ -749,7 +782,16 @@ export function PlayerScreen({
               onPress={() => changePicture({ deband: !prefs.deband })}
             />
           </div>
-          <div className="settings__hint">HDR-вывод работает, если в Windows включён HDR для этого экрана. Если картинка стала странной, выключите.</div>
+          <p className="links-tv__text links-tv__text--small">
+            HDR-вывод работает, если в Windows включён HDR для этого экрана. Если картинка стала странной, выключите.
+          </p>
+          <CloseRow
+            focusKey="pic:close"
+            onPress={() => {
+              setPictureOpen(false);
+              bump();
+            }}
+          />
         </Modal>
       )}
 
@@ -757,16 +799,14 @@ export function PlayerScreen({
         <Modal
           focusKey="player:quality"
           preferredChildFocusKey={`q:${qIdx}`}
+          className="links-tv"
           onClose={() => {
             setQualityOpen(false);
             bump();
           }}
         >
-          <div className="modal-panel__header">
-            <h3>Качество</h3>
-          </div>
-          <div className="modal-panel__list">
-            <FocusHighlight pad={0} radius="var(--radius-sm)" />
+          <h3 className="links-tv__title">Качество</h3>
+          <div className="links-tv__list links-tv__scroll">
             {[...qualities.keys()].reverse().map((i) => (
               <TrackItem
                 key={qualities[i].height}
@@ -778,6 +818,13 @@ export function PlayerScreen({
               />
             ))}
           </div>
+          <CloseRow
+            focusKey="q:close"
+            onPress={() => {
+              setQualityOpen(false);
+              bump();
+            }}
+          />
         </Modal>
       )}
 
@@ -821,16 +868,14 @@ export function PlayerScreen({
         <Modal
           focusKey="player:episodes"
           preferredChildFocusKey={`ep:${episodes.index}`}
+          className="links-tv"
           onClose={() => {
             setEpisodesOpen(false);
             bump();
           }}
         >
-          <div className="modal-panel__header">
-            <h3>Серии</h3>
-          </div>
-          <div className="modal-panel__list">
-            <FocusHighlight pad={0} radius="var(--radius-sm)" />
+          <h3 className="links-tv__title">Серии</h3>
+          <div className="links-tv__list links-tv__scroll">
             {episodes.files.map((f, i) => (
               <TrackItem
                 key={f.id}
@@ -840,9 +885,17 @@ export function PlayerScreen({
                 active={i === episodes.index}
                 onPress={() => void goToEpisode(i)}
                 autoFocus={i === episodes.index}
+                toClose="ep:close"
               />
             ))}
           </div>
+          <CloseRow
+            focusKey="ep:close"
+            onPress={() => {
+              setEpisodesOpen(false);
+              bump();
+            }}
+          />
         </Modal>
       )}
     </FocusGroup>
@@ -889,6 +942,22 @@ function StreamStats({ stats, bufferedAhead, swarm }: { stats: PlayerStats; buff
   );
 }
 
+function CheckMark() {
+  return (
+    <svg className="links-tv__check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function CloseRow({ focusKey, onPress }: { focusKey: string; onPress: () => void }) {
+  return (
+    <Focusable as="button" back focusKey={focusKey} className="links-tv__row links-tv__row--close links-tv__foot" scroll={false} onPress={onPress}>
+      <span className="links-tv__name">Закрыть</span>
+    </Focusable>
+  );
+}
+
 function TrackItem({
   focusKey,
   label,
@@ -896,6 +965,7 @@ function TrackItem({
   active,
   onPress,
   autoFocus,
+  toClose,
 }: {
   focusKey: string;
   label: string;
@@ -903,18 +973,26 @@ function TrackItem({
   active: boolean;
   onPress: () => void;
   autoFocus?: boolean;
+  /** A long list: → jumps to the close row instead of going down through every row. */
+  toClose?: string;
 }) {
   return (
     <Focusable
       as="button"
-      className={`list-option list-option--row ${active ? "is-active" : ""}`}
+      className={`links-tv__row ${active ? "is-active" : ""}`}
       focusKey={focusKey}
       onPress={onPress}
       autoFocus={autoFocus}
       scroll={false}
+      onArrowPress={(direction) => {
+        if (!toClose || direction !== "right") return true;
+        void setFocus(toClose);
+        return false;
+      }}
     >
-      <span className="list-option__label">{label}</span>
-      {hint && hint.trim().toLowerCase() !== label.trim().toLowerCase() && <span className="list-option__hint">{hint}</span>}
+      <span className="links-tv__name">{label}</span>
+      {hint && hint.trim().toLowerCase() !== label.trim().toLowerCase() && <span className="links-tv__hint">{hint}</span>}
+      {active && <CheckMark />}
     </Focusable>
   );
 }

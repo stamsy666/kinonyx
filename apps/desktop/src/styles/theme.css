@@ -8537,3 +8537,147 @@ body .sidebar__item.is-focused .sidebar__icon {
   text-shadow: none;
   vertical-align: top;
 }
+
+/* ----- The film / series player in the same look as the channel player ----- */
+/* The title at the lower left, large, with the time of the picture at the right of it. */
+.player--tvos .player__now-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 20px;
+}
+
+.player--tvos .player__now--movie {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  text-align: left;
+}
+
+.player--tvos .player__now--movie b {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.player--tvos .player__time {
+  flex: none;
+  padding-bottom: 6px;
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.6);
+}
+
+/* The controls come up softly when the player opens. */
+.player--tvos .player__osd {
+  animation: tvos-osd-in 800ms ease 120ms backwards;
+}
+
+@keyframes tvos-osd-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The windows: a long list gets a hint, and small print under it. */
+.links-tv__text--small {
+  margin: calc(14 * var(--mu)) 0 0;
+  font-size: calc(14 * var(--mu));
+  line-height: 1.4;
+  opacity: 0.6;
+}
+
+/* "Next episode in N s": a glass card over the picture, the buttons as pills (the primary one white). */
+.player--tvos .autonext {
+  bottom: 230px;
+}
+
+.player--tvos .autonext__card {
+  min-width: 400px;
+  padding: 26px 30px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 34px;
+  background: rgba(40, 40, 46, 0.6);
+  -webkit-backdrop-filter: blur(28px);
+  backdrop-filter: blur(28px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.player--tvos .autonext__title {
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.player--tvos .autonext__name {
+  margin: 6px 0 20px;
+  font-size: 17px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.player--tvos .autonext__actions .btn {
+  height: 50px;
+  padding: 0 26px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 800;
+  box-shadow: none;
+}
+
+.player--tvos .autonext__actions .btn--primary {
+  background: #fff;
+  color: #111;
+}
+
+.player--tvos .autonext__actions .btn.is-focused,
+.player--tvos .autonext__actions .btn:hover {
+  background: #fff;
+  color: #111;
+  transform: scale(1.06);
+}
+
+.player--tvos .autonext__actions .btn.is-focused::after {
+  content: none;
+}
+
+/* ----- Leaving the film page for the player: the page goes dark in turn, as it does under a trailer ----- */
+.home--tv.mtv.is-leaving .mtv__info,
+.home--tv.mtv.is-leaving .mtv__credits,
+.home--tv.mtv.is-leaving .mtv__sheet,
+.home--tv.mtv.is-leaving .home__chrome {
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 720ms cubic-bezier(0.4, 0, 0.2, 1) var(--tdelay),
+    transform 900ms cubic-bezier(0.22, 0.8, 0.3, 1) var(--tdelay),
+    filter 720ms ease var(--tdelay);
+}
+
+.home--tv.mtv.is-leaving .mtv__info,
+.home--tv.mtv.is-leaving .mtv__credits {
+  transform: translateY(calc(22 * var(--u)));
+  filter: blur(calc(8 * var(--u)));
+}
+
+.home--tv.mtv.is-leaving .home__chrome {
+  transform: translateY(calc(-14 * var(--u)));
+  filter: blur(calc(6 * var(--u)));
+}
+
+.home--tv.mtv.is-leaving .mtv__sheet {
+  transform: translateY(calc(60 * var(--u)));
+}
+
+/* The picture itself follows, a little later, into the dark. */
+.home--tv.mtv.is-leaving .mtv__hero {
+  opacity: 0 !important;
+  transition: opacity 820ms ease 180ms;
+}
