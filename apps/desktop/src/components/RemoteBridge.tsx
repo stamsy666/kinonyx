@@ -7,6 +7,8 @@ import { useRemote } from "../store/remote";
 const THEME_VARS = [
   "--bg", "--bg-2", "--surface", "--surface-hi", "--line", "--line-hi", "--text", "--text-dim",
   "--accent", "--accent-deep", "--on-accent", "--radius", "--radius-sm", "--logo-filter",
+  // The volume of the player on the screen (0..1): the remote draws it between its "+" and "−".
+  "--player-volume",
 ];
 
 /**

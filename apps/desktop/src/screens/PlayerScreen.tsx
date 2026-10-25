@@ -48,7 +48,6 @@ import { SeekBar } from "../components/SeekBar";
 import { useMpvReveal } from "../components/useMpvReveal";
 import { Modal } from "../components/Modal";
 import { VolumeSlider } from "../components/VolumeSlider";
-import { PlayerVolumeBar } from "../components/PlayerVolumeBar";
 import { FullscreenButton } from "../components/FullscreenButton";
 import { MiniPlayerChrome, useCloseOnOutsidePress } from "../components/MiniPlayer";
 
@@ -129,6 +128,7 @@ export function PlayerScreen({
   // and then holds the focus in it. Only the second takes the focus.
   const [volumeByMouse, setVolumeByMouse] = useState(false);
   const volumeLeave = useRef(0);
+  const nudgeVolumeRef = useRef<(d: number) => void>(() => {});
   const [episodesOpen, setEpisodesOpen] = useState(false);
   const [qualityOpen, setQualityOpen] = useState(false);
   const [pictureOpen, setPictureOpen] = useState(false);
@@ -411,7 +411,9 @@ export function PlayerScreen({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === "Backspace") return;
       const a = adapterRef.current;
-      if (e.key === "MediaRewind") void a?.seekBy(-SEEK_STEP);
+      if (e.key === "AudioVolumeUp") nudgeVolumeRef.current(0.1);
+      else if (e.key === "AudioVolumeDown") nudgeVolumeRef.current(-0.1);
+      else if (e.key === "MediaRewind") void a?.seekBy(-SEEK_STEP);
       else if (e.key === "MediaFastForward") void a?.seekBy(SEEK_STEP);
       else if (e.key === "m") setMenu((m) => (m ? null : "audio"));
       else if (e.key === "p" || e.key === "MediaPlayPause") void togglePlay();
@@ -432,6 +434,26 @@ export function PlayerScreen({
 
   // Read from the latest state, not the render the key handler was made in: the phone remote's "play" is a key
   // press, and a handler that remembered an old status paused a playing picture "to play" it and the other way round.
+  // The phone remote's "+" / "−": a step of the volume, with the level shown for a moment (the same capsule as over the button).
+  nudgeVolumeRef.current = (d) => {
+    const a = adapterRef.current;
+    if (!a) return;
+    const v = Math.min(1, Math.max(0, (stateRef.current.muted ? 0 : stateRef.current.volume) + d));
+    void a.setVolume(v);
+    if (v > 0 && stateRef.current.muted) void a.setMuted(false);
+    setVolumeByMouse(true);
+    setVolumeOpen(true);
+    window.clearTimeout(volumeLeave.current);
+    volumeLeave.current = window.setTimeout(() => setVolumeOpen(false), 1600);
+  };
+  // The level for the phone remote's bar.
+  useEffect(() => {
+    document.documentElement.style.setProperty("--player-volume", String(state.muted ? 0 : state.volume));
+    return () => {
+      document.documentElement.style.removeProperty("--player-volume");
+    };
+  }, [state.volume, state.muted]);
+
   const togglePlay = async () => {
     const a = adapterRef.current;
     if (!a) return;
@@ -512,15 +534,6 @@ export function PlayerScreen({
       )}
 
       <div className={`player__osd ${osd ? "" : "is-hidden"}`} style={{ "--osd-dim": playerDim * 2, "--osd-scale": prefs.uiScale } as React.CSSProperties}>
-        <PlayerVolumeBar
-          volume={state.volume}
-          muted={state.muted}
-          onChange={(v) => {
-            void adapterRef.current?.setVolume(v);
-            if (v > 0 && state.muted) void adapterRef.current?.setMuted(false);
-          }}
-          onActivity={bump}
-        />
         <div className="player__top">
           <Focusable back as="button" className="icon-btn" focusKey="pl:back" onPress={() => back()} scroll={false}>
             <BackIcon />

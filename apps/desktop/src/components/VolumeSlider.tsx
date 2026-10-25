@@ -28,9 +28,7 @@ export function VolumeSlider({ volume, onChange, onClose, focusKey, step = 0.1, 
         return false;
       }
       if (direction === "left") {
-        // A level that is a popup closes on Left; one that stands on the screen lets the focus go.
-        if (!onClose) return true;
-        onClose();
+        onClose?.();
         return false;
       }
       return true;

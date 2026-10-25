@@ -40,7 +40,6 @@ import { SeekBar } from "../../components/SeekBar";
 import { useMpvReveal } from "../../components/useMpvReveal";
 import { MiniPlayerChrome, useCloseOnOutsidePress } from "../../components/MiniPlayer";
 import { VolumeSlider } from "../../components/VolumeSlider";
-import { PlayerVolumeBar } from "../../components/PlayerVolumeBar";
 import { Modal } from "../../components/Modal";
 import { FullscreenButton } from "../../components/FullscreenButton";
 import { LiveSubtitles, useLiveTranslation } from "../../components/LiveSubtitles";
@@ -132,6 +131,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   // remote opens it with OK and then holds the focus in it. Only the second takes the focus.
   const [volumeByMouse, setVolumeByMouse] = useState(false);
   const volumeLeave = useRef(0);
+  const nudgeVolumeRef = useRef<(d: number) => void>(() => {});
   // `offset`: seconds into the programme the archive stream starts at (it starts at its beginning when absent).
   const [archive, setArchive] = useState<{ programme: Programme; offset?: number } | null>(programme ? { programme } : null);
   // The latest "move by N seconds along the programme" (the media keys' handler lives longer than a render).
@@ -344,7 +344,9 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
     if (mini) return; // …and does not swallow the keys of the screen the viewer is on
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === "Backspace") return;
-      if (e.key === "MediaRewind") seekByRef.current(-REMOTE_SEEK);
+      if (e.key === "AudioVolumeUp") nudgeVolumeRef.current(0.1);
+      else if (e.key === "AudioVolumeDown") nudgeVolumeRef.current(-0.1);
+      else if (e.key === "MediaRewind") seekByRef.current(-REMOTE_SEEK);
       else if (e.key === "MediaFastForward") seekByRef.current(REMOTE_SEEK);
       else if (e.key === "m") setMenu((m) => (m ? null : "audio"));
       else if (e.key === "p" || e.key === "MediaPlayPause") void togglePlay();
@@ -362,6 +364,26 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [osd, bump, mini]);
+
+  // The phone remote's "+" / "−": a step of the volume, with the level shown for a moment (the same capsule as over the button).
+  nudgeVolumeRef.current = (d) => {
+    const a = adapterRef.current;
+    if (!a) return;
+    const v = Math.min(1, Math.max(0, (stateRef.current.muted ? 0 : stateRef.current.volume) + d));
+    void a.setVolume(v);
+    if (v > 0 && stateRef.current.muted) void a.setMuted(false);
+    setVolumeByMouse(true);
+    setVolumeOpen(true);
+    window.clearTimeout(volumeLeave.current);
+    volumeLeave.current = window.setTimeout(() => setVolumeOpen(false), 1600);
+  };
+  // The level for the phone remote's bar.
+  useEffect(() => {
+    document.documentElement.style.setProperty("--player-volume", String(state.muted ? 0 : state.volume));
+    return () => {
+      document.documentElement.style.removeProperty("--player-volume");
+    };
+  }, [state.volume, state.muted]);
 
   // Read from the latest state, not the render the key handler was made in (see the film player).
   const togglePlay = async () => {
@@ -578,15 +600,6 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
       )}
 
       <div className={`player__osd ${osd ? "" : "is-hidden"}`} style={{ "--osd-dim": playerDim * 2, "--osd-scale": prefs.uiScale } as React.CSSProperties}>
-        <PlayerVolumeBar
-          volume={state.volume}
-          muted={state.muted}
-          onChange={(v) => {
-            void adapterRef.current?.setVolume(v);
-            if (v > 0 && state.muted) void adapterRef.current?.setMuted(false);
-          }}
-          onActivity={bump}
-        />
         <div className="player__top player__top--tv">
           <Focusable back as="button" className="icon-btn" focusKey="pl:back" onPress={() => back()} scroll={false}>
             <BackIcon />

@@ -22,7 +22,7 @@ const PAGE: &str = include_str!("remote.html");
 const LOGO: &[u8] = include_bytes!("../../src/assets/logo-mark.png");
 const PREFERRED_PORT: u16 = 47_815;
 /// Keys the phone may send: the d-pad, OK, Back, the menu (what the gamepad's PS/Xbox button does), and the player's own keys.
-const KEYS: [&str; 11] = [
+const KEYS: [&str; 13] = [
     "ArrowUp",
     "ArrowDown",
     "ArrowLeft",
@@ -34,6 +34,8 @@ const KEYS: [&str; 11] = [
     "m",
     "MediaRewind",
     "MediaFastForward",
+    "AudioVolumeUp",
+    "AudioVolumeDown",
 ];
 const MAX_TEXT_CHARS: usize = 200;
 

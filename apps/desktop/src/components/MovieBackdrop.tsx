@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BackIcon, EpisodesIcon, GearIcon, MiniPlayerIcon, MuteIcon, onBack, PauseIcon, PlayIcon, PlusIcon, VolumeIcon } from "@kinonyx/ui";
+import { BackIcon, EpisodesIcon, GearIcon, MiniPlayerIcon, MuteIcon, onBack, PauseIcon, PlayIcon, VolumeIcon } from "@kinonyx/ui";
 import { loadBackdropTrailer, type BackdropTrailer } from "../data/backdropTrailer";
 import { holdMusic } from "../data/music";
 import { useApp } from "../store/app";
@@ -35,7 +35,7 @@ const clock = (s: number) => {
 };
 
 /** Where the remote's focus is in the grown trailer's bar. */
-type Item = "back" | "list" | "play" | "vol" | "seek" | "quality" | "pip" | "vminus" | "vplus";
+type Item = "back" | "list" | "play" | "vol" | "seek" | "quality" | "pip";
 interface Ui {
   /** The bar has the focus (arrows move along it); otherwise arrows seek. */
   bar: boolean;
@@ -378,6 +378,15 @@ export function MovieBackdrop({
     }, CONTROLS_MS);
   };
 
+  // The level for the phone remote's bar (while the trailer is grown).
+  useEffect(() => {
+    if (!expanded) return;
+    document.documentElement.style.setProperty("--player-volume", String(muted ? 0 : volume));
+    return () => {
+      document.documentElement.style.removeProperty("--player-volume");
+    };
+  }, [expanded, volume, muted]);
+
   const togglePipRef = useRef(togglePip);
   togglePipRef.current = togglePip;
   const onListRef = useRef(onList);
@@ -415,6 +424,9 @@ export function MovieBackdrop({
       // "p" is what the phone remote's play button sends: it plays and pauses (picture in picture moved to "i").
       if (k === "p" || k === "P" || k === "MediaPlayPause") return L.togglePlay();
       if (k === "i" || k === "I") return L.togglePip();
+      // The phone remote's "+" / "−".
+      if (k === "AudioVolumeUp") return changeVolume(volumeRef.current + VOLUME_STEP);
+      if (k === "AudioVolumeDown") return changeVolume(volumeRef.current - VOLUME_STEP);
       if (k === "MediaRewind") return seekBy(-REMOTE_SEEK_S);
       if (k === "MediaFastForward") return seekBy(REMOTE_SEEK_S);
 
@@ -467,8 +479,6 @@ export function MovieBackdrop({
           else if (u.item === "vol") setMuted((m) => !m);
           else if (u.item === "seek") setUi({ scrub: true });
           else if (u.item === "pip") L.togglePip();
-          else if (u.item === "vminus") changeVolume(volumeRef.current - VOLUME_STEP);
-          else if (u.item === "vplus") changeVolume(volumeRef.current + VOLUME_STEP);
         }
         return;
       }
@@ -556,7 +566,6 @@ export function MovieBackdrop({
   const items: Item[] = ["play", "vol", "seek"];
   if (current && current.qualities.length > 1) items.push("quality");
   if (pipSupported()) items.push("pip");
-  items.push("vminus", "vplus");
   latest.current = { items, rows: choices.map((c) => c.i), sel, selectQuality, togglePlay, togglePip };
   const focused = (i: Item) => (ui.bar && ui.item === i ? "is-focus" : "");
 
@@ -620,39 +629,6 @@ export function MovieBackdrop({
           >
             <EpisodesIcon size={24} />
           </button>
-          <div className="mtv__vbar" onClick={(e) => e.stopPropagation()}>
-            <div className="mtv__tslider mtv__tslider--vol" {...drag(changeVolume, true)}>
-              <div className="mtv__ttrack mtv__ttrack--vol">
-                <div className="mtv__tfill" style={{ height: `${(muted ? 0 : volume) * 100}%` }} />
-              </div>
-            </div>
-            <div className="mtv__vbar-btns">
-              <button
-                type="button"
-                className={`mtv__tbtn ${focused("vminus")}`}
-                aria-label="Тише"
-                onClick={() => {
-                  touch();
-                  changeVolume(volume - VOLUME_STEP);
-                }}
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-                  <path d="M5 12h14" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                className={`mtv__tbtn ${focused("vplus")}`}
-                aria-label="Громче"
-                onClick={() => {
-                  touch();
-                  changeVolume(volume + VOLUME_STEP);
-                }}
-              >
-                <PlusIcon size={22} strokeWidth={2.2} />
-              </button>
-            </div>
-          </div>
           <div className="mtv__tbar" onClick={(e) => e.stopPropagation()}>
             <button type="button" className={`mtv__tbtn ${focused("play")}`} aria-label={paused ? "Играть" : "Пауза"} onClick={togglePlay}>
               {paused ? <PlayIcon size={26} /> : <PauseIcon size={26} />}
