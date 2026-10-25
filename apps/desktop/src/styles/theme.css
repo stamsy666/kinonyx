@@ -8490,8 +8490,8 @@ body .sidebar__item.is-focused .sidebar__icon {
 /* The channel at the top: its logo larger and lifted off the picture by a soft shadow, the name in a glass capsule under
    it (the way the "В эфир" pill and the buttons are drawn). A channel without a logo gets its initials in a glass disc. */
 .player--tvos .player__logo {
-  width: 132px;
-  height: 132px;
+  width: 184px;
+  height: 184px;
   margin: 0 auto 14px;
 }
 
@@ -8502,15 +8502,15 @@ body .sidebar__item.is-focused .sidebar__icon {
 .player--tvos .player__logo-initials {
   display: grid;
   place-items: center;
-  width: 112px;
-  height: 112px;
+  width: 156px;
+  height: 156px;
   border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: 50%;
   background: rgba(40, 40, 46, 0.42);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
   font-family: inherit;
-  font-size: 38px;
+  font-size: 52px;
   font-weight: 800;
   letter-spacing: 0;
   color: #fff;
