@@ -91,13 +91,9 @@ export function MovieBackdrop({
   const [holdOver, setHoldOver] = useState(false);
   const [inPip, setInPip] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const boxRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   // Where to go on and whether to play, after the quality was changed (the stream is loaded anew).
   const resumeRef = useRef<{ t: number; playing: boolean } | null>(null);
-  // The window's size, for placing a picture that has black bars burnt in so that the bars fall outside it.
-  const [box, setBox] = useState({ w: 0, h: 0 });
-  const [ratio, setRatio] = useState(16 / 9);
 
   // The first frame's moment (the same as the slideshow's own) — the trailer does not come in before it is over.
   useEffect(() => {
@@ -128,35 +124,6 @@ export function MovieBackdrop({
     if (current) setSel(chosen ? current.fullIndex : current.index);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current]);
-
-  useEffect(() => {
-    const el = boxRef.current;
-    if (!el) return;
-    const read = () => setBox({ w: el.clientWidth, h: el.clientHeight });
-    read();
-    const ro = new ResizeObserver(read);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [current]);
-
-  // Without bars the picture just covers the window; with them, the frame is made larger and moved so that the
-  // part with the picture covers it and the bars are cut off by the window's edge.
-  const bars = current?.bars ?? null;
-  const frameStyle = (() => {
-    if (!bars || box.w === 0 || box.h === 0) return undefined;
-    const c = 1 - bars.top - bars.bottom; // part of the frame's height that is picture
-    const windowRatio = box.w / box.h;
-    const pictureRatio = ratio / c;
-    const fh = pictureRatio >= windowRatio ? box.h / c : box.w / ratio;
-    const fw = fh * ratio;
-    return {
-      position: "absolute" as const,
-      width: fw,
-      height: fh,
-      left: (box.w - fw) / 2,
-      top: (box.h - c * fh) / 2 - bars.top * fh,
-    };
-  })();
 
   const quality = current ? current.qualities[Math.min(sel, current.qualities.length - 1)] : null;
   const videoUrl = quality?.url ?? null;
@@ -573,17 +540,12 @@ export function MovieBackdrop({
     <>
       {slides.length > 0 ? <MovieSlides slides={slides} paused={shown} /> : fallback}
       {current && (
-        <div ref={boxRef} className={`mtv__bgvideo ${shown ? "is-on" : ""}`} aria-hidden="true">
+        <div className={`mtv__bgvideo ${shown ? "is-on" : ""}`} aria-hidden="true">
           <video
             ref={videoRef}
-            style={frameStyle}
             muted
             playsInline
             preload="auto"
-            onLoadedMetadata={(e) => {
-              const { videoWidth: w, videoHeight: h } = e.currentTarget;
-              if (w > 0 && h > 0) setRatio(w / h);
-            }}
             onCanPlay={() => {
               setCanPlay(true);
               const resume = resumeRef.current;

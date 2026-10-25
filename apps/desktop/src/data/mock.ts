@@ -224,8 +224,6 @@ export const MOCK = {
             { height: 360, url: "https://www.w3schools.com/html/mov_bbb.mp4", audioUrl: null },
           ],
           defaultIndex: 1,
-          // `/?bars` — a sheet of frames with black bars top and bottom, to see them cropped away.
-          storyboard: location.search.includes("bars") ? { url: mockBarsSheet(), cols: 5, rows: 5, width: 160, height: 90 } : null,
         } as T;
       case "kp_external_sources":
         return { total: 0, items: [] } as T;
@@ -265,20 +263,3 @@ export const MOCK = {
     }
   },
 };
-
-/** A 5x5 sheet of 160x90 frames, each a bright picture with 12% black bars at the top and the bottom. */
-function mockBarsSheet(): string {
-  const c = document.createElement("canvas");
-  c.width = 800;
-  c.height = 450;
-  const g = c.getContext("2d")!;
-  for (let i = 0; i < 25; i++) {
-    const x = (i % 5) * 160;
-    const y = Math.floor(i / 5) * 90;
-    g.fillStyle = "#000";
-    g.fillRect(x, y, 160, 90);
-    g.fillStyle = `hsl(${i * 14}, 60%, 55%)`;
-    g.fillRect(x, y + 11, 160, 68);
-  }
-  return c.toDataURL("image/png");
-}
