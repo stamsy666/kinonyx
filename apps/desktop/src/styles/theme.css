@@ -6205,8 +6205,10 @@ body .sidebar__item.is-focused .sidebar__icon {
    with the title in the middle and the shelves (trailers, frames, cast, similar films, genres). ---------- */
 .mtv__hero {
   position: relative;
-  height: 100vh;
-  margin: calc(-4 * var(--u)) calc(-1 * var(--page-x)) 0;
+  /* Lifted by 4u at the top, so as much taller at the bottom (and pulled back by the margin below, so what follows
+     stays where it was): otherwise a strip of the app's background showed under the picture when it was grown. */
+  height: calc(100vh + 4 * var(--u));
+  margin: calc(-4 * var(--u)) calc(-1 * var(--page-x)) calc(-4 * var(--u));
   overflow: hidden;
   opacity: calc(1 - var(--sheet) * 0.7);
   -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - var(--hero-fade)), transparent 100%);
@@ -7632,21 +7634,51 @@ body .sidebar__item.is-focused .sidebar__icon {
   --hero-fade: 0px;
 }
 
+/* The page goes dark in turn rather than all at once: the text sinks and blurs as it fades, the credits follow, the
+   top buttons rise away, the sheet settles lower; then the shade lightens, and only then the bar comes up. Back is
+   the same in reverse. */
+.mtv__info {
+  --tdelay: 0ms;
+}
+
+.mtv__credits {
+  --tdelay: 70ms;
+}
+
+.home__chrome {
+  --tdelay: 110ms;
+}
+
+.mtv__sheet {
+  --tdelay: 0ms;
+}
+
 .home--tv.mtv.is-trailer-fx .mtv__info,
 .home--tv.mtv.is-trailer-fx .mtv__credits,
 .home--tv.mtv.is-trailer-fx .mtv__sheet,
-.home--tv.mtv.is-trailer-fx .home__chrome,
+.home--tv.mtv.is-trailer-fx .home__chrome {
+  transition:
+    opacity 720ms cubic-bezier(0.4, 0, 0.2, 1) var(--tdelay),
+    transform 900ms cubic-bezier(0.22, 0.8, 0.3, 1) var(--tdelay),
+    filter 720ms ease var(--tdelay);
+}
+
 .home--tv.mtv.is-trailer-fx .mtv__shade {
-  transition: opacity 600ms ease;
+  transition: opacity 1100ms ease;
 }
 
 /* Hidden for good, not only transparent: the buttons under a grown trailer (search, full screen, "Качество"...)
-   still caught the mouse (`.home__chrome > *` takes it back from its parent), and a click went to them. */
+   still caught the mouse (`.home__chrome > *` takes it back from its parent), and a click went to them. It happens
+   when the fade is over (on the way back — at once). */
 .home--tv.mtv.is-trailer.is-trailer-fx .mtv__info,
 .home--tv.mtv.is-trailer.is-trailer-fx .mtv__credits,
 .home--tv.mtv.is-trailer.is-trailer-fx .mtv__sheet,
 .home--tv.mtv.is-trailer.is-trailer-fx .home__chrome {
-  transition: opacity 600ms ease, visibility 0s linear 600ms;
+  transition:
+    opacity 720ms cubic-bezier(0.4, 0, 0.2, 1) var(--tdelay),
+    transform 900ms cubic-bezier(0.22, 0.8, 0.3, 1) var(--tdelay),
+    filter 720ms ease var(--tdelay),
+    visibility 0s linear calc(var(--tdelay) + 900ms);
 }
 
 .home--tv.mtv.is-trailer .mtv__info,
@@ -7658,6 +7690,21 @@ body .sidebar__item.is-focused .sidebar__icon {
   visibility: hidden;
 }
 
+.home--tv.mtv.is-trailer .mtv__info,
+.home--tv.mtv.is-trailer .mtv__credits {
+  transform: translateY(calc(22 * var(--u)));
+  filter: blur(calc(8 * var(--u)));
+}
+
+.home--tv.mtv.is-trailer .home__chrome {
+  transform: translateY(calc(-14 * var(--u)));
+  filter: blur(calc(6 * var(--u)));
+}
+
+.home--tv.mtv.is-trailer .mtv__sheet {
+  transform: translateY(calc(60 * var(--u)));
+}
+
 .home--tv.mtv.is-trailer .mtv__shade {
   opacity: 0.35;
 }
@@ -7667,6 +7714,25 @@ body .sidebar__item.is-focused .sidebar__icon {
   inset: 0;
   z-index: 5;
   cursor: none;
+  /* it comes up after the page has gone dark, and goes first on the way back */
+  animation: mtv-tc-in 650ms ease 520ms backwards;
+}
+
+.mtv__tcontrols.is-leaving {
+  pointer-events: none;
+  animation: mtv-tc-out 320ms ease forwards;
+}
+
+@keyframes mtv-tc-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes mtv-tc-out {
+  to {
+    opacity: 0;
+  }
 }
 
 .mtv__tcontrols.is-shown {

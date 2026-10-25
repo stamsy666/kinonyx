@@ -117,12 +117,17 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
   const [trailerLive, setTrailerLive] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [settling, setSettling] = useState(false);
-  const collapseTrailer = useCallback(() => setExpanded(false), []);
-  useEffect(() => {
+  // `settling` is raised in the same breath as `expanded`: the transitions only run if their class is already on
+  // when the page changes (set a frame later, the text would just vanish).
+  const collapseTrailer = useCallback(() => {
     setSettling(true);
-    const t = window.setTimeout(() => setSettling(false), 800);
+    setExpanded(false);
+  }, []);
+  useEffect(() => {
+    if (!settling) return;
+    const t = window.setTimeout(() => setSettling(false), 1300);
     return () => window.clearTimeout(t);
-  }, [expanded]);
+  }, [settling, expanded]);
   // The page stands still under a grown trailer.
   useEffect(() => {
     if (!expanded) return;
@@ -228,6 +233,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
       .catch(() => setTrailers([rutube]));
   };
   const growTrailer = () => {
+    setSettling(true);
     cancelGlides();
     document.querySelector(".app-body")?.scrollTo({ top: 0, behavior: "instant" });
     setExpanded(true);

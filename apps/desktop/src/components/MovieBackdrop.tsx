@@ -201,17 +201,47 @@ export function MovieBackdrop({
     }
   };
 
-  // ---- the sound, only while grown. YouTube keeps it in a stream of its own: a second element follows the picture.
+  // ---- the sound, only while grown: it comes up over a second as the page goes dark, and dies away as it returns.
+  // `fade` (0..1) is that rise and fall; `audible` stays on until the fall is over, so nothing is cut off.
+  const fadeRef = useRef(0);
+  const volumeNow = useRef(volume);
+  volumeNow.current = volume;
+  const [audible, setAudible] = useState(false);
+  useEffect(() => {
+    const target = expanded && visible ? 1 : 0;
+    if (target === 1) setAudible(true);
+    const from = fadeRef.current;
+    if (from === target) {
+      if (target === 0) setAudible(false);
+      return;
+    }
+    const dur = target === 1 ? 1000 : 400;
+    const t0 = performance.now() + (target === 1 ? 150 : 0);
+    const timer = window.setInterval(() => {
+      const p = clamp01((performance.now() - t0) / dur);
+      fadeRef.current = from + (target - from) * p;
+      const level = volumeNow.current * fadeRef.current;
+      if (videoRef.current) videoRef.current.volume = level;
+      if (audioRef.current) audioRef.current.volume = level;
+      if (p >= 1) {
+        window.clearInterval(timer);
+        if (target === 0) setAudible(false);
+      }
+    }, 40);
+    return () => window.clearInterval(timer);
+  }, [expanded, visible]);
+
+  // YouTube keeps the sound in a stream of its own: a second element follows the picture.
   const separateAudio = trailer?.audioUrl != null;
   useEffect(() => {
     const v = videoRef.current;
     const a = audioRef.current;
     if (!v) return;
-    const sound = expanded && visible;
+    const sound = audible;
     v.muted = !sound || separateAudio || muted;
-    v.volume = volume;
+    v.volume = volume * fadeRef.current;
     if (a) {
-      a.volume = volume;
+      a.volume = volume * fadeRef.current;
       a.muted = muted;
     }
     if (!a) return;
@@ -241,7 +271,7 @@ export function MovieBackdrop({
       v.removeEventListener("seeked", play);
       a.pause();
     };
-  }, [expanded, visible, separateAudio, volume, muted]);
+  }, [audible, separateAudio, volume, muted]);
 
   // The page's own music gives way to the trailer's sound.
   useEffect(() => (expanded && visible ? holdMusic() : undefined), [expanded, visible]);
@@ -303,6 +333,19 @@ export function MovieBackdrop({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded, onCollapse]);
 
+  // The bar and the button are kept for a moment after the way back starts, so they fade rather than vanish.
+  const live = expanded && visible;
+  const [overlay, setOverlay] = useState<"off" | "on" | "leaving">("off");
+  useEffect(() => {
+    if (live) {
+      setOverlay("on");
+      return;
+    }
+    setOverlay((o) => (o === "on" ? "leaving" : o));
+    const t = window.setTimeout(() => setOverlay("off"), 340);
+    return () => window.clearTimeout(t);
+  }, [live]);
+
   const togglePlay = () => {
     const v = videoRef.current;
     if (!v) return;
@@ -356,9 +399,9 @@ export function MovieBackdrop({
         </div>
       )}
       {trailer?.audioUrl && <audio ref={audioRef} src={trailer.audioUrl} preload="auto" />}
-      {expanded && visible && (
+      {overlay !== "off" && (
         <div
-          className={`mtv__tcontrols ${controls ? "is-shown" : ""}`}
+          className={`mtv__tcontrols ${controls ? "is-shown" : ""} ${overlay === "leaving" ? "is-leaving" : ""}`}
           onMouseMove={touch}
           onClick={togglePlay}
           onWheel={(e) => {
