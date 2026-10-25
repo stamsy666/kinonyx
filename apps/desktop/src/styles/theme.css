@@ -3231,56 +3231,6 @@ body.mpv-active::after {
   border: 1px solid rgba(255, 255, 255, 0.35);
 }
 
-/* Update modal */
-.update__head {
-  justify-content: center;
-}
-/* Same space above the description as below it (header line → text → buttons). */
-.update__body {
-  padding: 20px 6px;
-}
-.update__notes {
-  margin: 0 0 14px;
-  max-height: 180px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  color: var(--text-dim);
-  font-size: 14px;
-  line-height: 1.5;
-}
-.update__status {
-  margin: 0;
-  min-height: 1.4em;
-  font-size: 14px;
-  color: var(--text-dim);
-}
-.update__status--center {
-  text-align: center;
-}
-.update__progress {
-  margin: 0 0 12px;
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.14);
-  overflow: hidden;
-}
-.update__progress i {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-  transition: width 200ms linear;
-}
-/* "Позже" at the left edge, the main action at the right edge. */
-.update__actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 6px 4px;
-}
-.update__actions > :last-child {
-  margin-left: auto;
-}
-
 /* "Получить ключ на сайте": room for the focus ring + focus scale-up, so it doesn't land on
    the hint text above it. */
 .settings__site-btn {
@@ -8668,4 +8618,56 @@ body .sidebar__item.is-focused .sidebar__icon {
    unlike the pills of a list of choices, which are 10u apart. */
 .settings--tv .settings-pane .settings__item > :is(.checkbox, .switch, .cycle-row) + :is(.checkbox, .switch, .cycle-row) {
   margin-top: calc(10 * var(--u));
+}
+
+/* ----- The update window in the look of the other windows ----- */
+.update-tv__notes {
+  max-height: calc(230 * var(--mu));
+  margin-bottom: calc(18 * var(--mu));
+  padding: 0 calc(8 * var(--mu));
+}
+
+.update-tv__notes p {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: calc(16 * var(--mu));
+  font-weight: 600;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.update-tv__progress {
+  height: calc(8 * var(--mu));
+  margin: calc(6 * var(--mu)) calc(8 * var(--mu)) calc(16 * var(--mu));
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  overflow: hidden;
+}
+
+.update-tv__progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #fff;
+  transition: width 200ms linear;
+}
+
+.update-tv__status {
+  min-height: 1.4em;
+}
+
+/* The main row of a window: white, the words in the middle. */
+.links-tv__row--primary {
+  justify-content: center;
+  background: #fff;
+  color: #111;
+}
+
+.links-tv__row--primary .links-tv__name {
+  flex: none;
+}
+
+.links-tv__row--primary.is-focused {
+  background: #fff;
+  color: #111;
 }
