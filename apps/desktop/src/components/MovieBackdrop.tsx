@@ -33,7 +33,7 @@ const clock = (s: number) => {
 };
 
 /** Where the remote's focus is in the grown trailer's bar. */
-type Item = "play" | "vol" | "seek" | "quality" | "pip";
+type Item = "back" | "play" | "vol" | "seek" | "quality" | "pip";
 interface Ui {
   /** The bar has the focus (arrows move along it); otherwise arrows seek. */
   bar: boolean;
@@ -461,12 +461,19 @@ export function MovieBackdrop({
       }
       // the bar has the focus: the arrows go from button to button
       if (u.bar) {
+        // the way back, at the top left: down returns to the bar, OK leaves the trailer
+        if (u.item === "back") {
+          if (k === "ArrowDown") setUi({ item: "play" });
+          else if (ok) onCollapse();
+          return;
+        }
         const at = Math.max(0, L.items.indexOf(u.item));
         if (k === "ArrowLeft") setUi({ item: L.items[Math.max(0, at - 1)] });
         else if (k === "ArrowRight") setUi({ item: L.items[Math.min(L.items.length - 1, at + 1)] });
         else if (k === "ArrowDown") setUi({ bar: false });
         else if (k === "ArrowUp" && u.item === "vol") setUi({ popup: "vol" });
         else if ((k === "ArrowUp" || ok) && u.item === "quality") setUi({ popup: "quality", cursor: Math.max(0, L.rows.indexOf(L.sel)) });
+        else if (k === "ArrowUp") setUi({ item: "back" });
         else if (ok) {
           if (u.item === "play") L.togglePlay();
           else if (u.item === "vol") setMuted((m) => !m);
@@ -478,7 +485,8 @@ export function MovieBackdrop({
       // nothing is focused: the arrows seek, OK pauses, up/down bring the bar's focus in
       if (k === "ArrowLeft") seekBy(-SEEK_S);
       else if (k === "ArrowRight") seekBy(SEEK_S);
-      else if (k === "ArrowUp" || k === "ArrowDown") setUi({ bar: true, item: "play" });
+      else if (k === "ArrowUp") setUi({ bar: true, item: "back" });
+      else if (k === "ArrowDown") setUi({ bar: true, item: "play" });
       else if (ok) L.togglePlay();
     };
     window.addEventListener("keydown", key, true);
@@ -605,7 +613,7 @@ export function MovieBackdrop({
         >
           <button
             type="button"
-            className="mtv__tclose"
+            className={`mtv__tclose ${focused("back")}`}
             aria-label="Назад"
             onClick={(e) => {
               e.stopPropagation();

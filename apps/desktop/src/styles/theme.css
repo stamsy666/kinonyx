@@ -7770,7 +7770,8 @@ body .sidebar__item.is-focused .sidebar__icon {
   transition: opacity 400ms ease, transform 160ms ease, background 160ms ease, color 160ms ease;
 }
 
-.mtv__tclose:hover {
+.mtv__tclose:hover,
+.mtv__tclose.is-focus {
   transform: scale(1.06);
   background: rgba(255, 255, 255, 0.92);
   color: #111;
