@@ -61,18 +61,16 @@
   .media .main.down { background: var(--accent-deep); }
   .key small { position: absolute; bottom: 5px; font-size: 11px; color: var(--text-dim); letter-spacing: .02em; }
 
-  /* The pad and the volume stand in a row: the pad takes what the volume leaves (so it steps to the left and is a little
-     smaller), the volume is a vertical rocker at the right edge — "+" above, "−" below, the level between them. */
-  .mid { flex: 1; min-height: 0; display: flex; align-items: center; gap: 12px; }
-  .pad-wrap { flex: 1; min-width: 0; min-height: 0; align-self: stretch; display: grid; place-items: center; }
+  .pad-wrap { flex: 1; min-height: 0; display: grid; place-items: center; }
+  /* The volume: "−", the level, "+" in one capsule, above the navigation keys. */
   .vol {
-    flex: none; width: 58px; height: min(100%, 320px); display: flex; flex-direction: column; align-items: center; gap: 8px;
-    padding: 8px 0; border-radius: 29px; background: var(--surface); border: 1px solid var(--line);
+    display: flex; align-items: center; gap: 10px; height: 62px; margin-top: 10px; padding: 0 8px;
+    border-radius: 31px; background: var(--surface); border: 1px solid var(--line);
   }
   .vol .key { flex: none; width: 46px; height: 46px; border-radius: 50%; }
   .vol .key svg { width: 24px; height: 24px; }
-  .vol-track { position: relative; flex: 1; min-height: 50px; width: 6px; border-radius: 3px; background: var(--line-hi); overflow: hidden; }
-  .vol-fill { position: absolute; left: 0; right: 0; bottom: 0; height: var(--v, 50%); border-radius: inherit; background: var(--accent); transition: height .25s ease; }
+  .vol-track { position: relative; flex: 1; height: 6px; border-radius: 3px; background: var(--line-hi); overflow: hidden; }
+  .vol-fill { position: absolute; top: 0; bottom: 0; left: 0; width: var(--v, 50%); border-radius: inherit; background: var(--accent); transition: width .25s ease; }
   .pad {
     position: relative; width: min(100%, 52vh, 360px); aspect-ratio: 1;
     border-radius: 50%; background: var(--surface); border: 1px solid var(--line); overflow: hidden;
@@ -143,7 +141,7 @@
     body { flex-direction: row; flex-wrap: wrap; align-content: flex-start; gap: 10px 22px; }
     header { width: 100%; min-height: 24px; }
     main { flex: 1; flex-direction: row; align-items: stretch; gap: 22px; }
-    .mid { flex: 1; align-self: stretch; }
+    .pad-wrap { flex: 1; }
     .pad { width: min(100%, 62vh); }
     .side { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; min-width: 0; }
     .media .key, .bar .key { height: 56px; }
@@ -198,9 +196,13 @@
           <svg viewBox="0 0 24 24"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg><small>+15 с</small>
         </button>
       </div>
+      <div class="vol" id="vol" aria-label="Громкость">
+        <button class="key" data-k="AudioVolumeDown" data-rep="1" aria-label="Тише"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+        <div class="vol-track"><i class="vol-fill" id="volfill"></i></div>
+        <button class="key" data-k="AudioVolumeUp" data-rep="1" aria-label="Громче"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
     </div>
 
-    <div class="mid">
     <div class="pad-wrap">
       <div class="pad">
         <button class="arrow u" data-k="ArrowUp" aria-label="Вверх"><svg viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg></button>
@@ -209,12 +211,6 @@
         <button class="arrow d" data-k="ArrowDown" aria-label="Вниз"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
         <button class="ok" data-k="Enter" aria-label="OK">OK</button>
       </div>
-    </div>
-    <div class="vol" id="vol" aria-label="Громкость">
-      <button class="key" data-k="AudioVolumeUp" data-rep="1" aria-label="Громче"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
-      <div class="vol-track"><i class="vol-fill" id="volfill"></i></div>
-      <button class="key" data-k="AudioVolumeDown" data-rep="1" aria-label="Тише"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
-    </div>
     </div>
 
     <div class="side" id="side2">
