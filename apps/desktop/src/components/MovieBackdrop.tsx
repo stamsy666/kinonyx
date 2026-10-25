@@ -185,8 +185,13 @@ export function MovieBackdrop({
 
   const [volume, setVolume] = useState(readVolume);
   const [muted, setMuted] = useState(false);
+  const [volShown, setVolShown] = useState(false);
+  const volTimer = useRef(0);
   const changeVolume = (to: number) => {
     const v = clamp01(to);
+    setVolShown(true);
+    window.clearTimeout(volTimer.current);
+    volTimer.current = window.setTimeout(() => setVolShown(false), 1500);
     setVolume(v);
     setMuted(false);
     try {
@@ -307,19 +312,19 @@ export function MovieBackdrop({
   };
 
   // A bar the mouse can take hold of: press and drag set the place along it.
-  const along = (e: React.PointerEvent<HTMLElement>) => {
+  const along = (e: React.PointerEvent<HTMLElement>, vertical: boolean) => {
     const r = e.currentTarget.getBoundingClientRect();
-    return clamp01((e.clientX - r.left) / r.width);
+    return vertical ? clamp01(1 - (e.clientY - r.top) / r.height) : clamp01((e.clientX - r.left) / r.width);
   };
-  const drag = (apply: (fraction: number) => void) => ({
+  const drag = (apply: (fraction: number) => void, vertical = false) => ({
     onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
       e.stopPropagation();
       e.currentTarget.setPointerCapture(e.pointerId);
       touch();
-      apply(along(e));
+      apply(along(e, vertical));
     },
     onPointerMove: (e: React.PointerEvent<HTMLElement>) => {
-      if (e.currentTarget.hasPointerCapture(e.pointerId)) apply(along(e));
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) apply(along(e, vertical));
     },
     onClick: (e: React.MouseEvent) => e.stopPropagation(),
   });
@@ -375,7 +380,7 @@ export function MovieBackdrop({
             <button type="button" className="mtv__tbtn" aria-label={paused ? "Играть" : "Пауза"} onClick={togglePlay}>
               {paused ? <PlayIcon size={26} /> : <PauseIcon size={26} />}
             </button>
-            <div className="mtv__tvol">
+            <div className={`mtv__tvol ${volShown ? "is-shown" : ""}`}>
               <button
                 type="button"
                 className="mtv__tbtn"
@@ -387,9 +392,12 @@ export function MovieBackdrop({
               >
                 {muted || volume === 0 ? <MuteIcon size={24} /> : <VolumeIcon size={24} />}
               </button>
-              <div className="mtv__tslider" {...drag(changeVolume)}>
-                <div className="mtv__ttrack mtv__ttrack--vol">
-                  <div className="mtv__tfill" style={{ width: `${(muted ? 0 : volume) * 100}%` }} />
+              {/* The level comes up above the icon when it is pointed at, and stands as long as it is held. */}
+              <div className="mtv__tvpop">
+                <div className="mtv__tslider mtv__tslider--vol" {...drag(changeVolume, true)}>
+                  <div className="mtv__ttrack mtv__ttrack--vol">
+                    <div className="mtv__tfill" style={{ height: `${(muted ? 0 : volume) * 100}%` }} />
+                  </div>
                 </div>
               </div>
             </div>

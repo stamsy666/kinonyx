@@ -7745,10 +7745,38 @@ body .sidebar__item.is-focused .sidebar__icon {
 }
 
 .mtv__tvol {
-  display: flex;
-  align-items: center;
+  position: relative;
   flex: none;
-  gap: calc(4 * var(--u));
+}
+
+/* The vertical level over the icon. It touches the icon's box (no gap to cross with the mouse), so pointing at
+   the icon and moving up keeps it open. */
+.mtv__tvpop {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  display: grid;
+  place-items: center;
+  width: calc(46 * var(--u));
+  height: calc(150 * var(--u));
+  padding: calc(14 * var(--u)) 0;
+  transform: translateX(-50%) translateY(calc(8 * var(--u)));
+  border-radius: calc(23 * var(--u));
+  background: rgba(20, 20, 24, 0.62);
+  -webkit-backdrop-filter: blur(calc(24 * var(--u)));
+  backdrop-filter: blur(calc(24 * var(--u)));
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 160ms ease, transform 160ms ease, visibility 0s linear 160ms;
+}
+
+.mtv__tvol:hover .mtv__tvpop,
+.mtv__tvol.is-shown .mtv__tvpop,
+.mtv__tvpop:has(.mtv__tslider:active) {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%);
+  transition-delay: 0s;
 }
 
 /* The bars have a tall invisible touch area around a thin line, so they are easy to hit with the mouse. */
@@ -7760,8 +7788,30 @@ body .sidebar__item.is-focused .sidebar__icon {
   touch-action: none;
 }
 
-.mtv__tvol .mtv__tslider {
-  width: calc(110 * var(--u));
+.mtv__tslider--vol {
+  flex-direction: column;
+  justify-content: flex-end;
+  width: calc(30 * var(--u));
+  height: 100%;
+}
+
+.mtv__ttrack--vol {
+  flex: none;
+  width: calc(6 * var(--u));
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  transition: width 140ms ease;
+}
+
+.mtv__tslider--vol:hover .mtv__ttrack--vol {
+  height: 100%;
+  width: calc(10 * var(--u));
+}
+
+.mtv__ttrack--vol .mtv__tfill {
+  width: 100%;
 }
 
 .mtv__tslider--seek {
