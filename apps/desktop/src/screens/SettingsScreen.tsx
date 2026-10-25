@@ -629,11 +629,9 @@ export function SettingsScreen() {
                           className="swatch"
                           style={{
                             background:
-                              kind === "light"
-                                ? "linear-gradient(135deg, #ffffff 0%, #d9d5cf 100%)"
-                                : kind === "bw"
-                                  ? "linear-gradient(135deg, #ffffff 0%, #000000 100%)"
-                                  : `linear-gradient(135deg, ${palette.accent} 0%, ${palette.accentDeep} 100%)`,
+                              kind === "bw"
+                              ? "linear-gradient(135deg, #ffffff 0%, #000000 100%)"
+                              : `linear-gradient(135deg, ${palette.accent} 0%, ${palette.accentDeep} 100%)`,
                           }}
                         />
                         {palette.label}

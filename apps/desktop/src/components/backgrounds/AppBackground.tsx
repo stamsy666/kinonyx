@@ -1,23 +1,20 @@
 import { useEffect } from "react";
-import { Tranquiluxe, Novatrix, Velustro, Opulento, Lumiflex } from "uvcanvas";
+import { Tranquiluxe, Novatrix, Velustro } from "uvcanvas";
 import { BG_PALETTES, isPlainKind, type BgKind } from "../../data/backgrounds";
-import { AuroraBackground } from "./AuroraBackground";
-import { CloudBackground } from "./CloudBackground";
 import { BubbleBackground } from "./BubbleBackground";
-import { BloomBackground } from "./BloomBackground";
 import { MonoBackground } from "./MonoBackground";
 import { WavesBackground } from "./WavesBackground";
 
 /** Velustro takes `uColor` instead of `color` — everything else here shares the
  *  same single-colour prop, so this is the one spot that needs to know the odd one out.
- *  "aurora"/"cloud"/"plasma" never reach here — AppBackground renders them separately
- *  (plain CSS / hand-rolled WebGL / blend-mode SVG, not uvcanvas shaders) — so they're
+ *  "plasma"/"ps4"/"ps5" never reach here — AppBackground renders them separately
+ *  (blend-mode SVG / plain CSS / hand-rolled WebGL, not uvcanvas shaders) — so they're
  *  excluded from `kind` and this switch stays exhaustive. */
 function Effect({
   kind,
   color,
 }: {
-  kind: Exclude<BgKind, "aurora" | "cloud" | "plasma" | "bloom" | "mono" | "ps4" | "ps5" | "light" | "bw">;
+  kind: Exclude<BgKind, "plasma" | "ps4" | "ps5" | "bw">;
   color: [number, number, number];
 }) {
   switch (kind) {
@@ -27,10 +24,6 @@ function Effect({
       return <Novatrix color={color} />;
     case "velustro":
       return <Velustro uColor={color} />;
-    case "opulento":
-      return <Opulento color={color} />;
-    case "lumiflex":
-      return <Lumiflex color={color} />;
   }
 }
 
@@ -45,22 +38,6 @@ export function AppBackground({ kind }: { kind: BgKind }) {
 
   if (isPlainKind(kind)) return null;
 
-  if (kind === "aurora") {
-    return (
-      <div className="app-background">
-        <AuroraBackground />
-      </div>
-    );
-  }
-
-  if (kind === "cloud") {
-    return (
-      <div className="app-background">
-        <CloudBackground />
-      </div>
-    );
-  }
-
   if (kind === "plasma") {
     return (
       <div className="app-background">
@@ -69,7 +46,7 @@ export function AppBackground({ kind }: { kind: BgKind }) {
     );
   }
 
-  if (kind === "mono" || kind === "ps5") {
+  if (kind === "ps5") {
     return (
       <div className="app-background">
         <MonoBackground />
@@ -85,22 +62,12 @@ export function AppBackground({ kind }: { kind: BgKind }) {
     );
   }
 
-  if (kind === "bloom") {
-    return (
-      <div className="app-background">
-        <BloomBackground />
-      </div>
-    );
-  }
-
   const color = BG_PALETTES[kind].colorA;
   return (
     <div className="app-background">
       {/* uvcanvas renders these fully opaque and saturated — dimmed here to sit as
           an ambient background rather than a full-bleed foreground. */}
-      <div
-        className={`app-background__dim ${kind === "opulento" ? "app-background__dim--blur" : ""}`}
-      >
+      <div className="app-background__dim">
         <Effect kind={kind} color={color} />
       </div>
     </div>

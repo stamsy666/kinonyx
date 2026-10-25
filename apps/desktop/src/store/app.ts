@@ -219,11 +219,12 @@ function readBgKind(): BgKind {
   try {
     const v = localStorage.getItem(BG_KEY);
     if (v && (BG_KINDS as string[]).includes(v)) return v as BgKind;
+    // "Графит" was the same picture as PS5 (and the default): whoever had it keeps it, under the one name left.
   } catch {
     /* falls through to default */
   }
-  // First launch (nothing saved yet): "Графит".
-  return "mono";
+  // First launch, or a theme that was taken out (white, Netflix, Опал, Сияние, Аврора, Пелена, Мгла): PS5, the grey one.
+  return "ps5";
 }
 
 function readUiZoom(): number {

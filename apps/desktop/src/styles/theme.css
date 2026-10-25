@@ -101,97 +101,6 @@ body.has-canvas-bg::before {
   mix-blend-mode: screen;
 }
 
-.app-background__dim--blur {
-  filter: blur(6px);
-}
-
-/* "Аврора" theme — plain-CSS port of Aceternity's aurora effect (see AuroraBackground.tsx):
-   two copies of the same striped colour gradient, animated along background-position and
-   layered with mix-blend-mode:difference, which is what makes the stripes look like they're
-   flowing into and warping around each other rather than just sliding sideways. */
-.aurora-bg-wrap {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  opacity: 0.7;
-  mask-image: radial-gradient(
-    ellipse 120% 90% at 50% -10%,
-    #000 10%,
-    transparent 75%
-  );
-  -webkit-mask-image: radial-gradient(
-    ellipse 120% 90% at 50% -10%,
-    #000 10%,
-    transparent 75%
-  );
-}
-
-.aurora-bg {
-  position: absolute;
-  inset: -10px;
-  will-change: transform;
-  filter: blur(10px);
-  background-image:
-    repeating-linear-gradient(
-      100deg,
-      #000 0%,
-      #000 7%,
-      transparent 10%,
-      transparent 12%,
-      #000 16%
-    ),
-    repeating-linear-gradient(
-      100deg,
-      #3b82f6 10%,
-      #a78bfa 15%,
-      #38bdf8 20%,
-      #c4b5fd 25%,
-      #60a5fa 30%
-    );
-  background-size: 300%, 200%;
-  background-position:
-    50% 50%,
-    50% 50%;
-  animation: kx-aurora 60s linear infinite;
-}
-
-.aurora-bg::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  /* Reuses the parent's own background-image (explicit `inherit` forces it — this property
-     isn't inherited by default) instead of repeating the two gradients literally. */
-  background-image: inherit;
-  background-size: 200%, 100%;
-  background-attachment: fixed;
-  mix-blend-mode: difference;
-  animation: inherit;
-}
-
-@keyframes kx-aurora {
-  from {
-    background-position:
-      50% 50%,
-      50% 50%;
-  }
-  to {
-    background-position:
-      350% 50%,
-      350% 50%;
-  }
-}
-
-/* "Пелена" theme — hand-rolled WebGL cloud shader (see CloudBackground.tsx). Its own palette
-   is already a dark moonlit sky, so — unlike the uvcanvas effects above, which are bright by
-   design and need mix-blend-mode:screen to tame them — a plain opacity reduction is enough
-   to sit it behind the UI as an ambient backdrop rather than a full-bleed foreground. */
-.cloud-bg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  opacity: 0.45;
-}
-
 /* "Графит" — greyscale plasma shader (see MonoBackground.tsx); dimmed so text stays readable. */
 .mono-bg {
   display: block;
@@ -8753,4 +8662,10 @@ body .sidebar__item.is-focused .sidebar__icon {
   left: calc(var(--page-x) / var(--osd-scale, 1));
   right: calc(var(--page-x) / var(--osd-scale, 1));
   bottom: calc(40 * var(--u) / var(--osd-scale, 1));
+}
+
+/* Rows of a section that follow one another (a choice of values, then two on/off rows) had no gap between them —
+   unlike the pills of a list of choices, which are 10u apart. */
+.settings--tv .settings-pane .settings__item > :is(.checkbox, .switch, .cycle-row) + :is(.checkbox, .switch, .cycle-row) {
+  margin-top: calc(10 * var(--u));
 }
