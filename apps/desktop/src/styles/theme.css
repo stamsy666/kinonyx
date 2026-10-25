@@ -8493,7 +8493,12 @@ body .sidebar__item.is-focused .sidebar__icon {
 .player--tvos .player__logo {
   width: 184px;
   height: 184px;
-  margin: 0 auto -8px;
+  margin: 0 auto -16px;
+}
+
+/* The initials disc is smaller than the logo's box: it needs less of the overlap to keep a hair of air under it. */
+.player--tvos .player__logo:has(.player__logo-initials) {
+  margin-bottom: -4px;
 }
 
 .player--tvos .player__logo img {
