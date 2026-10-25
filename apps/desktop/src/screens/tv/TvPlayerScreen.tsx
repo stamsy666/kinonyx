@@ -463,9 +463,11 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
           </div>
         </div>
         <div className="player__center">
-          <OfflineIcon className="player__center-icon" />
-          <p className="player__center-label">Канал не найден</p>
-          <p className="player__center-hint">Плейлист мог измениться — попробуйте выбрать канал заново из списка.</p>
+          <div className="player__center-card player__center-card--error">
+            <OfflineIcon className="player__center-icon" />
+            <p className="player__center-label">Канал не найден</p>
+            <p className="player__center-hint">Плейлист мог измениться — попробуйте выбрать канал заново из списка.</p>
+          </div>
         </div>
       </FocusGroup>
     );
@@ -538,10 +540,12 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
 
       {(state.status === "loading" || state.status === "buffering" || (sessionOn && !source)) && (
         <div className="player__center">
-          <Spinner />
-          <p className="player__center-label">
-            {sessionOn && !live.started ? "Готовлю перевод…" : state.status === "loading" ? "Подключение…" : "Буферизация…"}
-          </p>
+          <div className="player__center-card">
+            <Spinner />
+            <p className="player__center-label">
+              {sessionOn && !live.started ? "Готовлю перевод…" : state.status === "loading" ? "Подключение…" : "Буферизация…"}
+            </p>
+          </div>
         </div>
       )}
 
@@ -549,9 +553,11 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
 
       {state.status === "error" && (
         <div className="player__center">
-          <OfflineIcon className="player__center-icon" />
-          <p className="player__center-label">Канал недоступен</p>
-          <p className="player__center-hint">{state.error ?? "Проверьте подключение или попробуйте другой канал."}</p>
+          <div className="player__center-card player__center-card--error">
+            <OfflineIcon className="player__center-icon" />
+            <p className="player__center-label">Канал недоступен</p>
+            <p className="player__center-hint">{state.error ?? "Проверьте подключение или попробуйте другой канал."}</p>
+          </div>
         </div>
       )}
 

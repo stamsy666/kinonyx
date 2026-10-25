@@ -35,13 +35,13 @@ import {
   Rewind,
   Search,
   Settings,
-  SignalZero,
   SkipBack,
   SkipForward,
   Sparkles,
   Trophy,
   Tv,
   Volume2,
+  WifiOff,
   VolumeX,
   X,
   type LucideIcon,
@@ -67,7 +67,7 @@ export const PauseIcon = wrap(Pause, { fill: "currentColor" });
 export const FullscreenIcon = wrap(Maximize);
 export const ZoomInIcon = wrap(ZoomIn);
 export const ExitFullscreenIcon = wrap(Minimize);
-export const OfflineIcon = wrap(SignalZero, { size: 40, strokeWidth: 1.5 });
+export const OfflineIcon = wrap(WifiOff, { size: 40, strokeWidth: 1.5 });
 export const MoviesIcon = wrap(Film);
 export const SeriesIcon = wrap(Clapperboard);
 export const CartoonsIcon = wrap(Sparkles);

@@ -8401,3 +8401,67 @@ body .sidebar__item.is-focused .sidebar__icon {
   color: #111;
   transform: scale(1.06);
 }
+
+/* The wait (connecting, buffering, preparing the translation) and the failure of a channel, as glass cards in the
+   middle of the picture rather than bare text on a dim wash: a capsule with the spinner and the words in a row, and
+   a rounder card with a column for the failure. */
+/* Above the controls' dimming (it lay over the card and greyed the words), and without a wash of its own. */
+.player--tvos .player__center {
+  z-index: 3;
+  background: transparent;
+}
+
+.player--tvos .player__center-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 32px 16px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(40, 40, 46, 0.55);
+  -webkit-backdrop-filter: blur(28px);
+  backdrop-filter: blur(28px);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4);
+}
+
+.player--tvos .player__center-card .spinner {
+  --s: 36px;
+  --dot: #fff;
+  flex: none;
+}
+
+.player--tvos .player__center-label {
+  font-family: inherit;
+  font-size: 19px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.player--tvos .player__center-card--error {
+  flex-direction: column;
+  gap: 10px;
+  max-width: 520px;
+  padding: 30px 40px;
+  border-radius: 36px;
+  text-align: center;
+}
+
+.player--tvos .player__center-card--error .player__center-icon {
+  width: 44px;
+  height: 44px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.player--tvos .player__center-card--error .player__center-label {
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.player--tvos .player__center-hint {
+  margin: 0;
+  max-width: none;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.62);
+}
