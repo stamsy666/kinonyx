@@ -227,11 +227,9 @@ export function Screensaver() {
   const draw = (i: number | null, cls: string) => {
     const s = i === null ? undefined : slides[i];
     if (!s) return null;
-    // The picture sits a little differently each time: nothing stays on the same pixels.
-    const shift = ((s.id * 37) % 60) - 30;
     const still = stills[s.id];
     return (
-      <div className={`ss__slide ${cls}`} key={s.id} style={{ ["--ss-shift" as string]: `${shift}px` }}>
+      <div className={`ss__slide ${cls}`} key={s.id}>
         <div className="ss__backdrop" style={{ backgroundImage: `url(${img(s.poster)})` }} />
         {still && <img className="ss__still" src={img(still)} alt="" onLoad={(e) => e.currentTarget.classList.add("is-in")} />}
         <div className="ss__card">

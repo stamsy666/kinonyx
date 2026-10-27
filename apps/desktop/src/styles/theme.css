@@ -9499,7 +9499,6 @@ body .sidebar__item.is-focused .sidebar__icon {
   display: grid;
   justify-items: center;
   gap: 14px;
-  transform: translate(var(--ss-shift, 0px), calc(var(--ss-shift, 0px) * -0.6));
   animation: ss-rise 12s ease-out both;
 }
 
@@ -9612,10 +9611,10 @@ body .sidebar__item.is-focused .sidebar__icon {
 
 @keyframes ss-rise {
   from {
-    transform: translate(var(--ss-shift, 0px), calc(var(--ss-shift, 0px) * -0.6)) scale(0.97);
+    transform: scale(0.97);
   }
   to {
-    transform: translate(var(--ss-shift, 0px), calc(var(--ss-shift, 0px) * -0.6)) scale(1.03);
+    transform: scale(1.03);
   }
 }
 
