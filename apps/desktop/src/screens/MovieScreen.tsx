@@ -249,7 +249,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
     await enqueueDownload({
       filmId: id,
       title: pick.multi ? `${filmTitle} · ${pick.file.name}` : filmTitle,
-      poster: film?.posterUrlPreview ? img(film.posterUrlPreview) : undefined,
+      poster: film?.posterUrlPreview ?? film?.posterUrl,
       film: { nameRu: film?.nameRu, nameOriginal: film?.nameOriginal, year: film?.year, genres: film?.genres?.map((g) => g.genre) },
       link: pick.link,
       fileId: pick.file.id,

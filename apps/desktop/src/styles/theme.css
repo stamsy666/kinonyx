@@ -8771,12 +8771,38 @@ body .sidebar__item.is-focused .sidebar__icon {
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.dl__poster {
+.dl__cover {
+  position: relative;
+  display: grid;
   flex: none;
-  width: calc(110 * var(--u));
+  place-items: center;
+  width: calc(150 * var(--u));
   aspect-ratio: 2 / 3;
-  border-radius: calc(14 * var(--u));
+  border-radius: calc(18 * var(--u));
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  overflow: hidden;
+  box-shadow: 0 calc(14 * var(--u)) calc(34 * var(--u)) rgba(0, 0, 0, 0.45);
+}
+
+.dl__cover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+}
+
+/* While it is being downloaded the cover is dimmed with the percentage over it. */
+.dl__cover-shade {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: calc(30 * var(--u));
+  font-weight: 800;
 }
 
 .dl__body {

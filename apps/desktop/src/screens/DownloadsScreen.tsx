@@ -63,7 +63,14 @@ export function DownloadsScreen() {
           const running = d.status === "downloading" || d.status === "preparing";
           return (
             <section className={`dl__item dl__item--${d.status}`} key={d.id}>
-              {d.poster && <img className="dl__poster" src={d.poster.startsWith("http") ? img(d.poster) : d.poster} alt="" />}
+              <div className="dl__cover">
+                {d.poster ? <img src={img(d.poster)} alt="" /> : <DownloadIcon size={34} strokeWidth={1.4} />}
+                {d.status !== "done" && (
+                  <div className="dl__cover-shade">
+                    <span>{d.status === "error" ? "!" : `${Math.floor(pct)}%`}</span>
+                  </div>
+                )}
+              </div>
               <div className="dl__body">
                 <div className="dl__title">{d.title}</div>
                 <div className="dl__status">{statusLine(d)}</div>
