@@ -20,11 +20,10 @@ import {
   History,
   Info,
   ListVideo,
-  MonitorPlay,
   Palette,
   Plus,
   Trash2,
-  Gamepad2,
+  Gamepad2,
   LayoutGrid,
   Maximize,
   ZoomIn,
@@ -118,7 +117,7 @@ export const DiceIcon = wrap(Dices);
 export const EpisodesIcon = wrap(ListVideo);
 
 export const SourcesIcon = wrap(Database);
-export const PlayerSettingsIcon = wrap(MonitorPlay);
+export const PlayerSettingsIcon = wrap(Settings);
 export const ThemeIcon = wrap(Palette);
 export const AboutIcon = wrap(Info);
 export const PhoneIcon = wrap(Smartphone);

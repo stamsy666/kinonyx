@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { Focusable, FocusGroup } from "@kinonyx/ui";
+import { createPortal } from "react-dom";
+import { Focusable, FocusGroup, OfflineIcon, Spinner } from "@kinonyx/ui";
 import { useApp } from "../../store/app";
 import { useTv, UNGROUPED } from "../../store/tv";
 import { HomeChrome } from "../../components/HomeChrome";
@@ -29,14 +30,12 @@ export function TvCategoriesScreen() {
   }, [playlist]);
 
   const total = playlist?.channels.length ?? 0;
-  const epgHint = epgStatus === "loading" ? "Загружаем программу передач…" : epgStatus === "error" ? "Программа передач недоступна" : undefined;
   const rememberedCategoryExists = rows.some((row) => `cat:${row.key || UNGROUPED}` === lastCategoryFocus);
 
   return (
     <FocusGroup focusKey="screen:categories" className="screen-pad home home--tv home--nohero">
       <HomeChrome id="tvcat" label="Категории" hideSearch />
       <div className="home__rows">
-        {epgHint && <p className="ctv__note">{epgHint}</p>}
         <div className="ctv__rows">
           <Focusable
             as="button"
@@ -72,6 +71,15 @@ export function TvCategoriesScreen() {
           })}
         </div>
       </div>
+      {/* In <body>: the page's own wrapper animates a transform, which would pin a fixed child to the page, not the window. */}
+      {(epgStatus === "loading" || epgStatus === "error") &&
+        createPortal(
+          <div className={`guide-toast ${epgStatus === "error" ? "guide-toast--error" : ""}`} role="status">
+            {epgStatus === "loading" ? <Spinner /> : <OfflineIcon size={22} strokeWidth={1.8} />}
+            <span>{epgStatus === "loading" ? "Загружаем программу передач…" : "Программа передач недоступна"}</span>
+          </div>,
+          document.body,
+        )}
     </FocusGroup>
   );
 }

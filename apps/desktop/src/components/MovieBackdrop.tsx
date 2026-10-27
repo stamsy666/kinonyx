@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BackIcon, EpisodesIcon, GearIcon, MiniPlayerIcon, MuteIcon, onBack, PauseIcon, PlayIcon, VolumeIcon } from "@kinonyx/ui";
+import { BackIcon, EpisodesIcon, ExpandIcon, GearIcon, MiniPlayerIcon, MuteIcon, onBack, PauseIcon, PlayIcon, VolumeIcon } from "@kinonyx/ui";
 import { loadBackdropTrailer, type BackdropTrailer } from "../data/backdropTrailer";
 import { holdMusic } from "../data/music";
 import { useApp } from "../store/app";
@@ -35,7 +35,13 @@ const clock = (s: number) => {
 };
 
 /** Where the remote's focus is in the grown trailer's bar. */
-type Item = "back" | "list" | "play" | "vol" | "seek" | "quality" | "pip";
+type Item = "back" | "list" | "play" | "vol" | "seek" | "quality" | "shape" | "pip";
+
+/** How the grown trailer fills the window: cover it (the edges are cut), show all of it (bars), or stretch it. */
+type Fit = "cover" | "contain" | "fill";
+const FITS: Fit[] = ["cover", "contain", "fill"];
+const FIT_LABELS: Record<Fit, string> = { cover: "Заполнить окно", contain: "Целиком", fill: "Растянуть" };
+const FIT_KEY = "kinonyx.trailerFit";
 interface Ui {
   /** The bar has the focus (arrows move along it); otherwise arrows seek. */
   bar: boolean;
@@ -253,6 +259,24 @@ export function MovieBackdrop({
       .catch((e) => console.warn("[pip]", e instanceof Error ? e.message : e));
   };
 
+  const [fit, setFit] = useState<Fit>(() => {
+    try {
+      const v = localStorage.getItem(FIT_KEY);
+      return (FITS as string[]).includes(v ?? "") ? (v as Fit) : "cover";
+    } catch {
+      return "cover";
+    }
+  });
+  const cycleFit = () => {
+    const next = FITS[(FITS.indexOf(fit) + 1) % FITS.length];
+    setFit(next);
+    try {
+      localStorage.setItem(FIT_KEY, next);
+    } catch {
+      /* the shape just will not be remembered */
+    }
+  };
+
   const [volume, setVolume] = useState(readVolume);
   const [muted, setMuted] = useState(false);
   const [volShown, setVolShown] = useState(false);
@@ -370,6 +394,7 @@ export function MovieBackdrop({
     selectQuality: (_i: number) => {},
     togglePlay: () => {},
     togglePip: () => {},
+    cycleFit: () => {},
   });
   // The key handler lives as long as the grown trailer does, so it reads the level through a ref.
   const volumeRef = useRef(volume);
@@ -485,6 +510,7 @@ export function MovieBackdrop({
           if (u.item === "play") L.togglePlay();
           else if (u.item === "vol") setMuted((m) => !m);
           else if (u.item === "seek") setUi({ scrub: true });
+          else if (u.item === "shape") L.cycleFit();
           else if (u.item === "pip") L.togglePip();
         }
         return;
@@ -572,8 +598,9 @@ export function MovieBackdrop({
   const choices = current ? current.qualities.map((q, i) => ({ q, i })).reverse() : [];
   const items: Item[] = ["play", "vol", "seek"];
   if (current && current.qualities.length > 1) items.push("quality");
+  items.push("shape");
   if (pipSupported()) items.push("pip");
-  latest.current = { items, rows: choices.map((c) => c.i), sel, selectQuality, togglePlay, togglePip };
+  latest.current = { items, rows: choices.map((c) => c.i), sel, selectQuality, togglePlay, togglePip, cycleFit };
   const focused = (i: Item) => (ui.bar && ui.item === i ? "is-focus" : "");
 
   return (
@@ -583,6 +610,7 @@ export function MovieBackdrop({
         <div className={`mtv__bgvideo ${shown ? "is-on" : ""}`} aria-hidden="true">
           <video
             ref={videoRef}
+            style={{ objectFit: expanded ? fit : "cover" }}
             muted
             playsInline
             preload="auto"
@@ -706,6 +734,9 @@ export function MovieBackdrop({
                 </div>
               </div>
             )}
+            <button type="button" className={`mtv__tbtn ${focused("shape")}`} aria-label={`Картинка: ${FIT_LABELS[fit]}`} title={FIT_LABELS[fit]} onClick={cycleFit}>
+              <ExpandIcon size={24} />
+            </button>
             {pipSupported() && (
               <button type="button" className={`mtv__tbtn ${focused("pip")}`} aria-label="Картинка в картинке" onClick={togglePip}>
                 <MiniPlayerIcon size={24} />

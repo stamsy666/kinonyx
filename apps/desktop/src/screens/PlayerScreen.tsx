@@ -35,14 +35,15 @@ import {
   VolumeIcon,
   onBack,
 } from "@kinonyx/ui";
-import { ASPECT_LABELS, ASPECT_MODES, useApp } from "../store/app";
+import { useApp } from "../store/app";
+import { PicturePanel } from "../components/PicturePanel";
 import { useTranslator } from "../store/translator";
 import { translatorRelease } from "../data/translator";
 import { LiveSubtitles, useFilmTranslation } from "../components/LiveSubtitles";
 import { useContinueWatching } from "../store/continueWatching";
 import { isTauri } from "../data/io";
 import { episodeKey, episodeLabel } from "../data/episodes";
-import { buildMpvOptions, liveMpvOptions } from "../data/playerOptions";
+import { buildMpvOptions } from "../data/playerOptions";
 import { trackLabel } from "../data/trackLabel";
 import { useWatchTracker } from "../components/useWatchTracker";
 import { usePresence } from "../components/usePresence";
@@ -136,29 +137,7 @@ export function PlayerScreen({
   const [episodesOpen, setEpisodesOpen] = useState(false);
   const [qualityOpen, setQualityOpen] = useState(false);
   const [pictureOpen, setPictureOpen] = useState(false);
-  const [pictureInfo, setPictureInfo] = useState("");
-  const setPlayerPrefs = useApp((s) => s.setPlayerPrefs);
 
-  // What the video really is and what is being sent to the display (HDR or SDR).
-  const refreshPictureInfo = async () => {
-    const a = adapterRef.current;
-    if (!a?.getProp) return;
-    const [gamma, prim, outGamma] = await Promise.all([
-      a.getProp("video-params/gamma"),
-      a.getProp("video-params/primaries"),
-      a.getProp("video-target-params/gamma"),
-    ]);
-    const src = gamma === "pq" ? "HDR10" : gamma === "hlg" ? "HLG (HDR)" : "SDR";
-    const out = outGamma === "pq" || outGamma === "hlg" ? "HDR" : "SDR";
-    setPictureInfo(`Видео: ${src}${prim ? ` · ${prim}` : ""}. На экран идёт: ${out}.`);
-  };
-  const changePicture = (patch: Partial<typeof prefs>) => {
-    const next = { ...prefs, ...patch };
-    setPlayerPrefs(patch);
-    const a = adapterRef.current;
-    if (a?.setProp) for (const [k, v] of Object.entries(liveMpvOptions(next))) void a.setProp(k, v);
-    window.setTimeout(() => void refreshPictureInfo(), 600);
-  };
   const hideTimer = useRef<number>(0);
 
   // Trailers come with a list of qualities; switching one reloads the stream and resumes
@@ -653,10 +632,7 @@ export function PlayerScreen({
                   as="button"
                   className={`icon-btn ${pictureOpen ? "icon-btn--active" : ""}`}
                   focusKey="pl:picture"
-                  onPress={() => {
-                    setPictureOpen((o) => !o);
-                    void refreshPictureInfo();
-                  }}
+                  onPress={() => setPictureOpen((o) => !o)}
                   scroll={false}
                 >
                   <PlayerSettingsIcon />
@@ -837,68 +813,13 @@ export function PlayerScreen({
       )}
 
       {pictureOpen && osd && (
-        <Modal
-          focusKey="player:picture"
-          preferredChildFocusKey="pic:hdr"
-          className="links-tv"
+        <PicturePanel
+          adapterRef={adapterRef}
           onClose={() => {
             setPictureOpen(false);
             bump();
           }}
-        >
-          <h3 className="links-tv__title">Картинка</h3>
-          {pictureInfo && <p className="links-tv__text">{pictureInfo}</p>}
-          <div className="links-tv__list links-tv__scroll">
-            <TrackItem
-              focusKey="pic:hdr"
-              label="HDR-вывод на экран"
-              hint={prefs.hdrOutput ? "Включён" : "Выключен"}
-              active={prefs.hdrOutput}
-              autoFocus
-              onPress={() => changePicture({ hdrOutput: !prefs.hdrOutput })}
-            />
-            <TrackItem
-              focusKey="pic:tone"
-              label="HDR на обычном экране"
-              hint={prefs.toneMapping === "auto" ? "Авто" : prefs.toneMapping === "soft" ? "Мягкий" : "Контрастный"}
-              active={prefs.toneMapping !== "auto"}
-              onPress={() =>
-                changePicture({ toneMapping: prefs.toneMapping === "auto" ? "soft" : prefs.toneMapping === "soft" ? "contrast" : "auto" })
-              }
-            />
-            <TrackItem
-              focusKey="pic:aspect"
-              label="Соотношение сторон"
-              hint={ASPECT_LABELS[prefs.aspect]}
-              active={prefs.aspect !== "auto"}
-              onPress={() => changePicture({ aspect: ASPECT_MODES[(ASPECT_MODES.indexOf(prefs.aspect) + 1) % ASPECT_MODES.length] })}
-            />
-            <TrackItem
-              focusKey="pic:sharp"
-              label="Чёткость"
-              hint={prefs.upscale === "default" ? "Обычная" : prefs.upscale === "sharp" ? "Повышенная" : "Максимум"}
-              active={prefs.upscale !== "default"}
-              onPress={() => changePicture({ upscale: prefs.upscale === "default" ? "sharp" : prefs.upscale === "sharp" ? "max" : "default" })}
-            />
-            <TrackItem
-              focusKey="pic:deband"
-              label="Сглаживать полосы"
-              hint={prefs.deband ? "Включено" : "Выключено"}
-              active={prefs.deband}
-              onPress={() => changePicture({ deband: !prefs.deband })}
-            />
-          </div>
-          <p className="links-tv__text links-tv__text--small">
-            HDR-вывод работает, если в Windows включён HDR для этого экрана. Если картинка стала странной, выключите.
-          </p>
-          <CloseRow
-            focusKey="pic:close"
-            onPress={() => {
-              setPictureOpen(false);
-              bump();
-            }}
-          />
-        </Modal>
+        />
       )}
 
       {qualityOpen && osd && qualities && (

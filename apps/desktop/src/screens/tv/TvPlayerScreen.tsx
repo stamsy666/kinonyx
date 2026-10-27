@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { logEvent } from "../../data/log";
+import { PicturePanel } from "../../components/PicturePanel";
 import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { buildCatchupUrl, isWithinCatchupWindow, nowNext, type Programme } from "@kinonyx/epg";
 import {
@@ -15,6 +16,7 @@ import {
 import {
   ArchiveIcon,
   MiniPlayerIcon,
+  PlayerSettingsIcon,
   NextEpisodeIcon,
   PrevChannelIcon,
   BackIcon,
@@ -127,6 +129,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   const [osd, setOsd] = useState(true);
   const [menu, setMenu] = useState<TrackKind | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [pictureOpen, setPictureOpen] = useState(false);
   const [volumeOpen, setVolumeOpen] = useState(false);
   // The level comes up when the mouse is on the volume button (and goes when it leaves), as in the trailer player; the
   // remote opens it with OK and then holds the focus in it. Only the second takes the focus.
@@ -333,6 +336,11 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
         bump();
         return true;
       }
+      if (pictureOpen) {
+        setPictureOpen(false);
+        bump();
+        return true;
+      }
       if (archiveOpen) {
         setArchiveOpen(false);
         bump();
@@ -350,7 +358,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
       back();
       return true;
     });
-  }, [volumeOpen, archiveOpen, menu, osd, back, bump, mini]);
+  }, [volumeOpen, archiveOpen, pictureOpen, menu, osd, back, bump, mini]);
 
   useEffect(() => {
     if (mini) return; // …and does not swallow the keys of the screen the viewer is on
@@ -677,6 +685,17 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
               <Focusable as="button" className="icon-btn" focusKey="pl:subs" onPress={() => openMenu("subtitle")} scroll={false}>
                 <SubtitlesIcon />
               </Focusable>
+              {isTauri && (
+                <Focusable
+                  as="button"
+                  className={`icon-btn ${pictureOpen ? "icon-btn--active" : ""}`}
+                  focusKey="pl:picture"
+                  onPress={() => setPictureOpen((o) => !o)}
+                  scroll={false}
+                >
+                  <PlayerSettingsIcon />
+                </Focusable>
+              )}
             </div>
 
             <div className="player__controls-center">
@@ -734,7 +753,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
                 className="volume-control"
                 onMouseEnter={() => {
                   window.clearTimeout(volumeLeave.current);
-                  if (osd && !volumeOpen && !menu && !archiveOpen) {
+                  if (osd && !volumeOpen && !menu && !archiveOpen && !pictureOpen) {
                     setVolumeByMouse(true);
                     setVolumeOpen(true);
                   }
@@ -793,6 +812,16 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
           </div>
         </div>
       </div>
+
+      {pictureOpen && osd && (
+        <PicturePanel
+          adapterRef={adapterRef}
+          onClose={() => {
+            setPictureOpen(false);
+            bump();
+          }}
+        />
+      )}
 
       {menu && osd && (
         <Modal
