@@ -53,7 +53,7 @@ export function DownloadsScreen() {
 
   return (
     <FocusGroup focusKey="downloads" className="screen-pad home home--tv home--nohero dl-screen">
-      <HomeChrome id="downloads" label="Загрузки" hideSearch />
+      <HomeChrome id="downloads" label="Загрузки" hideSearch autoFocus={items.length === 0} />
       <div className="dl">
         {items.length === 0 && (
           <EmptyState icon={<DownloadIcon size={38} strokeWidth={1.6} />} title="Загрузок пока нет" hint="Кнопка со стрелкой на странице фильма сохранит его на диск." />

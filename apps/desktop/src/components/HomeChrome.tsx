@@ -10,8 +10,9 @@ import logoMark from "../assets/logo-mark.png";
  * The top row of the Apple TV-style pages: the menu button (with the page's name beside it), the brand in the
  * middle, search and full screen on the right (`extra` — more round buttons before them). It fades with the
  * page's `--sheet` as the page scrolls. Focus keys: `home:menu` (the banner's Up goes there), `<id>:search`.
+ * `autoFocus`: nothing on the page to land on (an empty list) — the way back takes the focus, or the menu button if there is none.
  */
-export function HomeChrome({ id, label, extra, hideSearch }: { id: string; label?: string; extra?: ReactNode; hideSearch?: boolean }) {
+export function HomeChrome({ id, label, extra, hideSearch, autoFocus }: { id: string; label?: string; extra?: ReactNode; hideSearch?: boolean; autoFocus?: boolean }) {
   const navigate = useApp((s) => s.navigate);
   const toggleSidebar = useApp((s) => s.toggleSidebar);
   const back = useApp((s) => s.back);
@@ -23,6 +24,7 @@ export function HomeChrome({ id, label, extra, hideSearch }: { id: string; label
           as="button"
           className="home-round"
           focusKey="home:menu"
+          autoFocus={autoFocus && !canBack}
           scroll={false}
           onFocus={() => {
             // A glide still following the last card would pull the page back down.
@@ -40,7 +42,7 @@ export function HomeChrome({ id, label, extra, hideSearch }: { id: string; label
           </svg>
         </Focusable>
         {canBack && (
-          <Focusable as="button" className="home-round" focusKey={`${id}:back`} scroll={false} back aria-label="Назад" onPress={() => back()}>
+          <Focusable as="button" className="home-round" focusKey={`${id}:back`} autoFocus={autoFocus} scroll={false} back aria-label="Назад" onPress={() => back()}>
             <BackIcon size={24} strokeWidth={2.2} />
           </Focusable>
         )}

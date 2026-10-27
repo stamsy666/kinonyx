@@ -16,7 +16,7 @@ export function FavoritesScreen() {
 
   return (
     <FocusGroup focusKey="favorites" className="screen-pad home home--tv home--nohero">
-      <HomeChrome id="favorites" label="Избранное" />
+      <HomeChrome id="favorites" label="Избранное" autoFocus={films.length === 0} />
       <div className="home__rows">
         {films.length === 0 ? (
           <EmptyState icon={<FavoriteIcon size={38} strokeWidth={1.6} />} title="Здесь пока пусто" hint="Добавляйте фильмы сердечком на странице фильма, и они появятся здесь." />
