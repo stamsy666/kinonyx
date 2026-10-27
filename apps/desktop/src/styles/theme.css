@@ -8974,6 +8974,8 @@ body .sidebar__item.is-focused .sidebar__icon {
   margin: 0;
   padding: 26px 28px 28px;
   border-radius: 28px;
+  /* in a scrolling list the shadow would be cut to a rectangle by the list's edge */
+  box-shadow: none;
 }
 
 .empty-state--compact .empty-state__icon {
