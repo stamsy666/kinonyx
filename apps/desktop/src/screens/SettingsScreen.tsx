@@ -541,6 +541,23 @@ export function SettingsScreen() {
               <div className="settings__hint">Сколько секунд без нажатий кнопки остаются на экране.</div>
             </section>
             <section className="settings__item">
+              <div className="settings__label">Заставка и титры</div>
+              <CycleRow
+                label="Пропуск"
+                focusKey="settings:skipmode:0"
+                options={[
+                  { value: "button" as const, label: "Кнопкой" },
+                  { value: "auto" as const, label: "Сам" },
+                  { value: "off" as const, label: "Выключен" },
+                ]}
+                value={playerPrefs.skipMode}
+                onChange={(v) => setPlayerPrefs({ skipMode: v })}
+              />
+              <div className="settings__hint">
+                Если в файле есть главы «Opening» и «Ending» (или вы сами перематывали заставку в прошлых сериях), за пять секунд до неё появится «Заставка через 5 с». «Сам» — перемотка без нажатия.
+              </div>
+            </section>
+            <section className="settings__item">
               <div className="settings__label">Соотношение сторон</div>
               <CycleRow
                 label="Картинка"

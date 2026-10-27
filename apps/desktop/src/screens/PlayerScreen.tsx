@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { logEvent } from "../data/log";
 import { getTrackPrefs, matchTrack, rememberTrack } from "../store/trackPrefs";
 import { getLearnedIntro, learnIntro } from "../store/introPrefs";
-import { learnFromJump, skipFromChapters, skipFromLearned } from "../data/skipSegments";
+import { findSkip, learnFromJump } from "../data/skipSegments";
 import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import {
   Html5Adapter,
@@ -251,7 +251,14 @@ export function PlayerScreen({
   // "Skip intro": the file's own chapter marks first; in a series, also the stretch the viewer jumped over in an
   // earlier episode (learned from their own seeking, nothing to mark by hand).
   const learnedIntro = useMemo(() => (filmId && episodes ? getLearnedIntro(filmId) : undefined), [filmId, episodes, source.url]);
-  const skipTarget = !filmId || state.status === "error" ? null : skipFromChapters(state.chapters, state.position, state.duration) ?? (episodes ? skipFromLearned(learnedIntro, state.position) : null);
+  const hasNextEpisode = !!episodes && episodes.index < episodes.files.length - 1;
+  const rawSkip =
+    !filmId || state.status === "error" || prefs.skipMode === "off"
+      ? null
+      : findSkip({ chapters: state.chapters, learned: learnedIntro, position: state.position, duration: state.duration, series: !!episodes, hasNext: hasNextEpisode });
+  // Before the stretch it is only announced; the button is pressable inside it.
+  const skipTarget = rawSkip && rawSkip.phase === "inside" && prefs.skipMode === "button" ? rawSkip : null;
+  const skipAnnounce = rawSkip && (rawSkip.phase === "preview" || prefs.skipMode === "auto") ? rawSkip : null;
   const lastTick = useRef({ pos: -1, at: 0 });
   const skippedByButton = useRef(false);
   useEffect(() => {
@@ -269,11 +276,23 @@ export function PlayerScreen({
       if (jump) learnIntro(filmId, jump);
     }
   }, [state.position, state.status, filmId, episodes]);
-  const skipNow = () => {
-    if (!skipTarget) return;
+  const skipNow = (target = skipTarget) => {
+    if (!target) return;
     skippedByButton.current = true;
-    void adapterRef.current?.seek(skipTarget.to);
+    // The credits at the end of an episode of a series go to the next episode; everything else is a seek.
+    if (target.toNext) goToNextEpisode();
+    else void adapterRef.current?.seek(target.to);
   };
+  // "Сам": the stretch is jumped over the moment it begins (once for each).
+  const autoSkipped = useRef("");
+  useEffect(() => {
+    if (prefs.skipMode !== "auto" || !rawSkip || rawSkip.phase !== "inside") return;
+    const id = `${source.url}:${rawSkip.kind}:${rawSkip.from}`;
+    if (autoSkipped.current === id) return;
+    autoSkipped.current = id;
+    skipNow(rawSkip);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawSkip?.phase, rawSkip?.kind, rawSkip?.from, prefs.skipMode]);
   const skipShown = useRef(false);
   useEffect(() => {
     // Appears under the viewer's thumb: focus goes to it so that OK skips (as in the streaming apps).
@@ -856,9 +875,15 @@ export function PlayerScreen({
       )}
 
       {skipTarget && autoNext === null && (
-        <Focusable as="button" className="skip-btn" focusKey="player:skip" scroll={false} onPress={skipNow}>
-          {skipTarget.label}
+        <Focusable as="button" className="skip-btn" focusKey="player:skip" scroll={false} onPress={() => skipNow()}>
+          <span className="skip-btn__text">{skipTarget.label}</span>
+          <i className="skip-btn__bar" style={{ transform: `scaleX(${Math.max(0, Math.min(1, (skipTarget.end - state.position) / Math.max(1, skipTarget.end - skipTarget.from)))})` }} />
         </Focusable>
+      )}
+      {skipAnnounce && !skipTarget && autoNext === null && (
+        <div className="skip-btn skip-btn--note" role="status">
+          <span className="skip-btn__text">{skipAnnounce.phase === "inside" ? (skipAnnounce.toNext ? "Следующая серия…" : "Пропускаю…") : skipAnnounce.label}</span>
+        </div>
       )}
 
       {autoNext !== null && nextEpisode && (

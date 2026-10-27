@@ -9348,3 +9348,28 @@ body .sidebar__item.is-focused .sidebar__icon {
   place-items: center;
   min-height: calc(240 * var(--u));
 }
+
+/* the button's own bar (how much of the stretch is left) and the quiet announcement before it */
+.player--tvos .skip-btn {
+  position: absolute;
+  overflow: hidden;
+}
+
+.skip-btn__bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: currentColor;
+  opacity: 0.55;
+  transform-origin: left center;
+  transition: transform 0.4s linear;
+}
+
+.player--tvos .skip-btn--note {
+  display: flex;
+  align-items: center;
+  background: rgba(40, 40, 46, 0.55);
+  animation: skip-in 0.35s var(--ease) both;
+}

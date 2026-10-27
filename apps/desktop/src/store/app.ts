@@ -159,9 +159,13 @@ export interface PlayerPrefs {
   hdrOutput: boolean;
   /** Picture shape: the file's own, a fixed one, stretched to the window, or cropped to fill it (mpv `video-aspect-override` / `keepaspect` / `panscan`). */
   aspect: AspectMode;
+  /** Intro and credits: the viewer presses a button, the player jumps by itself, or nothing is offered. */
+  skipMode: SkipMode;
   /** The mpv sound output ("" = the system's default one). */
   audioDevice: string;
 }
+
+export type SkipMode = "button" | "auto" | "off";
 
 export type AspectMode = "auto" | "16:9" | "4:3" | "21:9" | "stretch" | "fill";
 export const ASPECT_MODES: AspectMode[] = ["auto", "16:9", "4:3", "21:9", "stretch", "fill"];
@@ -185,6 +189,7 @@ export const DEFAULT_PLAYER_PREFS: PlayerPrefs = {
   toneMapping: "auto",
   hdrOutput: false,
   aspect: "auto",
+  skipMode: "button",
   audioDevice: "",
 };
 
@@ -209,6 +214,7 @@ function readPlayerPrefs(): PlayerPrefs {
         toneMapping: p.toneMapping === "soft" || p.toneMapping === "contrast" ? p.toneMapping : "auto",
         hdrOutput: p.hdrOutput === true,
         aspect: (ASPECT_MODES as string[]).includes(p.aspect as string) ? (p.aspect as AspectMode) : "auto",
+        skipMode: p.skipMode === "auto" || p.skipMode === "off" ? p.skipMode : "button",
         audioDevice: typeof p.audioDevice === "string" ? p.audioDevice.slice(0, 300) : "",
       };
     }
