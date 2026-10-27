@@ -9633,6 +9633,12 @@ body .sidebar__item.is-focused .sidebar__icon {
   gap: calc(20 * var(--mu));
 }
 
+/* the list is pulled 6 out on every side for the rings, so the button needs more than the usual gap to stand clear of the last notice */
+.notice-clear {
+  flex: none;
+  margin-top: calc(26 * var(--mu));
+}
+
 /* ----- The sign that flashes when the video is paused or goes on ----- */
 .play-flash {
   position: absolute;

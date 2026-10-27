@@ -68,7 +68,7 @@ function NoticesModal({ onClose }: { onClose: () => void }) {
         ))}
       </div>
       {items.length > 0 && (
-        <Focusable as="button" className="links-tv__row links-tv__row--center" focusKey="notice:clear" scroll={false} onPress={() => useNotices.getState().clear()}>
+        <Focusable as="button" className="links-tv__row links-tv__row--center notice-clear" focusKey="notice:clear" scroll={false} onPress={() => useNotices.getState().clear()}>
           <span className="links-tv__name">Очистить список</span>
         </Focusable>
       )}
