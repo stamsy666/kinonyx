@@ -3,7 +3,8 @@ import { create } from "zustand";
 import { useFavorites } from "../store/favorites";
 import { useContinueWatching } from "../store/continueWatching";
 import { img } from "../data/images";
-import { kpImages } from "../data/api";
+import { KP_COLLECTIONS, kpCollection, kpImages, type MetadataSource } from "../data/api";
+import { useApp } from "../store/app";
 import logoMark from "../assets/logo-mark.png";
 
 // Seconds, under a new key: the old one held minutes.
@@ -46,6 +47,22 @@ interface Slide {
   poster?: string;
 }
 
+/** The films that go round: the home page's own top lists (the same requests — nearly always from the cache), not more than 30. */
+async function loadTop(source: MetadataSource): Promise<Slide[]> {
+  const kinds = source === "tmdb" ? ["TMDB_MOVIE_POPULAR", "TMDB_TRENDING_MOVIE"] : [KP_COLLECTIONS.popular, KP_COLLECTIONS.top250];
+  const lists = await Promise.all(kinds.map((k) => kpCollection(k).then((r) => r.items ?? []).catch(() => [])));
+  const seen = new Set<number>();
+  const out: Slide[] = [];
+  for (const item of lists.flat()) {
+    const title = item.nameRu || item.nameOriginal || "";
+    const poster = item.posterUrl ?? item.posterUrlPreview;
+    if (!poster || !title || seen.has(item.kinopoiskId)) continue;
+    seen.add(item.kinopoiskId);
+    out.push({ id: item.kinopoiskId, title, year: item.year, poster });
+  }
+  return out;
+}
+
 /** A frame of the film for the blurred background (one request per film, kept for the session; the disk cache does the rest). */
 const stillCache = new Map<number, Promise<string | null>>();
 function stillFor(id: number): Promise<string | null> {
@@ -76,8 +93,8 @@ function preload(url: string | undefined): Promise<void> {
 }
 
 /**
- * After a while with no key, mouse or touch, the screen is taken by the viewer's own films: their posters (favourites and what is
- * being watched) over a blurred frame of the film, with the name of the programme and the time. It comes up slowly, the pictures
+ * After a while with no key, mouse or touch, the screen is taken by the films from the tops (the popular ones and the best of all time):
+ * their posters over a blurred frame of the film, with the name of the programme and the time. It comes up slowly, the pictures
  * change by melting into one another, and it also keeps the television from showing one picture for hours. The first thing the
  * viewer does wakes it — and does nothing else (the first key press is swallowed).
  */
@@ -85,6 +102,8 @@ export function Screensaver() {
   const seconds = useScreensaver((s) => s.seconds);
   const favorites = useFavorites((s) => s.items);
   const watching = useContinueWatching((s) => s.items);
+  const source = useApp((s) => s.metadataSource) ?? "kinopoisk";
+  const [top, setTop] = useState<Slide[]>([]);
   const [on, setOn] = useState(false);
   const [closing, setClosing] = useState(false);
   const onRef = useRef(false);
@@ -148,7 +167,24 @@ export function Screensaver() {
     };
   }, [seconds]);
 
+  // Asked for a few seconds after the start (and when the source changes), so it is there when the screen comes.
+  useEffect(() => {
+    if (!seconds) return;
+    let dead = false;
+    const t = window.setTimeout(() => {
+      void loadTop(source).then((list) => {
+        if (!dead) setTop(list);
+      });
+    }, 5000);
+    return () => {
+      dead = true;
+      window.clearTimeout(t);
+    };
+  }, [seconds, source]);
+
   const slides: Slide[] = useMemo(() => {
+    // The tops; the viewer's own films only if the tops did not come (no connection, no key).
+    if (top.length > 0) return [...top].sort(() => Math.random() - 0.5).slice(0, 30);
     const out: Slide[] = [
       ...favorites.map((f) => ({ id: f.kinopoiskId, title: f.nameRu || f.nameOriginal || "", year: f.year, poster: f.posterUrl ?? f.posterUrlPreview })),
       ...watching.map((w) => ({ id: w.filmId, title: w.title, year: w.film?.year, poster: w.poster })),
@@ -158,7 +194,7 @@ export function Screensaver() {
     // A different order each time it comes.
     return unique.sort(() => Math.random() - 0.5);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [on]);
+  }, [on, top]);
 
   const [index, setIndex] = useState(0);
   const [previous, setPrevious] = useState<number | null>(null);
