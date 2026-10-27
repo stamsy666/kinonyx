@@ -14,6 +14,7 @@ import { isTauri } from "./data/io";
 import { installLogCapture } from "./data/log";
 import { applyStartupWindow } from "./data/windowPrefs";
 import { restoreUserData, startUserDataMirror } from "./data/userdata";
+import { refreshTrackers } from "./data/trackers";
 
 async function boot() {
   installLogCapture();
@@ -24,6 +25,7 @@ async function boot() {
   const { App } = await import("./App");
   const { installDownloadEvents } = await import("./store/downloads");
   void installDownloadEvents();
+  void refreshTrackers();
 
   initSpatialNavigation();
   installBackKeyListener();

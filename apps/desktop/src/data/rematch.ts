@@ -1,5 +1,6 @@
-import { kpSearch, type KpCollectionItem, type MetadataSource } from "./api";
-import { pickCandidate, type FilmKey } from "./matchTitle";
+import { kpFilm, kpSearch, type KpCollectionItem, type MetadataSource } from "./api";
+import { pickByImdb, pickCandidate, type FilmKey } from "./matchTitle";
+import { imdbFor } from "./imdbIds";
 import { useFavorites } from "../store/favorites";
 import { useContinueWatching } from "../store/continueWatching";
 import { useLastRelease } from "../store/lastRelease";
@@ -7,14 +8,31 @@ import { useLastRelease } from "../store/lastRelease";
 /** Entries saved before sources existed came from Kinopoisk. */
 const sourceOf = (s: MetadataSource | undefined): MetadataSource => s ?? "kinopoisk";
 
-async function findMatch(key: FilmKey): Promise<KpCollectionItem | undefined> {
+/** How many of a search's first results are asked for their IMDb id (one request each; the limit of a key is small). */
+const VERIFY = 3;
+
+async function findMatch(key: FilmKey, imdb?: string): Promise<KpCollectionItem | undefined> {
+  let byTitle: KpCollectionItem | undefined;
   // Original title first: it's the same string in every source, Russian ones differ.
   for (const query of [key.nameOriginal, key.nameRu]) {
     if (!query?.trim()) continue;
-    const hit = pickCandidate(key, await kpSearch(query.trim()));
-    if (hit) return hit;
+    const results = await kpSearch(query.trim());
+    if (imdb) {
+      // The IMDb id is the same in every source: the very film, even if the sources call it differently.
+      const ids = new Map<number, string | null | undefined>();
+      for (const r of results.slice(0, VERIFY)) {
+        try {
+          ids.set(r.kinopoiskId, (await kpFilm(r.kinopoiskId)).imdbId);
+        } catch {
+          /* this one cannot be checked: the title decides below */
+        }
+      }
+      const exact = pickByImdb(imdb, results, ids);
+      if (exact) return exact;
+    }
+    byTitle ??= pickCandidate(key, results);
   }
-  return undefined;
+  return byTitle;
 }
 
 let running: Promise<void> | null = null;
@@ -28,7 +46,7 @@ export function rematchAll(target: MetadataSource): Promise<void> {
 }
 
 async function run(target: MetadataSource) {
-  type Job = { key: FilmKey; apply: (hit: KpCollectionItem) => void };
+  type Job = { key: FilmKey; imdb?: string; apply: (hit: KpCollectionItem) => void };
   const jobs: Job[] = [];
   const idMap = new Map<number, number>();
 
@@ -36,6 +54,7 @@ async function run(target: MetadataSource) {
     if (sourceOf(fav.source) === target) continue;
     jobs.push({
       key: fav,
+      imdb: imdbFor(sourceOf(fav.source), fav.kinopoiskId),
       apply: (hit) => {
         idMap.set(fav.kinopoiskId, hit.kinopoiskId);
         useFavorites.getState().replace(fav.kinopoiskId, { ...fav, ...hit, source: target });
@@ -46,6 +65,7 @@ async function run(target: MetadataSource) {
     if (sourceOf(e.source) === target || !e.film) continue;
     jobs.push({
       key: e.film,
+      imdb: imdbFor(sourceOf(e.source), e.filmId),
       apply: (hit) => {
         idMap.set(e.filmId, hit.kinopoiskId);
         useContinueWatching.getState().remap(e.filmId, hit.kinopoiskId, target);
@@ -58,7 +78,7 @@ async function run(target: MetadataSource) {
     while (next < jobs.length) {
       const job = jobs[next++];
       try {
-        const hit = await findMatch(job.key);
+        const hit = await findMatch(job.key, job.imdb);
         if (hit) job.apply(hit);
       } catch {
         /* source unreachable — leave the entry, try again next start */

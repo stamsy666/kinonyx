@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeTitle, pickCandidate } from "./matchTitle";
+import { normalizeTitle, pickByImdb, pickCandidate } from "./matchTitle";
 
 const r = (id: number, nameRu: string, nameOriginal: string, year: number) => ({
   kinopoiskId: id,
@@ -38,5 +38,17 @@ describe("pickCandidate", () => {
   it("gives nothing for an unrelated title or an empty key", () => {
     expect(pickCandidate({ nameRu: "Маяк", year: 2024 }, results)).toBeUndefined();
     expect(pickCandidate({}, results)).toBeUndefined();
+  });
+});
+
+describe("pickByImdb", () => {
+  const results = [r(1, "Дюна", "Dune", 1984), r(2, "Дюна", "Dune", 2021)];
+  const ids = new Map<number, string | null | undefined>([[1, "tt0087182"], [2, "tt1160419"]]);
+  it("finds the very film, whatever the title says", () => {
+    expect(pickByImdb("tt1160419", results, ids)?.kinopoiskId).toBe(2);
+  });
+  it("finds nothing without an id or when no candidate has it", () => {
+    expect(pickByImdb(undefined, results, ids)).toBeUndefined();
+    expect(pickByImdb("tt9999999", results, ids)).toBeUndefined();
   });
 });

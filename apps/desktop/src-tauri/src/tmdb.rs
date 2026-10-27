@@ -201,8 +201,9 @@ fn genres_of(v: &Value, names: &HashMap<i64, String>) -> Vec<Value> {
 // ---------- kp_film ----------
 
 pub async fn kp_film(id: u32, config: &AppConfig) -> Result<Value, String> {
-    let (v, kind) = fetch_media(config, id, "", WEEK).await?;
+    let (v, kind) = fetch_media(config, id, "?append_to_response=external_ids", WEEK).await?;
     let names = genre_names(config).await.unwrap_or_default();
+    let imdb = v["imdb_id"].as_str().filter(|x| !x.is_empty()).or_else(|| v["external_ids"]["imdb_id"].as_str().filter(|x| !x.is_empty())).map(str::to_string);
     let runtime = if kind == "tv" {
         v["episode_run_time"].as_array().and_then(|a| a.first()).and_then(|x| x.as_i64())
     } else {
@@ -218,6 +219,7 @@ pub async fn kp_film(id: u32, config: &AppConfig) -> Result<Value, String> {
     let date = date_of(&v, kind);
     Ok(json!({
         "kinopoiskId": id,
+        "imdbId": imdb,
         "nameRu": title_of(&v, kind),
         "nameOriginal": original_title_of(&v, kind),
         "year": year_of(date.as_deref()),

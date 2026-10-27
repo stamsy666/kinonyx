@@ -1,5 +1,6 @@
 import { isTauri } from "./io";
 import { logEvent } from "./log";
+import { currentTrackers } from "./trackers";
 import { MOCK } from "./mock";
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -41,6 +42,8 @@ export interface KpCountry {
 
 export interface KpFilm {
   kinopoiskId: number;
+  /** "tt1375666" — the id both sources know; what a film is matched by across them. */
+  imdbId?: string | null;
   nameRu?: string;
   nameOriginal?: string;
   year?: number;
@@ -396,19 +399,6 @@ const METADATA_POLL_MS = 1_000;
  * find peers through DHT, which is slow to warm up and misses most of a small swarm.
  * The first two are the ones RuTor's own magnets carry.
  */
-const TRACKERS = [
-  "udp://opentor.net:6969",
-  "http://retracker.local/announce",
-  "udp://tracker.opentrackr.org:1337/announce",
-  "udp://open.stealth.si:80/announce",
-  "udp://tracker.torrent.eu.org:451/announce",
-  "udp://exodus.desync.com:6969/announce",
-  "udp://open.demonii.com:1337/announce",
-  "udp://explodie.org:6969/announce",
-  "udp://tracker.dler.org:6969/announce",
-  "udp://tracker.qu.ax:6969/announce",
-  "http://tracker.opentrackr.org:1337/announce",
-];
 
 /** hash or magnet → magnet carrying our tracker list. .torrent URLs pass through as-is. */
 export function withTrackers(link: string): string {
@@ -425,7 +415,7 @@ export function withTrackers(link: string): string {
       }
     }),
   );
-  const extra = TRACKERS.filter((t) => !present.has(t)).map((t) => `&tr=${encodeURIComponent(t)}`);
+  const extra = currentTrackers().filter((t) => !present.has(t)).map((t) => `&tr=${encodeURIComponent(t)}`);
   return magnet + extra.join("");
 }
 

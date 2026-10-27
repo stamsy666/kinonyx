@@ -30,6 +30,7 @@ import { RowScroll } from "../components/RowScroll";
 import { MovieCard } from "../components/MovieCard";
 import { ReleasePickerModal } from "../components/ReleasePickerModal";
 import { enqueueDownload, pickDownloadDir } from "../store/downloads";
+import { captureImdb } from "../data/imdbIds";
 import { LinksModal, type Link } from "../components/LinksModal";
 import { QUALITY_OPTIONS, type QualityKey } from "../data/quality";
 import { continueLabel } from "../store/episodeProgress";
@@ -225,6 +226,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
   // the full record — one cached request, and only if the viewer actually wants to watch.
   const [quality, setQuality] = useState<QualityKey | undefined>(undefined);
   const openWatch = () => {
+    rememberImdbId();
     setQuality(undefined);
     setModal("watch");
     if (film?.filmLength) return;
@@ -319,7 +321,10 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
   const director = staff.find((p) => p.professionKey === "DIRECTOR");
   const directorName = director?.nameRu || director?.nameEn;
   const genreNames = (film.genres ?? []).map((g) => g.genre);
-  const onToggleFavorite = () =>
+  // Saved or started: remember the film's IMDb id, so a later switch of the source finds exactly this film.
+  const rememberImdbId = () => void captureImdb(useApp.getState().metadataSource ?? "kinopoisk", id);
+  const onToggleFavorite = () => {
+    rememberImdbId();
     toggleFavorite({
       kinopoiskId: id,
       nameRu: film.nameRu,
@@ -330,6 +335,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
       ratingKinopoisk: film.ratingKinopoisk,
       genres: film.genres,
     });
+  };
 
   return (
     <FocusGroup focusKey="movie" className={`screen-pad home home--tv home--nohero mtv ${expanded ? "is-trailer" : ""} ${settling ? "is-trailer-fx" : ""} ${leaving ? "is-leaving" : ""}`}>

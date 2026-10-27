@@ -34,3 +34,9 @@ export function pickCandidate(entry: FilmKey, results: KpCollectionItem[]): KpCo
     return wanted === undefined || got === undefined || Math.abs(wanted - got) <= 1;
   });
 }
+
+/** The candidate that is the very film with this IMDb id (`imdbs` are the candidates' ids, by film id); the title is not looked at. */
+export function pickByImdb(wanted: string | undefined, results: KpCollectionItem[], imdbs: Map<number, string | null | undefined>): KpCollectionItem | undefined {
+  if (!wanted) return undefined;
+  return results.find((r) => imdbs.get(r.kinopoiskId) === wanted);
+}

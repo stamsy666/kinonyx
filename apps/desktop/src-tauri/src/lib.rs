@@ -12,6 +12,7 @@ mod rutube;
 mod tmdb;
 mod torapi;
 mod torrserve;
+mod trackers;
 mod translator;
 mod tv;
 mod userdata;
@@ -103,6 +104,7 @@ pub fn run() {
             userdata::userdata_open_dir,
             userdata::userdata_export,
             userdata::userdata_import,
+            trackers::trackers_list,
             logs::log_write,
             logs::log_dir,
             logs::log_open_dir,
