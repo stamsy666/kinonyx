@@ -9466,7 +9466,11 @@ body .sidebar__item.is-focused .sidebar__icon {
   overflow: hidden;
   background: #000;
   cursor: none;
-  animation: ss-wake 1.4s ease both;
+  animation: ss-wake 2.2s ease-in-out both;
+}
+
+.ss--closing {
+  animation: ss-sleep 600ms ease-in forwards;
 }
 
 .ss__slide {
@@ -9476,12 +9480,9 @@ body .sidebar__item.is-focused .sidebar__icon {
   place-items: center;
 }
 
+/* the new picture melts in over the old one, which stays whole under it */
 .ss__slide--in {
-  animation: ss-in 2.2s ease both;
-}
-
-.ss__slide--out {
-  animation: ss-out 2.2s ease both;
+  animation: ss-in 2.4s ease-in-out both;
 }
 
 .ss__backdrop {
@@ -9525,16 +9526,38 @@ body .sidebar__item.is-focused .sidebar__icon {
   color: rgba(255, 255, 255, 0.6);
 }
 
-.ss__brand {
+.ss__top {
   position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-size: clamp(40px, 8vh, 96px);
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  color: rgba(255, 255, 255, 0.85);
-  animation: ss-drift 20s ease-in-out infinite alternate;
+  top: 5vh;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  justify-content: center;
+  font-size: clamp(22px, 3.6vh, 42px);
+  color: #fff;
+  cursor: none;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.6);
+}
+
+.ss__top .topbar__logo-mark {
+  height: clamp(28px, 4.4vh, 54px);
+}
+
+/* a frame of the film behind the poster, blurred; it comes in when it has loaded */
+.ss__still {
+  position: absolute;
+  inset: -8%;
+  width: 116%;
+  height: 116%;
+  object-fit: cover;
+  filter: blur(40px) brightness(0.55) saturate(1.2);
+  opacity: 0;
+  transition: opacity 1.8s ease;
+  animation: ss-drift 24s ease-in-out infinite alternate;
+}
+
+.ss__still.is-in {
+  opacity: 1;
 }
 
 .ss__clock {
@@ -9572,7 +9595,7 @@ body .sidebar__item.is-focused .sidebar__icon {
   }
 }
 
-@keyframes ss-out {
+@keyframes ss-sleep {
   to {
     opacity: 0;
   }
