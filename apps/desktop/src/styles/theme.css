@@ -5037,6 +5037,12 @@ body .sidebar__item.is-focused .sidebar__icon {
   width: 100%;
 }
 
+/* In the grids (Favourites, genres) a poster is its own layer all the time: it grows when focused and the comet runs round
+   its edge, and when the layer came and went with the focus, a strip of the lifted frame was sometimes left on the page. */
+.home--tv .grid-cards .movie-card__poster {
+  will-change: transform;
+}
+
 /* "Категории": tiles with a colour of their own and the picture of a title of the genre. */
 .cats__tiles {
   display: grid;
