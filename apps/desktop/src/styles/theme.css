@@ -7191,8 +7191,9 @@ body .sidebar__item.is-focused .sidebar__icon {
 .links-tv__wait {
   display: grid;
   place-items: center;
-  gap: calc(14 * var(--mu));
-  padding: calc(34 * var(--mu)) 0 calc(20 * var(--mu));
+  /* the loader and its words sit midway between the name above and the buttons below (the name already has 18 under it) */
+  gap: calc(8 * var(--mu));
+  padding: calc(14 * var(--mu)) 0 calc(38 * var(--mu));
 }
 
 .links-tv__wait .links-tv__text {
