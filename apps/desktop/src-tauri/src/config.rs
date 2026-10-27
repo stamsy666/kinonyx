@@ -18,6 +18,9 @@ pub struct AppConfig {
     /// get past "Sign in to confirm you're not a bot" (see ytdlp.rs).
     pub youtube_cookies_browser: Mutex<String>,
     pub torapi_base_url: Mutex<String>,
+    /// An address of a TMDB API mirror ("https://host/3", empty = none): asked only when api.themoviedb.org does not answer.
+    /// Not built in: the request carries the viewer's TMDB key, which must not go through a server they did not choose.
+    pub tmdb_api_mirror: Mutex<String>,
     /// First-run wizard finished (or skipped because keys already existed).
     pub setup_done: Mutex<bool>,
     /// Discord application id for Rich Presence (see discord.rs); empty = use the built-in one, if any.
@@ -34,6 +37,7 @@ struct Saved {
     metadata_source: Option<String>,
     youtube_cookies_browser: Option<String>,
     torapi_base_url: Option<String>,
+    tmdb_api_mirror: Option<String>,
     setup_done: Option<bool>,
     discord_app_id: Option<String>,
 }
@@ -72,6 +76,7 @@ impl AppConfig {
             torapi_base_url: Mutex::new(saved.torapi_base_url.unwrap_or_else(|| {
                 std::env::var("TORAPI_BASE_URL").unwrap_or_else(|_| "https://ohnofreefilms.vercel.app".into())
             })),
+            tmdb_api_mirror: Mutex::new(saved.tmdb_api_mirror.unwrap_or_default()),
             setup_done: Mutex::new(saved.setup_done.unwrap_or(false)),
             discord_app_id: Mutex::new(saved.discord_app_id.unwrap_or_default()),
             torrserve_port: std::env::var("TORRSERVE_PORT")
@@ -93,6 +98,7 @@ impl AppConfig {
             metadata_source: Some(self.metadata_source.lock().unwrap().clone()),
             youtube_cookies_browser: Some(self.youtube_cookies_browser.lock().unwrap().clone()),
             torapi_base_url: Some(self.torapi_base_url.lock().unwrap().clone()),
+            tmdb_api_mirror: Some(self.tmdb_api_mirror.lock().unwrap().clone()),
             setup_done: Some(*self.setup_done.lock().unwrap()),
             discord_app_id: Some(self.discord_app_id.lock().unwrap().clone()),
         };
@@ -122,6 +128,7 @@ pub struct ConfigStatus {
     pub metadata_source: String,
     pub youtube_cookies_browser: String,
     pub torapi_base_url: String,
+    pub tmdb_api_mirror: String,
     pub setup_done: bool,
     /// Whether Discord status can work at all (an id was entered or built in).
     pub discord_ready: bool,
@@ -139,6 +146,7 @@ pub fn config_status(config: tauri::State<AppConfig>) -> ConfigStatus {
         metadata_source: config.metadata_source.lock().unwrap().clone(),
         youtube_cookies_browser: config.youtube_cookies_browser.lock().unwrap().clone(),
         torapi_base_url: config.torapi_base_url.lock().unwrap().clone(),
+        tmdb_api_mirror: config.tmdb_api_mirror.lock().unwrap().clone(),
         setup_done: *config.setup_done.lock().unwrap(),
         discord_ready: !crate::discord::effective_app_id(&config).is_empty(),
         discord_app_id: config.discord_app_id.lock().unwrap().clone(),
@@ -153,6 +161,16 @@ pub fn set_torapi_base_url(url: String, config: tauri::State<AppConfig>) -> Resu
         return Err("Ссылка должна начинаться с http:// или https://".into());
     }
     *config.torapi_base_url.lock().unwrap() = url;
+    config.persist()
+}
+
+#[tauri::command]
+pub fn set_tmdb_api_mirror(url: String, config: tauri::State<AppConfig>) -> Result<(), String> {
+    let url = url.trim().trim_end_matches('/').to_string();
+    if !url.is_empty() && !(url.starts_with("http://") || url.starts_with("https://")) {
+        return Err("Адрес должен начинаться с http:// или https://".into());
+    }
+    *config.tmdb_api_mirror.lock().unwrap() = url;
     config.persist()
 }
 

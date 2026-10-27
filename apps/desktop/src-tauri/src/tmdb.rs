@@ -61,7 +61,19 @@ async fn fetch(config: &AppConfig, path: &str, ttl: Duration) -> Result<Option<V
                 attempt += 1;
                 tokio::time::sleep(Duration::from_millis(300 * attempt)).await;
             }
-            Err(e) => return Err(e.to_string()),
+            Err(e) => {
+                // api.themoviedb.org does not answer (blocked): the mirror the viewer entered, if there is one.
+                let mirror = config.tmdb_api_mirror.lock().unwrap().clone();
+                if mirror.is_empty() {
+                    return Err(e.to_string());
+                }
+                let via = format!("{mirror}{path}{sep}api_key={key}&language=ru-RU");
+                crate::elog!("[tmdb] direct request failed ({e}); trying the mirror");
+                match CLIENT.get(&via).timeout(Duration::from_secs(15)).send().await {
+                    Ok(r) => break r,
+                    Err(e2) => return Err(format!("TMDB недоступен, зеркало тоже: {e2}")),
+                }
+            }
         }
     };
     match res.status().as_u16() {

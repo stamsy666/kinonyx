@@ -9318,3 +9318,33 @@ body .sidebar__item.is-focused .sidebar__icon {
   border-radius: 999px;
   text-align: center;
 }
+
+/* ----- Settings → Хранилище ----- */
+.storage-total {
+  display: flex;
+  align-items: baseline;
+  gap: calc(16 * var(--u));
+  margin: calc(4 * var(--u)) calc(20 * var(--u)) 0;
+}
+
+.storage-total b {
+  font-size: calc(40 * var(--u));
+  font-weight: 800;
+  color: #fff;
+}
+
+.storage-total span {
+  font-size: calc(16 * var(--u));
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.settings--tv .settings-pane .cycle-row--armed {
+  background: rgba(255, 140, 120, 0.28);
+}
+
+.stx-wait {
+  display: grid;
+  place-items: center;
+  min-height: calc(240 * var(--u));
+}

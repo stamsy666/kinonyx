@@ -9,6 +9,7 @@ import {
   setKinopoiskApiKey,
   setMetadataSource,
   setTmdbApiKey,
+  setTmdbApiMirror,
   setTorApiBaseUrl,
   setYoutubeCookiesBrowser,
   type ConfigStatus,
@@ -26,14 +27,16 @@ import { VolumeRow } from "../components/VolumeRow";
 import { TranslatorSettings } from "../components/TranslatorSettings";
 import type { EpgRefreshInterval } from "../store/app";
 import { rematchAll } from "../data/rematch";
-import { AboutIcon, ChannelsIcon, GearIcon, PhoneIcon, PlayerSettingsIcon, SourcesIcon, StatsIcon, ThemeIcon, VolumeIcon } from "@kinonyx/ui";
+import { AboutIcon, ChannelsIcon, FolderIcon, GearIcon, PhoneIcon, PlayerSettingsIcon, SourcesIcon, StatsIcon, ThemeIcon, VolumeIcon } from "@kinonyx/ui";
 import { refreshRemoteInfo, useRemote } from "../store/remote";
 import { StatsPanel } from "../components/StatsPanel";
+import { StoragePanel } from "../components/StoragePanel";
 import { resetScroll } from "../data/focusRestore";
 import { useUpdater } from "../store/updater";
 import { isTauri, openExternal } from "../data/io";
 import { exportUserData, importUserData, openUserDataDir } from "../data/userdata";
 import { getJacredKey, getJacredUrl, setJacred } from "../data/jacred";
+import { lastSpeed, recommendQuality, runSpeedTest } from "../data/speedtest";
 import { listAudioDevices, type AudioDevice } from "../data/audioDevices";
 import { listMonitors, moveToMonitor, readMonitor, readStartFullscreen, writeMonitor, writeStartFullscreen, type MonitorChoice } from "../data/windowPrefs";
 
@@ -121,7 +124,7 @@ const SOURCE_OPTIONS: { key: MetadataSource; label: string }[] = [
 const KP_KEY_URL = "https://kinopoiskapiunofficial.tech/profile";
 const TMDB_KEY_URL = "https://www.themoviedb.org/settings/api";
 
-type TabKey = "sources" | "player" | "channels" | "look" | "sound" | "remote" | "stats" | "about";
+type TabKey = "sources" | "player" | "channels" | "look" | "sound" | "remote" | "storage" | "stats" | "about";
 
 const BIG = { size: 300, strokeWidth: 1 } as const;
 const TABS: { key: TabKey; label: string; desc: string; icon: ReactNode; bigIcon: ReactNode }[] = [
@@ -131,6 +134,7 @@ const TABS: { key: TabKey; label: string; desc: string; icon: ReactNode; bigIcon
   { key: "look", label: "Оформление", desc: "Тема, масштаб программы и эффекты.", icon: <ThemeIcon size={22} />, bigIcon: <ThemeIcon {...BIG} /> },
   { key: "sound", label: "Звук", desc: "Звуки интерфейса, их громкость и фоновая музыка.", icon: <VolumeIcon size={22} />, bigIcon: <VolumeIcon {...BIG} /> },
   { key: "remote", label: "Пульт", desc: "Управление приложением с телефона по QR-коду.", icon: <PhoneIcon size={22} />, bigIcon: <PhoneIcon {...BIG} /> },
+  { key: "storage", label: "Хранилище", desc: "Что программа хранит на диске и что можно очистить.", icon: <FolderIcon size={22} />, bigIcon: <FolderIcon {...BIG} /> },
   { key: "stats", label: "Статистика", desc: "Сколько и что вы смотрели.", icon: <StatsIcon size={22} />, bigIcon: <StatsIcon {...BIG} /> },
   { key: "about", label: "О программе", desc: "Обновления, диагностика, Discord и авторы.", icon: <AboutIcon size={22} />, bigIcon: <AboutIcon {...BIG} /> },
 ];
@@ -138,7 +142,7 @@ const TABS: { key: TabKey; label: string; desc: string; icon: ReactNode; bigIcon
 const GROUPS: { title: string; keys: TabKey[] }[] = [
   { title: "ОСНОВНЫЕ", keys: ["sources", "player", "channels"] },
   { title: "ВНЕШНИЙ ВИД И ЗВУК", keys: ["look", "sound"] },
-  { title: "ПРИЛОЖЕНИЕ", keys: ["remote", "stats", "about"] },
+  { title: "ПРИЛОЖЕНИЕ", keys: ["remote", "storage", "stats", "about"] },
 ];
 
 export function SettingsScreen() {
@@ -148,7 +152,11 @@ export function SettingsScreen() {
   const clickSparkEnabled = useApp((s) => s.clickSparkEnabled);
   // «Данные»: the answer of the last export / import, and the "press again" guard of the import (it replaces everything).
   const [dataNote, setDataNote] = useState("");
+  const [speed, setSpeed] = useState(lastSpeed);
+  const [speedBusy, setSpeedBusy] = useState(false);
+  const [speedNote, setSpeedNote] = useState("");
   // The second source of releases (a JacRed server): saved as it is typed.
+  const [tmdbMirror, setTmdbMirror] = useState("");
   const [jacUrl, setJacUrl] = useState(getJacredUrl);
   const [jacKey, setJacKey] = useState(getJacredKey);
   const [importArmed, setImportArmed] = useState(false);
@@ -242,6 +250,7 @@ export function SettingsScreen() {
     configStatus().then((s) => {
       setStatus(s);
       setTorapi(s.torapi_base_url);
+      setTmdbMirror(s.tmdb_api_mirror ?? "");
     });
   }, []);
 
@@ -360,6 +369,20 @@ export function SettingsScreen() {
                 note={torapiNote}
                 fallback="Enter — сохранить. Поиск раздач идёт через этот сервер."
               />
+            </section>
+            <section className="settings__item">
+              <div className="settings__label">Зеркало TMDB API (необязательно)</div>
+              <TextField
+                focusKey="settings:tmdbmirror"
+                value={tmdbMirror}
+                onChange={setTmdbMirror}
+                onSubmit={(v) => void setTmdbApiMirror(v).catch(() => undefined)}
+                placeholder="Адрес зеркала: https://…/3"
+                type="url"
+              />
+              <div className="settings__hint">
+                Если TMDB у вас закрыт, укажите адрес зеркала, оно будет использоваться, пока прямой доступ не отвечает (Enter — сохранить). Ваш ключ TMDB уходит на этот сервер, поэтому берите только зеркало, которому доверяете. Картинки TMDB переключаются на зеркала сами.
+              </div>
             </section>
             <section className="settings__item">
               <div className="settings__label">JacRed — ещё один источник раздач (необязательно)</div>
@@ -643,6 +666,38 @@ export function SettingsScreen() {
             </section>
           </>
         )}
+        {tab === "player" && (
+          <section className="settings__item">
+            <div className="settings__label">Скорость интернета</div>
+            <Focusable
+              as="button"
+              className="cycle-row"
+              focusKey="settings:speedtest"
+              onPress={() => {
+                if (speedBusy) return;
+                setSpeedBusy(true);
+                setSpeedNote("");
+                runSpeedTest().then(
+                  (r) => {
+                    setSpeed(r);
+                    setSpeedBusy(false);
+                  },
+                  (e) => {
+                    setSpeedNote(e instanceof Error ? e.message : String(e));
+                    setSpeedBusy(false);
+                  },
+                );
+              }}
+            >
+              <span className="cycle-row__label">{speedBusy ? "Измеряю…" : "Проверить скорость"}</span>
+              <span className="cycle-row__value">{speed ? `≈ ${Math.round(speed.mbit)} Мбит/с · ${recommendQuality(speed.mbit).text}` : ""}</span>
+            </Focusable>
+            <div className="settings__hint">
+              {speedNote ||
+                "Около восьми секунд скачивается тестовый файл. По результату список раздач отметит те, что пойдут без остановок, и не посоветует слишком тяжёлые."}
+            </div>
+          </section>
+        )}
         {tab === "channels" && (
           <>
             <section className="settings__item">
@@ -904,6 +959,7 @@ export function SettingsScreen() {
           </>
         )}
         {tab === "remote" && <RemotePane />}
+        {tab === "storage" && <StoragePanel />}
         {tab === "stats" && <StatsPanel />}
         {tab === "about" && (
           <>

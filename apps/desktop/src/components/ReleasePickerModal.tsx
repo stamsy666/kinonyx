@@ -19,6 +19,7 @@ import { episodeKey, episodeLabel } from "../data/episodes";
 import { useEpisodeProgress } from "../store/episodeProgress";
 import { splitByYear } from "../data/releaseFilter";
 import { jacredSearch, mergeReleases } from "../data/jacred";
+import { lastSpeed, sustainable } from "../data/speedtest";
 import { parseTags, tagLabels, type ReleaseTags } from "../data/releaseTags";
 import { pickByQuality, qualityLabel, type QualityKey } from "../data/quality";
 import { Modal } from "./Modal";
@@ -311,8 +312,14 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
 
   const shownAll = showHidden ? [...releases, ...hidden] : releases;
   // The suggestion: the best-seeded release in good quality, with enough seeders to play smoothly.
+  const speed = lastSpeed();
+  // With a measured speed the suggestion is also one the connection carries (a film's average bitrate within what it can hold).
+  const fits = (r: TorApiRelease) => {
+    const need = neededMbit(r.size, durationMin);
+    return !speed || !need || need <= sustainable(speed.mbit);
+  };
   const bestId = [...releases]
-    .filter((r) => ["4K", "1080p"].includes(parseTags(r.name).quality ?? "") && (r.seeds ?? 0) >= 10)
+    .filter((r) => ["4K", "1080p"].includes(parseTags(r.name).quality ?? "") && (r.seeds ?? 0) >= 10 && fits(r))
     .sort((a, b) => (b.seeds ?? 0) - (a.seeds ?? 0))[0]?.id;
   const visible = shownAll
     .filter((r) => (r.seeds ?? 0) >= minSeeds && (voice === "any" || parseTags(r.name).voice === voice))
@@ -407,6 +414,7 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
                       {need && <span>≈ {need < 10 ? need.toFixed(1) : Math.round(need)} Мбит/с</span>}
                       <span>{r.provider}</span>
                       {few && <span className="release-warn">мало сидов — возможна буферизация</span>}
+                      {!few && !fits(r) && <span className="release-warn">может не хватить скорости интернета</span>}
                     </span>
                   </span>
                   <span className={`rel-tv__seeds ${few ? "rel-tv__seeds--few" : ""}`}>

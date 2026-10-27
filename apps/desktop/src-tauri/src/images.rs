@@ -15,11 +15,68 @@ use crate::http::CLIENT;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use tauri::http::{Request, Response};
 use tauri::{Manager, Runtime, UriSchemeContext, UriSchemeResponder};
 
 const ALLOWED_HOSTS: &[&str] =
     &["kinopoiskapiunofficial.tech", "st.kp.yandex.net", "avatars.mds.yandex.net", "image.tmdb.org"];
+
+/// Where TMDB posters can be had when `image.tmdb.org` itself is not reachable (it is blocked in some countries): the mirrors
+/// Lampa uses — the same path on another host. A host that fails is left alone for a few minutes, and the order of the
+/// rest stays as it is, so a working mirror is used for as long as it works.
+const TMDB_IMAGE_MIRRORS: &[&str] = &["imagetmdb.com", "nl.imagetmdb.com", "de.imagetmdb.com", "pl.imagetmdb.com"];
+const MIRROR_REST: Duration = Duration::from_secs(300);
+static RESTING: Mutex<Vec<(String, Instant)>> = Mutex::new(Vec::new());
+
+fn resting(host: &str) -> bool {
+    let mut list = RESTING.lock().unwrap();
+    list.retain(|(_, until)| *until > Instant::now());
+    list.iter().any(|(h, _)| h == host)
+}
+
+fn rest(host: &str) {
+    RESTING.lock().unwrap().push((host.to_string(), Instant::now() + MIRROR_REST));
+}
+
+/// The bytes of a TMDB image from the first host that gives them.
+async fn fetch_tmdb_image(parsed: &reqwest::Url) -> Result<Vec<u8>, String> {
+    let hosts: Vec<&str> = std::iter::once("image.tmdb.org").chain(TMDB_IMAGE_MIRRORS.iter().copied()).collect();
+    let mut tried_any = false;
+    let mut last = String::from("no host");
+    // Hosts at rest go last rather than nowhere: if all of them are resting, the picture is still asked for.
+    let (fresh, tired): (Vec<&str>, Vec<&str>) = hosts.into_iter().partition(|h| !resting(h));
+    for host in fresh.into_iter().chain(tired) {
+        let mut url = parsed.clone();
+        if url.set_host(Some(host)).is_err() {
+            continue;
+        }
+        tried_any = true;
+        match CLIENT.get(url).timeout(Duration::from_secs(12)).send().await {
+            Ok(res) if res.status().is_success() => match res.bytes().await {
+                Ok(b) if !b.is_empty() => return Ok(b.to_vec()),
+                Ok(_) => last = format!("{host}: empty"),
+                Err(e) => last = format!("{host}: {e}"),
+            },
+            // A 404 is the picture's own answer, not the host's failure.
+            Ok(res) if res.status().as_u16() == 404 => return Err("upstream HTTP 404".into()),
+            Ok(res) => {
+                last = format!("{host}: HTTP {}", res.status());
+                rest(host);
+            }
+            Err(e) => {
+                last = format!("{host}: {e}");
+                rest(host);
+            }
+        }
+    }
+    if tried_any {
+        Err(last)
+    } else {
+        Err("no host".into())
+    }
+}
 
 pub fn handle<R: Runtime>(ctx: UriSchemeContext<'_, R>, request: Request<Vec<u8>>, responder: UriSchemeResponder) {
     let cache_dir = ctx.app_handle().path().app_cache_dir().ok().map(|d| d.join("img"));
@@ -54,12 +111,16 @@ async fn serve(encoded: &str, cache_dir: Option<PathBuf>) -> Result<(Vec<u8>, &'
         }
     }
 
-    // reqwest follows the redirect chain itself (up to 10 hops).
-    let res = CLIENT.get(parsed).send().await.map_err(|e| e.to_string())?;
-    if !res.status().is_success() {
-        return Err(format!("upstream HTTP {}", res.status()));
-    }
-    let bytes = res.bytes().await.map_err(|e| e.to_string())?.to_vec();
+    let bytes = if parsed.host_str() == Some("image.tmdb.org") {
+        fetch_tmdb_image(&parsed).await?
+    } else {
+        // reqwest follows the redirect chain itself (up to 10 hops).
+        let res = CLIENT.get(parsed).send().await.map_err(|e| e.to_string())?;
+        if !res.status().is_success() {
+            return Err(format!("upstream HTTP {}", res.status()));
+        }
+        res.bytes().await.map_err(|e| e.to_string())?.to_vec()
+    };
 
     if let Some(file) = cache_file {
         let data = bytes.clone();

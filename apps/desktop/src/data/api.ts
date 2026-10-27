@@ -520,6 +520,7 @@ export type MetadataSource = "kinopoisk" | "tmdb";
 export type YoutubeCookiesBrowser = "" | "chrome" | "edge" | "firefox";
 
 export interface ConfigStatus {
+  tmdb_api_mirror?: string;
   /** e.g. "a1b2…d4e5"; null when no key is set. The full key never reaches the webview. */
   kinopoisk_key_masked: string | null;
   tmdb_key_masked: string | null;
@@ -542,6 +543,9 @@ export async function setKinopoiskApiKey(key: string) {
   await invoke<void>("set_kinopoisk_api_key", { key });
   // Anything that failed on the old/missing key must be refetched with the new one.
   memo.clear();
+}
+export function setTmdbApiMirror(url: string) {
+  return invoke<void>("set_tmdb_api_mirror", { url });
 }
 export async function setTmdbApiKey(key: string) {
   await invoke<void>("set_tmdb_api_key", { key });

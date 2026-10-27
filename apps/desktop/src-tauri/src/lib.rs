@@ -9,6 +9,8 @@ mod jacred;
 mod kinopoisk;
 mod logs;
 mod remote;
+mod speedtest;
+mod storage;
 mod rutube;
 mod tmdb;
 mod torapi;
@@ -106,6 +108,9 @@ pub fn run() {
             userdata::userdata_export,
             userdata::userdata_import,
             trackers::trackers_list,
+            storage::storage_usage,
+            storage::storage_clear,
+            speedtest::speedtest_run,
             jacred::jacred_search,
             logs::log_write,
             logs::log_dir,
@@ -115,6 +120,7 @@ pub fn run() {
             config::set_torapi_base_url,
             config::set_kinopoisk_api_key,
             config::set_tmdb_api_key,
+            config::set_tmdb_api_mirror,
             config::set_metadata_source,
             config::set_setup_done,
             config::set_discord_app_id,
