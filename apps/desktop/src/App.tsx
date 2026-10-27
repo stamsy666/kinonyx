@@ -5,6 +5,7 @@ import { TopBar } from "./components/TopBar";
 import { Sidebar } from "./components/Sidebar";
 import { AppBackground } from "./components/backgrounds/AppBackground";
 import { ClickSpark } from "./components/ClickSpark";
+import { Screensaver } from "./components/Screensaver";
 import { RemoteBridge } from "./components/RemoteBridge";
 import { configStatus } from "./data/api";
 import { isTauri } from "./data/io";
@@ -250,6 +251,7 @@ export function App() {
         </div>
         <ClickSpark enabled={clickSparkEnabled} />
         {updateModal}
+        <Screensaver />
       </>
     );
   }

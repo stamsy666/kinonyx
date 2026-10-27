@@ -37,6 +37,7 @@ import { isTauri, openExternal } from "../data/io";
 import { exportUserData, importUserData, openUserDataDir } from "../data/userdata";
 import { getJacredKey, getJacredUrl, setJacred } from "../data/jacred";
 import { lastSpeed, recommendQuality, runSpeedTest } from "../data/speedtest";
+import { SCREENSAVER_OPTIONS, useScreensaver } from "../components/Screensaver";
 import { listAudioDevices, type AudioDevice } from "../data/audioDevices";
 import { listMonitors, moveToMonitor, readMonitor, readStartFullscreen, writeMonitor, writeStartFullscreen, type MonitorChoice } from "../data/windowPrefs";
 
@@ -160,6 +161,8 @@ export function SettingsScreen() {
   const [jacUrl, setJacUrl] = useState(getJacredUrl);
   const [jacKey, setJacKey] = useState(getJacredKey);
   const [importArmed, setImportArmed] = useState(false);
+  const screensaverMinutes = useScreensaver((s) => s.minutes);
+  const setScreensaverMinutes = useScreensaver((s) => s.setMinutes);
   const [startFull, setStartFull] = useState(readStartFullscreen);
   const [monitor, setMonitor] = useState(readMonitor);
   const [monitors, setMonitors] = useState<MonitorChoice[]>([]);
@@ -806,10 +809,18 @@ export function SettingsScreen() {
                   }}
                 />
               )}
+              <CycleRow
+                label="Заставка при простое"
+                focusKey="settings:screensaver:0"
+                options={SCREENSAVER_OPTIONS.map((m) => ({ value: m, label: m === 0 ? "Выключена" : `Через ${m} мин` }))}
+                value={screensaverMinutes}
+                onChange={setScreensaverMinutes}
+              />
               <div className="settings__hint">
                 {monitors.length > 2
                   ? "Программа откроется на выбранном экране и перенесётся на него сразу. Если экран отключён, окно откроется там, где обычно."
                   : "Полный экран при каждом запуске. Если подключить второй монитор, здесь появится выбор экрана."}
+                {" "}Заставка включается, когда никто не нажимает кнопки: по экрану плывут постеры ваших фильмов, любое нажатие её убирает.
               </div>
             </section>
             <section className="settings__item">

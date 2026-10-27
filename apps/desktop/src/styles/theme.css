@@ -9454,3 +9454,141 @@ body .sidebar__item.is-focused .sidebar__icon {
   border-radius: 50%;
   background: #ff4d5e;
 }
+
+/* ----- The screensaver ----- */
+.ss {
+  position: fixed;
+  z-index: 200;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+  cursor: none;
+  animation: ss-wake 1.4s ease both;
+}
+
+.ss__slide {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.ss__slide--in {
+  animation: ss-in 2.2s ease both;
+}
+
+.ss__slide--out {
+  animation: ss-out 2.2s ease both;
+}
+
+.ss__backdrop {
+  position: absolute;
+  inset: -8%;
+  background-position: center;
+  background-size: cover;
+  filter: blur(46px) brightness(0.5) saturate(1.2);
+  animation: ss-drift 24s ease-in-out infinite alternate;
+}
+
+.ss__card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  transform: translate(var(--ss-shift, 0px), calc(var(--ss-shift, 0px) * -0.6));
+  animation: ss-rise 12s ease-out both;
+}
+
+.ss__card img {
+  height: min(62vh, 640px);
+  aspect-ratio: 2 / 3;
+  border-radius: 22px;
+  object-fit: cover;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.65);
+}
+
+.ss__title {
+  max-width: 70vw;
+  font-size: clamp(22px, 3vh, 40px);
+  font-weight: 800;
+  color: #fff;
+  text-align: center;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.6);
+}
+
+.ss__year {
+  font-size: clamp(16px, 2vh, 24px);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.ss__brand {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: clamp(40px, 8vh, 96px);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.85);
+  animation: ss-drift 20s ease-in-out infinite alternate;
+}
+
+.ss__clock {
+  position: absolute;
+  right: 5vw;
+  bottom: 6vh;
+  display: grid;
+  justify-items: end;
+  color: #fff;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.7);
+}
+
+.ss__clock b {
+  font-size: clamp(36px, 7vh, 84px);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.ss__clock span {
+  font-size: clamp(14px, 2.2vh, 24px);
+  font-weight: 700;
+  text-transform: capitalize;
+  opacity: 0.75;
+}
+
+@keyframes ss-wake {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ss-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ss-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes ss-drift {
+  from {
+    transform: scale(1) translate(-1.5%, -1%);
+  }
+  to {
+    transform: scale(1.08) translate(1.5%, 1%);
+  }
+}
+
+@keyframes ss-rise {
+  from {
+    transform: translate(var(--ss-shift, 0px), calc(var(--ss-shift, 0px) * -0.6)) scale(0.97);
+  }
+  to {
+    transform: translate(var(--ss-shift, 0px), calc(var(--ss-shift, 0px) * -0.6)) scale(1.03);
+  }
+}
