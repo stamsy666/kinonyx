@@ -161,8 +161,8 @@ export function SettingsScreen() {
   const [jacUrl, setJacUrl] = useState(getJacredUrl);
   const [jacKey, setJacKey] = useState(getJacredKey);
   const [importArmed, setImportArmed] = useState(false);
-  const screensaverMinutes = useScreensaver((s) => s.minutes);
-  const setScreensaverMinutes = useScreensaver((s) => s.setMinutes);
+  const screensaverSeconds = useScreensaver((s) => s.seconds);
+  const setScreensaverSeconds = useScreensaver((s) => s.setSeconds);
   const [startFull, setStartFull] = useState(readStartFullscreen);
   const [monitor, setMonitor] = useState(readMonitor);
   const [monitors, setMonitors] = useState<MonitorChoice[]>([]);
@@ -812,9 +812,9 @@ export function SettingsScreen() {
               <CycleRow
                 label="Заставка при простое"
                 focusKey="settings:screensaver:0"
-                options={SCREENSAVER_OPTIONS.map((m) => ({ value: m, label: m === 0 ? "Выключена" : `Через ${m} мин` }))}
-                value={screensaverMinutes}
-                onChange={setScreensaverMinutes}
+                options={SCREENSAVER_OPTIONS.map((m) => ({ value: m, label: m === 0 ? "Выключена" : m < 60 ? `Через ${m} сек` : `Через ${m / 60} мин` }))}
+                value={screensaverSeconds}
+                onChange={setScreensaverSeconds}
               />
               <div className="settings__hint">
                 {monitors.length > 2

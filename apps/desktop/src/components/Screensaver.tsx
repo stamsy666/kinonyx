@@ -4,26 +4,28 @@ import { useFavorites } from "../store/favorites";
 import { useContinueWatching } from "../store/continueWatching";
 import { img } from "../data/images";
 
-const KEY = "kinonyx.screensaver";
-/** Minutes of rest before it comes; 0 = never. */
-export const SCREENSAVER_OPTIONS = [0, 5, 10, 20, 30];
+// Seconds, under a new key: the old one held minutes.
+const KEY = "kinonyx.screensaverAfter";
+const DEFAULT_SECONDS = 300;
+/** Seconds of rest before it comes; 0 = never. */
+export const SCREENSAVER_OPTIONS = [0, 30, 60, 300];
 
-function readMinutes(): number {
+function readSeconds(): number {
   try {
     const raw = localStorage.getItem(KEY);
-    const n = raw == null ? 10 : Number(raw);
-    return SCREENSAVER_OPTIONS.includes(n) ? n : 10;
+    const n = raw == null ? DEFAULT_SECONDS : Number(raw);
+    return SCREENSAVER_OPTIONS.includes(n) ? n : DEFAULT_SECONDS;
   } catch {
-    return 10;
+    return DEFAULT_SECONDS;
   }
 }
 
-export const useScreensaver = create<{ minutes: number; setMinutes: (m: number) => void }>((set) => ({
-  minutes: readMinutes(),
-  setMinutes(minutes) {
-    set({ minutes });
+export const useScreensaver = create<{ seconds: number; setSeconds: (s: number) => void }>((set) => ({
+  seconds: readSeconds(),
+  setSeconds(seconds) {
+    set({ seconds });
     try {
-      localStorage.setItem(KEY, String(minutes));
+      localStorage.setItem(KEY, String(seconds));
     } catch {
       /* the choice is not remembered */
     }
@@ -45,7 +47,7 @@ interface Slide {
  * thing the viewer does wakes it — and does nothing else (the first key press is swallowed).
  */
 export function Screensaver() {
-  const minutes = useScreensaver((s) => s.minutes);
+  const seconds = useScreensaver((s) => s.seconds);
   const favorites = useFavorites((s) => s.items);
   const watching = useContinueWatching((s) => s.items);
   const [on, setOn] = useState(false);
@@ -54,7 +56,7 @@ export function Screensaver() {
   const shownAt = useRef(0);
 
   useEffect(() => {
-    if (!minutes) {
+    if (!seconds) {
       setOn(false);
       return;
     }
@@ -64,7 +66,7 @@ export function Screensaver() {
       timer = window.setTimeout(() => {
         shownAt.current = Date.now();
         setOn(true);
-      }, minutes * 60_000);
+      }, seconds * 1000);
     };
     const wake = (e: Event) => {
       if (onRef.current) {
@@ -95,7 +97,7 @@ export function Screensaver() {
       for (const t of hard) window.removeEventListener(t, wake, true);
       window.removeEventListener("mousemove", move, true);
     };
-  }, [minutes]);
+  }, [seconds]);
 
   const slides: Slide[] = useMemo(() => {
     const out: Slide[] = [
