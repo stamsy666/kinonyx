@@ -200,7 +200,8 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
       } catch (e) {
         failure = e;
       }
-      const second = await jac;
+      // A server that does not answer must not keep the list waiting: what it has not given in a few seconds is left out.
+      const second = await Promise.race([jac, new Promise<TorApiRelease[]>((done) => window.setTimeout(() => done([]), 5000))]);
       if (!first.length && !second.length && failure) throw failure;
       return mergeReleases(first, second);
     })()

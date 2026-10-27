@@ -4,11 +4,15 @@ const URL_KEY = "kinonyx.jacredUrl";
 const KEY_KEY = "kinonyx.jacredKey";
 
 /** An optional second source of releases: a JacRed server (an aggregator of torrent trackers) at the address from Settings. */
+/** Built in: whoever has never touched the field (a fresh install, or an update of an older version) gets this server.
+ *  An emptied field is a choice (the source is off) and stays empty. */
+export const DEFAULT_JACRED_URL = "http://jac.red";
+
 export function getJacredUrl(): string {
   try {
-    return localStorage.getItem(URL_KEY) ?? "";
+    return localStorage.getItem(URL_KEY) ?? DEFAULT_JACRED_URL;
   } catch {
-    return "";
+    return DEFAULT_JACRED_URL;
   }
 }
 export function getJacredKey(): string {
