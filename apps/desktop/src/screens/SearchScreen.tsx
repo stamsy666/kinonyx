@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FocusContext, setFocus, useFocusable } from "@noriginmedia/norigin-spatial-navigation";
-import { Focusable, FocusGroup, GlobeIcon, MicIcon, SearchIcon, Spinner } from "@kinonyx/ui";
+import { Focusable, FocusGroup, GlobeIcon, MicIcon, OfflineIcon, SearchIcon, Spinner } from "@kinonyx/ui";
+import { EmptyState } from "../components/EmptyState";
 import { useApp } from "../store/app";
 import { kpSearch, type KpCollectionItem } from "../data/api";
 import { useSearchHistory } from "../store/searchHistory";
@@ -282,8 +283,8 @@ export function SearchScreen() {
                   <Spinner />
                 </div>
               )}
-              {error && <p className="empty">Поиск не удался: {error}</p>}
-              {!loading && isSearching && shown && shown.length === 0 && <p className="empty">Ничего не найдено</p>}
+              {error && <EmptyState error icon={<OfflineIcon size={38} strokeWidth={1.6} />} title="Поиск не удался" hint={error} />}
+              {!loading && isSearching && shown && shown.length === 0 && <EmptyState icon={<SearchIcon size={38} strokeWidth={1.6} />} title="Ничего не найдено" hint="Попробуйте другое название или уберите фильтры." />}
 
               {browsing ? (
                 <div className="cats sx__browse">

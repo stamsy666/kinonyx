@@ -8898,3 +8898,58 @@ body .sidebar__item.is-focused .sidebar__icon {
     transform: translate(-50%, 14px);
   }
 }
+
+/* ----- "Nothing found" / "could not load": a glass card with an icon (components/EmptyState) ----- */
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: min(560px, 86%);
+  margin: 90px auto 0;
+  padding: 38px 40px 40px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 34px;
+  background: rgba(40, 40, 46, 0.5);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  text-align: center;
+  animation: empty-state-in 0.45s var(--ease) both;
+}
+
+.empty-state__icon {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.empty-state__title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.empty-state__hint {
+  max-width: 440px;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.empty-state--error .empty-state__icon {
+  background: rgba(255, 120, 120, 0.14);
+  color: #ffb0b0;
+}
+
+@keyframes empty-state-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}

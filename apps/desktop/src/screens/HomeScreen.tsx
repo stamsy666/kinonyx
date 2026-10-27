@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { FullscreenButton } from "../components/FullscreenButton";
 import { WhatToWatchModal } from "../components/WhatToWatchModal";
 import { PopcornIcon } from "../components/AnimatedIcons";
-import { Focusable, FocusGroup, SearchIcon, Spinner } from "@kinonyx/ui";
+import { Focusable, FocusGroup, OfflineIcon, SearchIcon, Spinner } from "@kinonyx/ui";
+import { EmptyState } from "../components/EmptyState";
 import logoMark from "../assets/logo-mark.png";
 import { useApp } from "../store/app";
 import { useFavorites } from "../store/favorites";
@@ -239,7 +240,7 @@ export function HomeScreen() {
           <FullscreenButton focusKey="home:fullscreen" className="home-round" />
         </div>
       </div>
-      {error && <p className="empty">Не удалось загрузить подборку: {error}</p>}
+      {error && <EmptyState error icon={<OfflineIcon size={38} strokeWidth={1.6} />} title="Не удалось загрузить подборку" hint={error} />}
       {!hero && !error && (
         <div style={{ display: "grid", placeItems: "center", height: 300 }}>
           <Spinner />

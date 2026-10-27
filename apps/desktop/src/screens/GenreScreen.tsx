@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Focusable, FocusGroup, Spinner } from "@kinonyx/ui";
+import { Focusable, FocusGroup, OfflineIcon, SearchIcon, Spinner } from "@kinonyx/ui";
+import { EmptyState } from "../components/EmptyState";
 import { useApp } from "../store/app";
 import { kpFilmsFilter, type KpCollectionItem, type KpFilter } from "../data/api";
 import { HomeChrome } from "../components/HomeChrome";
@@ -104,7 +105,7 @@ export function GenreScreen({ title, filter }: { title: string; filter: KpFilter
             <Spinner />
           </Focusable>
         )}
-        {films.length === 0 && !loading && (failed ? <p className="empty">Не удалось загрузить подборку.</p> : <p className="empty">Ничего не найдено.</p>)}
+        {films.length === 0 && !loading && (failed ? <EmptyState error icon={<OfflineIcon size={38} strokeWidth={1.6} />} title="Не удалось загрузить подборку" hint="Проверьте подключение и попробуйте ещё раз." /> : <EmptyState icon={<SearchIcon size={38} strokeWidth={1.6} />} title="Ничего не найдено" />)}
         {films.length > 0 && (
           <div className="grid-cards">
             <FocusHighlight />

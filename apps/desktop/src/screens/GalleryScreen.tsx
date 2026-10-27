@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
-import { BackIcon, Focusable, FocusGroup, FullscreenIcon, NextIcon, Spinner } from "@kinonyx/ui";
+import { BackIcon, Focusable, FocusGroup, FullscreenIcon, NextIcon, SearchIcon, Spinner } from "@kinonyx/ui";
+import { EmptyState } from "../components/EmptyState";
 import { useApp } from "../store/app";
 import { kpImages, type KpImage } from "../data/api";
 import { img, stillLarge } from "../data/images";
@@ -74,7 +75,7 @@ export function GalleryScreen({ filmId, startIndex }: { filmId: number; startInd
         }}
       >
         {!images && <Spinner />}
-        {images && images.length === 0 && <p className="empty">Скриншоты не найдены</p>}
+        {images && images.length === 0 && <EmptyState icon={<SearchIcon size={38} strokeWidth={1.6} />} title="Скриншоты не найдены" />}
         {current && (
           <>
             {/* The small preview (already loaded for the "Материалы" row) shows the new

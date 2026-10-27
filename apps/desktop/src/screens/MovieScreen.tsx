@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { cancelGlides, DownloadIcon, FavoriteIcon, Focusable, FocusGroup, NextIcon, PlayIcon, PlusIcon, Spinner } from "@kinonyx/ui";
+import { cancelGlides, DownloadIcon, FavoriteIcon, Focusable, FocusGroup, NextIcon, OfflineIcon, PlayIcon, PlusIcon, Spinner } from "@kinonyx/ui";
+import { EmptyState } from "../components/EmptyState";
 import { useApp } from "../store/app";
 import { useFavorites } from "../store/favorites";
 import { useLastRelease } from "../store/lastRelease";
@@ -286,7 +287,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
       <FocusGroup focusKey="movie" className="screen-pad home home--tv home--nohero mtv">
         <HomeChrome id="movie" />
         {error ? (
-          <p className="empty" style={{ paddingTop: 140 }}>Не удалось загрузить фильм: {error}</p>
+          <EmptyState error icon={<OfflineIcon size={38} strokeWidth={1.6} />} title="Не удалось загрузить фильм" hint={error} />
         ) : (
           <div style={{ display: "grid", placeItems: "center", height: "100vh" }}>
             <Spinner />

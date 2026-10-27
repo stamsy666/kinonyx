@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { doesFocusableExist, setFocus } from "@noriginmedia/norigin-spatial-navigation";
-import { cancelGlides, Focusable, FocusGroup, Spinner } from "@kinonyx/ui";
+import { cancelGlides, Focusable, FocusGroup, OfflineIcon, Spinner } from "@kinonyx/ui";
+import { EmptyState } from "../components/EmptyState";
 import { useApp } from "../store/app";
 import { kpFilm, kpPerson, type KpPerson, type KpPersonFilm, type KpStaffPerson } from "../data/api";
 import { img } from "../data/images";
@@ -60,7 +61,7 @@ export function PersonScreen({ id, preview }: { id: number; preview?: KpStaffPer
       <FocusGroup focusKey="person" className="screen-pad home home--tv home--nohero ptv">
         <HomeChrome id="person" label="Актёр" />
         {error ? (
-          <p className="empty" style={{ paddingTop: 140 }}>Не удалось загрузить: {error}</p>
+          <EmptyState error icon={<OfflineIcon size={38} strokeWidth={1.6} />} title="Не удалось загрузить страницу" hint={error} />
         ) : (
           <div style={{ display: "grid", placeItems: "center", height: "100vh" }}>
             <Spinner />

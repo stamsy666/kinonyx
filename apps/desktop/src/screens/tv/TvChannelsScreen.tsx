@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { nowNext, type Channel, type Programme } from "@kinonyx/epg";
 import { CarouselIcon, Focusable, FocusGroup, HomeIcon, MicIcon, SearchIcon } from "@kinonyx/ui";
+import { EmptyState } from "../../components/EmptyState";
 import { useApp } from "../../store/app";
 import { useTv, UNGROUPED } from "../../store/tv";
 import { HomeChrome } from "../../components/HomeChrome";
@@ -114,7 +115,7 @@ export function TvChannelsScreen({ group }: { group?: string }) {
           />
         </div>
         {channels.length === 0 ? (
-          <div className="empty">Ничего не найдено.</div>
+          <EmptyState icon={<SearchIcon size={38} strokeWidth={1.6} />} title="Ничего не найдено" hint="Попробуйте другое название канала." />
         ) : layout === "carousel" ? (
           <div className="ctv__carousel">
             <ChannelCarousel key={query} channels={channels} guide={guide} programmesFor={programmesFor} now={now} onOpen={open} startKey={query ? undefined : rememberedChannelFocus} />

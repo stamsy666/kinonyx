@@ -1,5 +1,6 @@
 import { DownloadIcon, Focusable, FocusGroup } from "@kinonyx/ui";
 import { HomeChrome } from "../components/HomeChrome";
+import { EmptyState } from "../components/EmptyState";
 import { useApp } from "../store/app";
 import { pauseTransfer, removeDownload, startTransfer, useDownloads, type DownloadItem } from "../store/downloads";
 import { img } from "../data/images";
@@ -55,10 +56,7 @@ export function DownloadsScreen() {
       <HomeChrome id="downloads" label="Загрузки" hideSearch />
       <div className="dl">
         {items.length === 0 && (
-          <div className="dl__empty">
-            <DownloadIcon size={64} strokeWidth={1.2} />
-            <p>Здесь будут фильмы, сохранённые на диск. Кнопка «Скачать» — на странице фильма.</p>
-          </div>
+          <EmptyState icon={<DownloadIcon size={38} strokeWidth={1.6} />} title="Загрузок пока нет" hint="Кнопка со стрелкой на странице фильма сохранит его на диск." />
         )}
         {items.map((d, n) => {
           const pct = d.total > 0 ? Math.min(100, (d.received / d.total) * 100) : 0;

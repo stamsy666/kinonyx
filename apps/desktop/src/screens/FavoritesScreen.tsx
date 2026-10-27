@@ -1,4 +1,5 @@
-import { FocusGroup } from "@kinonyx/ui";
+import { FavoriteIcon, FocusGroup } from "@kinonyx/ui";
+import { EmptyState } from "../components/EmptyState";
 import { useApp } from "../store/app";
 import { useFavorites } from "../store/favorites";
 import { HomeChrome } from "../components/HomeChrome";
@@ -18,7 +19,7 @@ export function FavoritesScreen() {
       <HomeChrome id="favorites" label="Избранное" />
       <div className="home__rows">
         {films.length === 0 ? (
-          <p className="empty favorites__empty">Пока пусто — добавляйте фильмы сердечком на странице фильма.</p>
+          <EmptyState icon={<FavoriteIcon size={38} strokeWidth={1.6} />} title="Здесь пока пусто" hint="Добавляйте фильмы сердечком на странице фильма, и они появятся здесь." />
         ) : (
           <div className="grid-cards">
             <FocusHighlight />
