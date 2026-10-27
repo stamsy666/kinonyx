@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { cancelGlides, FavoriteIcon, Focusable, FocusGroup, NextIcon, PlayIcon, PlusIcon, Spinner } from "@kinonyx/ui";
+import { cancelGlides, DownloadIcon, FavoriteIcon, Focusable, FocusGroup, NextIcon, PlayIcon, PlusIcon, Spinner } from "@kinonyx/ui";
 import { useApp } from "../store/app";
 import { useFavorites } from "../store/favorites";
 import { useLastRelease } from "../store/lastRelease";
@@ -17,6 +17,7 @@ import {
   type KpImage,
   type KpSimilarFilm,
   type KpStaffPerson,
+  type TorrentFile,
 } from "../data/api";
 import { img, stillCard, stillLarge } from "../data/images";
 import { Lightbox } from "../components/Lightbox";
@@ -27,6 +28,7 @@ import { openExternal } from "../data/io";
 import { RowScroll } from "../components/RowScroll";
 import { MovieCard } from "../components/MovieCard";
 import { ReleasePickerModal } from "../components/ReleasePickerModal";
+import { enqueueDownload, pickDownloadDir } from "../store/downloads";
 import { LinksModal, type Link } from "../components/LinksModal";
 import { QUALITY_OPTIONS, type QualityKey } from "../data/quality";
 import { continueLabel } from "../store/episodeProgress";
@@ -86,7 +88,7 @@ const toTop = () => {
   document.querySelector(".app-body")?.scrollTo({ top: 0, behavior: "smooth" });
 };
 
-type Modal = "watch" | "quality" | "trailer" | null;
+type Modal = "watch" | "quality" | "trailer" | "download" | null;
 
 // Kinopoisk's own videos list mixes real YouTube trailers with entries that just point
 // at its own embeddable widget player (widgets.kinopoisk.ru/.../trailer/...) — those
@@ -230,6 +232,32 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
       .catch(() => undefined);
   };
 
+  // Saving the film to disk: pick a release (and an episode), then a folder, then it is in the list of downloads.
+  const openDownload = () => {
+    setModal("download");
+    if (film?.filmLength) return;
+    kpFilm(id)
+      .then((f) => setFilm((prev) => ({ ...prev, filmLength: f.filmLength })))
+      .catch(() => undefined);
+  };
+  const startDownload = async (pick: { link: string; hash: string; name: string; file: TorrentFile; multi: boolean }) => {
+    const dir = await pickDownloadDir();
+    if (!dir) return;
+    setModal(null);
+    const filmTitle = film?.nameRu || film?.nameOriginal || pick.name;
+    await enqueueDownload({
+      filmId: id,
+      title: pick.multi ? `${filmTitle} · ${pick.file.name}` : filmTitle,
+      poster: film?.posterUrlPreview ? img(film.posterUrlPreview) : undefined,
+      film: { nameRu: film?.nameRu, nameOriginal: film?.nameOriginal, year: film?.year, genres: film?.genres?.map((g) => g.genre) },
+      link: pick.link,
+      fileId: pick.file.id,
+      filePath: pick.file.path,
+      dir,
+    });
+    navigate({ name: "downloads" });
+  };
+
   // Trailers / legal sources are only needed if the viewer asks — fetched on demand.
   const openTrailers = () => {
     setModal("trailer");
@@ -355,6 +383,17 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
             )}
             <Focusable
               as="button"
+              focusKey="movie:download"
+              className="hero__btn hero__btn--round"
+              aria-label="Скачать на диск"
+              onPress={openDownload}
+              scroll={false}
+              onFocus={toTop}
+            >
+              <DownloadIcon size={24} />
+            </Focusable>
+            <Focusable
+              as="button"
               focusKey="movie:favorite"
               className={`hero__btn hero__btn--round ${isFav ? "is-on" : ""}`}
               onPress={onToggleFavorite}
@@ -473,6 +512,18 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
             openWatch();
             setQuality(l.key as QualityKey);
           }}
+        />
+      )}
+      {modal === "download" && (
+        <ReleasePickerModal
+          filmId={id}
+          title={title}
+          year={year}
+          durationMin={film.filmLength}
+          download
+          onDownload={(pick) => void startDownload(pick)}
+          onClose={() => setModal(null)}
+          onReady={() => undefined}
         />
       )}
       {modal === "watch" && (

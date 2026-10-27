@@ -26,6 +26,7 @@ import { SetupScreen } from "./screens/SetupScreen";
 import { DiagnosticsScreen } from "./screens/DiagnosticsScreen";
 import { SearchScreen } from "./screens/SearchScreen";
 import { FavoritesScreen } from "./screens/FavoritesScreen";
+import { DownloadsScreen } from "./screens/DownloadsScreen";
 import { CatalogScreen } from "./screens/CatalogScreen";
 import { CategoriesHubScreen } from "./screens/CategoriesHubScreen";
 import { GenreScreen } from "./screens/GenreScreen";
@@ -82,6 +83,8 @@ function CurrentScreen() {
       return <SearchScreen />;
     case "favorites":
       return <FavoritesScreen />;
+    case "downloads":
+      return <DownloadsScreen />;
     case "tv":
       return <TvPlaylistsScreen />;
     case "tv-categories":
@@ -115,7 +118,7 @@ export function App() {
   );
   // PortoTV's screens (and, styled the same way, the genre category screens) are
   // full-window with their own header and scrolling — no app-shell top bar.
-  const isHome = useApp((s) => s.screen.name === "home" || s.screen.name === "catalog" || s.screen.name === "categories-hub" || s.screen.name === "favorites" || s.screen.name === "genre" || s.screen.name === "search" || s.screen.name === "settings" || s.screen.name === "setup" || s.screen.name === "diagnostics" || s.screen.name === "movie" || s.screen.name === "person" || s.screen.name === "tv" || s.screen.name === "tv-categories" || s.screen.name === "tv-channels");
+  const isHome = useApp((s) => s.screen.name === "home" || s.screen.name === "catalog" || s.screen.name === "categories-hub" || s.screen.name === "favorites" || s.screen.name === "downloads" || s.screen.name === "genre" || s.screen.name === "search" || s.screen.name === "settings" || s.screen.name === "setup" || s.screen.name === "diagnostics" || s.screen.name === "movie" || s.screen.name === "person" || s.screen.name === "tv" || s.screen.name === "tv-categories" || s.screen.name === "tv-channels");
   // Per the sketches, these pages carry their own header instead of the app top bar.
   const ownHeader = useApp(
     (s) =>
@@ -130,7 +133,7 @@ export function App() {
       s.screen.name === "tv-channels" ||
       s.screen.name === "catalog" ||
       s.screen.name === "categories-hub" ||
-      s.screen.name === "favorites" ||
+      s.screen.name === "favorites" || s.screen.name === "downloads" ||
       s.screen.name === "genre" ||
       s.screen.name === "search",
   );

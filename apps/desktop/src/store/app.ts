@@ -58,6 +58,7 @@ export type Screen =
   | { name: "web-trailer"; title: string; url: string }
   | { name: "search" }
   | { name: "favorites" }
+  | { name: "downloads" }
   | { name: "settings" }
   | { name: "setup" }
   | { name: "diagnostics" }
@@ -94,6 +95,8 @@ function focusKeyOfScreen(s: Screen): string | undefined {
       return "search";
     case "favorites":
       return "favorites";
+    case "downloads":
+      return "downloads";
     case "settings":
       return "settings";
     case "tv":

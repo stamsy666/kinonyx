@@ -8725,3 +8725,110 @@ body .sidebar__item.is-focused .sidebar__icon {
     transform: translateY(12px);
   }
 }
+
+/* ----- Downloads ----- */
+.dl {
+  display: flex;
+  flex-direction: column;
+  gap: calc(18 * var(--u));
+  max-width: calc(1100 * var(--u));
+  margin: calc(110 * var(--u)) auto 0;
+  padding-bottom: calc(60 * var(--u));
+}
+
+.dl__empty {
+  display: grid;
+  justify-items: center;
+  gap: calc(18 * var(--u));
+  margin-top: calc(120 * var(--u));
+  color: rgba(255, 255, 255, 0.6);
+  font-size: calc(19 * var(--u));
+  text-align: center;
+}
+
+.dl__item {
+  display: flex;
+  gap: calc(22 * var(--u));
+  padding: calc(20 * var(--u));
+  border-radius: calc(26 * var(--u));
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.dl__poster {
+  flex: none;
+  width: calc(110 * var(--u));
+  aspect-ratio: 2 / 3;
+  border-radius: calc(14 * var(--u));
+  object-fit: cover;
+}
+
+.dl__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.dl__title {
+  font-size: calc(24 * var(--u));
+  font-weight: 800;
+  color: #fff;
+}
+
+.dl__status {
+  margin-top: calc(6 * var(--u));
+  font-size: calc(17 * var(--u));
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.dl__item--error .dl__status {
+  color: #ff8a8a;
+}
+
+.dl__bar {
+  height: calc(8 * var(--u));
+  margin-top: calc(14 * var(--u));
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+}
+
+.dl__bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #fff;
+  transition: width 0.4s linear;
+}
+
+.dl__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(12 * var(--u));
+  margin-top: calc(18 * var(--u));
+}
+
+.dl__btn {
+  height: calc(46 * var(--u));
+  padding: 0 calc(24 * var(--u));
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: calc(17 * var(--u));
+  font-weight: 700;
+}
+
+.dl__btn--primary {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.dl__btn.is-focused,
+.dl__btn:hover {
+  background: #fff;
+  color: #111;
+  transform: scale(1.05);
+}
+
+.dl__btn.is-focused::after {
+  content: none;
+}

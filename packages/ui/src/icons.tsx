@@ -7,6 +7,7 @@ import {
   Clapperboard,
   Database,
   Dices,
+  Download,
   FastForward,
   Film,
   Flame,
@@ -110,6 +111,7 @@ export const ArchiveIcon = wrap(History);
 export const MicIcon = wrap(Mic);
 export const GlobeIcon = wrap(Globe);
 export const FavoriteIcon = wrap(Heart);
+export const DownloadIcon = wrap(Download);
 export const NextEpisodeIcon = wrap(SkipForward, { fill: "currentColor" });
 export const PrevChannelIcon = wrap(SkipBack, { fill: "currentColor" });
 export const DiceIcon = wrap(Dices);

@@ -13,9 +13,11 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { App } from "./App";
 import { isTauri } from "./data/io";
 import { installLogCapture } from "./data/log";
+import { installDownloadEvents } from "./store/downloads";
 import { applyStartupWindow } from "./data/windowPrefs";
 
 installLogCapture();
+void installDownloadEvents();
 initSpatialNavigation();
 installBackKeyListener();
 startGamepadBridge();

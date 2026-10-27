@@ -3,6 +3,7 @@ import {
   CategoriesIcon,
   CartoonsIcon,
   ChannelsIcon,
+  DownloadIcon,
   FavoriteIcon,
   Focusable,
   FocusGroup,
@@ -33,6 +34,7 @@ const ITEMS: Item[] = [
   { label: "Мультфильмы", icon: CartoonsIcon, section: "cartoons", screen: { name: "catalog", kind: "cartoons" } },
   { label: "Категории", icon: CategoriesIcon, section: "categories", screen: { name: "categories-hub" } },
   { label: "Избранное", icon: FavoriteIcon, section: "favorites", screen: { name: "favorites" } },
+  { label: "Загрузки", icon: DownloadIcon, section: "downloads", screen: { name: "downloads" } },
   { label: "Каналы", icon: ChannelsIcon, section: "tv", screen: { name: "tv" } },
   { label: "Настройки", icon: GearIcon, section: "settings", screen: { name: "settings" } },
 ];
@@ -50,6 +52,8 @@ function sectionOf(s: Screen): string | undefined {
       return "categories";
     case "favorites":
       return "favorites";
+    case "downloads":
+      return "downloads";
     case "settings":
       return "settings";
     case "tv":

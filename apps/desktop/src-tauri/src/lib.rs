@@ -1,5 +1,6 @@
 mod config;
 mod diagnostics;
+mod download;
 mod discord;
 mod epg;
 mod http;
@@ -72,6 +73,7 @@ pub fn run() {
         .manage(TorrserveProcess(std::sync::Mutex::new(None)))
         .manage(translator::Translator::default())
         .manage(discord::Discord::default())
+        .manage(download::Downloads::default())
         .manage(remote::Remote::default())
         .setup(|app| {
             app.manage(AppConfig::load(app.path().app_config_dir().ok(), app.path().app_cache_dir().ok()));
@@ -90,6 +92,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             ytdlp::resolve_trailer_url,
             prepare_for_update,
+            download::dl_start,
+            download::dl_stop,
+            download::dl_remove,
+            download::dl_inspect,
             logs::log_write,
             logs::log_dir,
             logs::log_open_dir,

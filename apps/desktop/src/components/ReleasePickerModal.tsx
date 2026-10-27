@@ -30,6 +30,9 @@ interface Props {
   /** Quick pick: once the search is done, start the best release of this resolution at once
    *  instead of showing the list (the list is the fallback when none matches). */
   quality?: QualityKey;
+  /** Download mode: picking a release (and an episode) hands the file to `onDownload` instead of starting playback. */
+  download?: boolean;
+  onDownload?: (pick: { link: string; hash: string; name: string; file: TorrentFile; multi: boolean }) => void;
   onClose: () => void;
   onReady: (source: {
     title: string;
@@ -60,7 +63,7 @@ function formatBytes(n: number): string {
   return `${Math.round(n / 1024 ** 2)} MB`;
 }
 
-export function ReleasePickerModal({ filmId, title, year, durationMin, remembered, quality, onClose, onReady }: Props) {
+export function ReleasePickerModal({ filmId, title, year, durationMin, remembered, quality, download, onDownload, onClose, onReady }: Props) {
   // A remembered release skips the search entirely and tries to reconnect straight away —
   // only a search-stage mount (nothing remembered, or the reconnect below failed) runs the
   // title search effect.
@@ -107,6 +110,10 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
   };
 
   async function play(link: string, hash: string, name: string, file: TorrentFile, episodeChoices: TorrentFile[]) {
+    if (download) {
+      onDownload?.({ link, hash, name, file, multi: episodeChoices.length > 1 });
+      return;
+    }
     const url = await streamUrlFor(hash, file);
     if (cancel.current.cancelled) return;
     const episodes =
@@ -234,7 +241,7 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
   // The episode to highlight in the list: the one in progress, else the one after the last watched.
   const smartFile = stage === "files" && files ? useEpisodeProgress.getState().smartPick(filmId, files.choices) : undefined;
 
-  const heading = stage === "files" ? "Выбор серии" : "Выбор раздачи";
+  const heading = download ? (stage === "files" ? "Какую серию скачать" : "Что скачать") : stage === "files" ? "Выбор серии" : "Выбор раздачи";
 
   const visible = showHidden ? [...releases, ...hidden] : releases;
 
