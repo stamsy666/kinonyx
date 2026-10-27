@@ -32,6 +32,7 @@ import { StatsPanel } from "../components/StatsPanel";
 import { resetScroll } from "../data/focusRestore";
 import { useUpdater } from "../store/updater";
 import { isTauri, openExternal } from "../data/io";
+import { exportUserData, importUserData, openUserDataDir } from "../data/userdata";
 import { listAudioDevices, type AudioDevice } from "../data/audioDevices";
 import { listMonitors, moveToMonitor, readMonitor, readStartFullscreen, writeMonitor, writeStartFullscreen, type MonitorChoice } from "../data/windowPrefs";
 
@@ -144,6 +145,9 @@ export function SettingsScreen() {
   const showStats = useApp((s) => s.showStreamStats);
   const setShowStats = useApp((s) => s.setShowStreamStats);
   const clickSparkEnabled = useApp((s) => s.clickSparkEnabled);
+  // «Данные»: the answer of the last export / import, and the "press again" guard of the import (it replaces everything).
+  const [dataNote, setDataNote] = useState("");
+  const [importArmed, setImportArmed] = useState(false);
   const [startFull, setStartFull] = useState(readStartFullscreen);
   const [monitor, setMonitor] = useState(readMonitor);
   const [monitors, setMonitors] = useState<MonitorChoice[]>([]);
@@ -936,6 +940,52 @@ export function SettingsScreen() {
               <div className="settings__hint">Друзья увидят «Смотрит KINONYX» и название. Нужен запущенный Discord.</div>
             </section>
 
+            <section className="settings__item">
+              <div className="settings__label">Мои данные</div>
+              <Focusable
+                as="button"
+                className="cycle-row"
+                focusKey="settings:data-export"
+                onPress={() => {
+                  setImportArmed(false);
+                  exportUserData().then(
+                    (r) => setDataNote(r === "saved" ? "Данные сохранены в файл." : ""),
+                    (e) => setDataNote(`Не удалось сохранить: ${e instanceof Error ? e.message : String(e)}`),
+                  );
+                }}
+              >
+                <span className="cycle-row__label">Сохранить данные в файл</span>
+                <NextIcon size={20} />
+              </Focusable>
+              <Focusable
+                as="button"
+                className="cycle-row"
+                focusKey="settings:data-import"
+                onPress={() => {
+                  if (!importArmed) {
+                    setImportArmed(true);
+                    setDataNote("Загрузка заменит избранное, прогресс и настройки на то, что в файле. Нажмите ещё раз, чтобы выбрать файл.");
+                    return;
+                  }
+                  setImportArmed(false);
+                  importUserData().then(
+                    () => undefined,
+                    (e) => setDataNote(`Не удалось загрузить: ${e instanceof Error ? e.message : String(e)}`),
+                  );
+                }}
+              >
+                <span className="cycle-row__label">Загрузить данные из файла</span>
+                <span className="cycle-row__value">{importArmed ? "Нажмите ещё раз" : ""}</span>
+                <NextIcon size={20} />
+              </Focusable>
+              <Focusable as="button" className="cycle-row" focusKey="settings:data-folder" onPress={() => void openUserDataDir()}>
+                <span className="cycle-row__label">Папка с копией данных</span>
+                <NextIcon size={20} />
+              </Focusable>
+              <div className="settings__hint">
+                {dataNote || "Избранное, «продолжить», прогресс, статистика, плейлисты и настройки сами копируются в папку .kinonyx\\userdata и вернутся, если данные программы пропадут при обновлении или переустановке. Файл нужен, чтобы перенести данные на другой компьютер."}
+              </div>
+            </section>
             <section className="settings__item">
               <div className="settings__label">Программа</div>
               <Focusable as="button" className="cycle-row" focusKey="settings:diagnostics" onPress={() => navigate({ name: "diagnostics" })}>

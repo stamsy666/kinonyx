@@ -14,6 +14,7 @@ mod torapi;
 mod torrserve;
 mod translator;
 mod tv;
+mod userdata;
 mod ytdlp;
 
 use config::AppConfig;
@@ -96,6 +97,12 @@ pub fn run() {
             download::dl_stop,
             download::dl_remove,
             download::dl_inspect,
+            userdata::userdata_save,
+            userdata::userdata_load,
+            userdata::userdata_dir,
+            userdata::userdata_open_dir,
+            userdata::userdata_export,
+            userdata::userdata_import,
             logs::log_write,
             logs::log_dir,
             logs::log_open_dir,
