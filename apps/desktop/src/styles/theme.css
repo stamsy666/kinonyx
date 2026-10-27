@@ -9549,7 +9549,7 @@ body .sidebar__item.is-focused .sidebar__icon {
   width: 116%;
   height: 116%;
   object-fit: cover;
-  filter: blur(14px) brightness(0.6) saturate(1.15);
+  filter: blur(6px) brightness(0.62) saturate(1.15);
   opacity: 0;
   transition: opacity 1.8s ease;
   animation: ss-drift 24s ease-in-out infinite alternate;
