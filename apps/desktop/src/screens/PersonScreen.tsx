@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { FocusGroup, Spinner } from "@kinonyx/ui";
+import { doesFocusableExist, setFocus } from "@noriginmedia/norigin-spatial-navigation";
+import { cancelGlides, Focusable, FocusGroup, Spinner } from "@kinonyx/ui";
 import { useApp } from "../store/app";
 import { kpFilm, kpPerson, type KpPerson, type KpPersonFilm, type KpStaffPerson } from "../data/api";
 import { img } from "../data/images";
@@ -40,11 +41,18 @@ export function PersonScreen({ id, preview }: { id: number; preview?: KpStaffPer
   }, [id]);
 
   useHomeFeel(person);
-  // The first film takes the focus on arrival without moving the page (the top of it — photo and name — stays in view).
-  const [arrived, setArrived] = useState(false);
+  // Up from the filmography goes to the bio, always: the nearest-neighbour search would pick one of the round buttons
+  // in the header (far above the screen while the page is scrolled down) and the focus looked lost.
   useEffect(() => {
-    const t = window.setTimeout(() => setArrived(true), 600);
-    return () => window.clearTimeout(t);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowUp" || document.querySelector(".modal, [role=dialog]")) return;
+      if (!document.querySelector(".ptv .row-scroll .is-focused") || !doesFocusableExist("person:bio")) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      setFocus("person:bio");
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
   if (!person) {
@@ -83,7 +91,19 @@ export function PersonScreen({ id, preview }: { id: number; preview?: KpStaffPer
         <div className="ptv__photo">
           <ProgressiveImg src={img(person.posterUrl)} placeholder={img(preview?.posterUrl)} alt={title} />
         </div>
-        <div className="ptv__info">
+        {/* The focus arrives here (the bio), not on the films: the page stays at its top and Down goes on to the filmography. */}
+        <Focusable
+          className="ptv__info"
+          focusKey="person:bio"
+          autoFocus
+          scroll={false}
+          onFocus={() => {
+            // Coming up from the filmography the page must rise to its top with the focus (a glide still following
+            // the last card would pull it back down).
+            cancelGlides();
+            document.querySelector(".app-body")?.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        >
           {metaParts.length > 0 && <p className="ptv__meta">{metaParts.join(" · ")}</p>}
           <h1 className="ptv__name">{title}</h1>
           {facts.length > 0 && (
@@ -93,12 +113,12 @@ export function PersonScreen({ id, preview }: { id: number; preview?: KpStaffPer
               ))}
             </div>
           )}
-        </div>
+        </Focusable>
       </div>
 
       <RowScroll label="Фильмография" count={films.length}>
         {films.map((f, i) => (
-          <FilmographyCard key={`${f.filmId}-${i}`} film={f} focusKey={`person:film:${i}`} autoFocus={i === 0} scroll={i === 0 ? arrived : undefined} onPress={() => open(f.filmId)} />
+          <FilmographyCard key={`${f.filmId}-${i}`} film={f} focusKey={`person:film:${i}`} onPress={() => open(f.filmId)} />
         ))}
       </RowScroll>
     </FocusGroup>

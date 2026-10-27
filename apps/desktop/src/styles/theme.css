@@ -6479,6 +6479,19 @@ body .sidebar__item.is-focused .sidebar__icon {
 .ptv__info {
   min-width: 0;
   max-width: calc(820 * var(--u));
+  /* room for the focus ring around the bio without moving it */
+  padding: calc(14 * var(--u)) calc(18 * var(--u));
+  margin: calc(-14 * var(--u)) calc(-18 * var(--u));
+  border-radius: calc(22 * var(--u));
+}
+
+.ptv__info.is-focused {
+  transform: none;
+  box-shadow: 0 0 0 calc(3 * var(--u)) rgba(255, 255, 255, 0.9);
+}
+
+.ptv__info.is-focused::after {
+  content: none;
 }
 
 .ptv__meta {
@@ -8336,6 +8349,8 @@ body .sidebar__item.is-focused .sidebar__icon {
 
 .player--tvos .player__top--tv .player__info {
   max-width: 60vw;
+  /* the logo 12px higher and 12px more room under it: the name stays where it was */
+  margin-top: -12px;
 }
 
 .player--tvos .player__top--tv > :first-child {
@@ -8355,7 +8370,7 @@ body .sidebar__item.is-focused .sidebar__icon {
      proportions (a wide logo used to float in the middle of a tall box, a square one filled it: the gap differed,
      and pulling the name up with a negative margin ran it over a square logo). */
   place-items: end center;
-  margin: 0 auto 6px;
+  margin: 0 auto 18px;
 }
 
 .player--tvos .player__logo img {
@@ -8732,8 +8747,9 @@ body .sidebar__item.is-focused .sidebar__icon {
   flex-direction: column;
   gap: calc(18 * var(--u));
   max-width: calc(1100 * var(--u));
-  margin: calc(110 * var(--u)) auto 0;
-  padding-bottom: calc(60 * var(--u));
+  /* padding, not margin: a top margin would collapse through the page and push the whole header down with it */
+  margin: 0 auto;
+  padding: calc(110 * var(--u)) 0 calc(60 * var(--u));
 }
 
 .dl__empty {
@@ -8831,4 +8847,14 @@ body .sidebar__item.is-focused .sidebar__icon {
 
 .dl__btn.is-focused::after {
   content: none;
+}
+
+/* ----- Settings: the thing in focus is only filled white — no ring around it and no growing ----- */
+.home--tv.settings--tv .focusable.is-focused {
+  transform: none;
+}
+
+.home--tv.settings--tv .settings-pane :is(.stx__row, .cycle-row, .checkbox, .switch, .sound-option, .btn, .credit, .field, .volume-row, .tr-item__main, .tr-item__action, .stats-top__item, .dropzone).is-focused,
+.home--tv.settings--tv .stx__row.is-focused {
+  box-shadow: none;
 }

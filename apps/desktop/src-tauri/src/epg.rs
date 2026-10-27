@@ -96,11 +96,24 @@ async fn read_cache_if_fresh(file: PathBuf, max_age_ms: f64) -> Option<EpgPayloa
             return None;
         }
         let bytes = std::fs::read(&file).ok()?;
-        serde_json::from_slice(&bytes).ok()
+        let payload: EpgPayload = serde_json::from_slice(&bytes).ok()?;
+        // A cached guide that no longer reaches into the future is useless however young its file is (a provider
+        // may publish only a day or two ahead): the tiles and the player would say "no programme data".
+        if !reaches_future(&payload, 3.0 * 3_600_000.0) {
+            return None;
+        }
+        Some(payload)
     })
     .await
     .ok()
     .flatten()
+}
+
+/// Does the guide still have programmes at least `ahead_ms` after the present moment?
+fn reaches_future(payload: &EpgPayload, ahead_ms: f64) -> bool {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as f64).unwrap_or(0.0);
+    let latest = payload.programmes.values().filter_map(|p| p.stop.last().copied()).fold(0.0_f64, f64::max);
+    latest >= now + ahead_ms
 }
 
 async fn write_cache(file: PathBuf, payload: &EpgPayload) {

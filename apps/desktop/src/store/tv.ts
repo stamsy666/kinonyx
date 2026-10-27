@@ -179,7 +179,12 @@ export const useTv = create<TvState>()(
         const wasActive = get().activePlaylistId === id;
         const intervalMs = epgRefreshIntervalMs(useApp.getState().epgRefreshInterval);
         const epgFreshInMemory =
-          wasActive && get().epg != null && intervalMs > 0 && entry.epgLoadedAt != null && Date.now() - entry.epgLoadedAt < intervalMs;
+          wasActive &&
+          get().epg != null &&
+          intervalMs > 0 &&
+          entry.epgLoadedAt != null &&
+          Date.now() - entry.epgLoadedAt < intervalMs &&
+          guideReachesFuture(get().epg!);
         const keptEpg = epgFreshInMemory ? get().epg : null;
         const keptEpgIndex = epgFreshInMemory ? get().epgIndex : null;
         const keptEpgStatus = epgFreshInMemory ? get().epgStatus : "idle";
@@ -263,6 +268,17 @@ export const useTv = create<TvState>()(
     },
   ),
 );
+
+/** A guide that ends before "now + 3 h" has nothing to show (the provider may publish only a day or two ahead) — it is
+ *  fetched again whatever the refresh interval says. */
+function guideReachesFuture(epg: EpgData): boolean {
+  const limit = Date.now() + 3 * 3_600_000;
+  for (const list of epg.programmes.values()) {
+    const last = list[list.length - 1];
+    if (last && last.stop >= limit) return true;
+  }
+  return false;
+}
 
 /** Some guides list a programme twice (two feeds merged under one channel, the same title with and
  *  without a trailing dot): one entry per start time is enough. Cached per list. */

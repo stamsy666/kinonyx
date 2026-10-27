@@ -101,6 +101,8 @@ export function MovieBackdrop({
   const audioRef = useRef<HTMLAudioElement>(null);
   // Where to go on and whether to play, after the quality was changed (the stream is loaded anew).
   const resumeRef = useRef<{ t: number; playing: boolean } | null>(null);
+  // After a change of quality the sound comes back in a short rise, not the long one of the first time.
+  const quickRise = useRef(false);
 
   // The first frame's moment (the same as the slideshow's own) — the trailer does not come in before it is over.
   useEffect(() => {
@@ -184,6 +186,7 @@ export function MovieBackdrop({
     const v = videoRef.current;
     if (!current || !v || i === sel) return;
     resumeRef.current = { t: v.currentTime, playing: !v.paused };
+    quickRise.current = true;
     setSwitching(true);
     setCanPlay(false);
     setSel(i);
@@ -274,7 +277,10 @@ export function MovieBackdrop({
   const volumeNow = useRef(volume);
   volumeNow.current = volume;
   const [audible, setAudible] = useState(false);
-  const soundWanted = visible && (expanded || inPip);
+  // While the stream is being changed the sound is off (the old one is gone, the new one is not there yet — what plays
+  // then is a scrap of the start or a jump); it comes back with the picture, from the right place.
+  const soundOn = visible && (expanded || inPip);
+  const soundWanted = soundOn && !switching;
   useEffect(() => {
     const target = soundWanted ? 1 : 0;
     if (target === 1) setAudible(true);
@@ -283,7 +289,8 @@ export function MovieBackdrop({
       if (target === 0) setAudible(false);
       return;
     }
-    const dur = target === 1 ? 1000 : 400;
+    const dur = target === 1 ? (quickRise.current ? 450 : 1000) : 400;
+    if (target === 1) quickRise.current = false;
     const t0 = performance.now() + (target === 1 ? 150 : 0);
     const timer = window.setInterval(() => {
       const p = clamp01((performance.now() - t0) / dur);
@@ -305,7 +312,7 @@ export function MovieBackdrop({
     const v = videoRef.current;
     const a = audioRef.current;
     if (!v) return;
-    const sound = audible;
+    const sound = audible && !switching;
     v.muted = !sound || separateAudio || muted;
     v.volume = volume * fadeRef.current;
     if (a) {
@@ -339,10 +346,10 @@ export function MovieBackdrop({
       v.removeEventListener("seeked", play);
       a.pause();
     };
-  }, [audible, audioUrl, separateAudio, volume, muted]);
+  }, [audible, switching, audioUrl, separateAudio, volume, muted]);
 
   // The page's own music gives way to the trailer's sound.
-  useEffect(() => (soundWanted ? holdMusic() : undefined), [soundWanted]);
+  useEffect(() => (soundOn ? holdMusic() : undefined), [soundOn]);
 
   // ---- the bar and the keys while grown
   const [time, setTime] = useState({ at: 0, total: 0 });
