@@ -23,6 +23,8 @@ window.addEventListener("contextmenu", (e) => {
   const t = e.target as HTMLElement | null;
   if (t?.closest("input, textarea, [contenteditable='true']")) return;
   e.preventDefault();
+  // A right click is "back" (closes a window, leaves a page), like Escape.
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 });
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

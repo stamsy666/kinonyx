@@ -5617,6 +5617,16 @@ body .sidebar__item.is-focused .sidebar__icon {
   content: none;
 }
 
+/* the field turns light when focused — its text must turn dark with it (it was white on white) */
+.home--tv.settings--tv .settings-pane .field.is-focused input,
+.home--tv.settings--tv .settings-pane .field.is-focused svg {
+  color: #1d1d20;
+}
+
+.home--tv.settings--tv .settings-pane .field.is-focused input::placeholder {
+  color: rgba(29, 29, 32, 0.5);
+}
+
 .home--tv.settings--tv .settings-pane .volume-row.is-focused .volume-row__track {
   background: rgba(0, 0, 0, 0.18);
 }

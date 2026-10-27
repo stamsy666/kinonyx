@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cancelGlides, Focusable } from "@kinonyx/ui";
+import { BackIcon, cancelGlides, Focusable } from "@kinonyx/ui";
 import { SearchLensIcon } from "./AnimatedIcons";
 import { FullscreenButton } from "./FullscreenButton";
 import { useApp } from "../store/app";
@@ -13,6 +13,8 @@ import logoMark from "../assets/logo-mark.png";
 export function HomeChrome({ id, label, extra, hideSearch }: { id: string; label?: string; extra?: ReactNode; hideSearch?: boolean }) {
   const navigate = useApp((s) => s.navigate);
   const toggleSidebar = useApp((s) => s.toggleSidebar);
+  const back = useApp((s) => s.back);
+  const canBack = useApp((s) => s.history.length > 0);
   return (
     <div className="home__chrome">
       <div className="home__chrome-left">
@@ -36,6 +38,11 @@ export function HomeChrome({ id, label, extra, hideSearch }: { id: string; label
             </g>
           </svg>
         </Focusable>
+        {canBack && (
+          <Focusable as="button" className="home-round" focusKey={`${id}:back`} scroll={false} back aria-label="Назад" onPress={() => back()}>
+            <BackIcon size={24} strokeWidth={2.2} />
+          </Focusable>
+        )}
         {label && <span className="home__section">{label}</span>}
       </div>
       <div className="topbar__logo home__brand" aria-hidden="true">
