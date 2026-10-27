@@ -53,6 +53,7 @@ import { buildMpvOptions } from "../../data/playerOptions";
 import { trackLabel } from "../../data/trackLabel";
 import { useWatchTracker } from "../../components/useWatchTracker";
 import { usePresence } from "../../components/usePresence";
+import { PlayFlash } from "../../components/PlayFlash";
 
 /** PortoTV's live-TV player: live guide, DVR seek, catch-up archive — ported as-is. */
 
@@ -595,6 +596,8 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
       {isTauri ? <div className="player__video-hole" /> : <video ref={videoRef} playsInline autoPlay />}
 
       {showStreamStats && <StreamStats stats={state.stats} live={state.live} bufferedAhead={state.bufferedAhead} />}
+
+      <PlayFlash status={state.status} />
 
       {(state.status === "loading" || state.status === "buffering" || (sessionOn && !source)) && (
         <div className="player__center">

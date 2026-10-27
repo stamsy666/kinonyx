@@ -52,6 +52,7 @@ import { usePresence } from "../components/usePresence";
 import { useEpisodeProgress } from "../store/episodeProgress";
 import { streamUrlFor, torrentSwarmStats, type SwarmStats, type TorrentFile, type TrailerQuality } from "../data/api";
 import { SeekBar } from "../components/SeekBar";
+import { PlayFlash } from "../components/PlayFlash";
 import { useMpvReveal } from "../components/useMpvReveal";
 import { Modal } from "../components/Modal";
 import { VolumeSlider } from "../components/VolumeSlider";
@@ -591,6 +592,8 @@ export function PlayerScreen({
       <LiveSubtitles cues={filmSubs.cues} position={state.position} active={filmTr} note={trHint} raised={osd} />
 
       {showStreamStats && <StreamStats stats={state.stats} bufferedAhead={state.bufferedAhead} swarm={swarm} />}
+
+      <PlayFlash status={state.status} />
 
       {(state.status === "loading" || state.status === "buffering") && (
         <div className="player__center">

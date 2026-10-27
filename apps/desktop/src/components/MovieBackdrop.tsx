@@ -3,6 +3,7 @@ import { BackIcon, EpisodesIcon, ExpandIcon, GearIcon, MiniPlayerIcon, MuteIcon,
 import { loadBackdropTrailer, type BackdropTrailer } from "../data/backdropTrailer";
 import { holdMusic } from "../data/music";
 import { useApp } from "../store/app";
+import { PlayFlash } from "./PlayFlash";
 import { FIRST_HOLD_MS, MovieSlides, type Slide } from "./MovieSlides";
 
 interface FilmNames {
@@ -642,6 +643,7 @@ export function MovieBackdrop({
             changeVolume(volume + (e.deltaY < 0 ? VOLUME_STEP : -VOLUME_STEP));
           }}
         >
+          <PlayFlash status={paused ? "paused" : "playing"} />
           <button
             type="button"
             className={`mtv__tclose ${focused("back")}`}
