@@ -9592,3 +9592,7 @@ body .sidebar__item.is-focused .sidebar__icon {
     transform: translate(var(--ss-shift, 0px), calc(var(--ss-shift, 0px) * -0.6)) scale(1.03);
   }
 }
+
+.notice-row {
+  flex: none;
+}

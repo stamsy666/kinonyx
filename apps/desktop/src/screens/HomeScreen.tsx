@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FullscreenButton } from "../components/FullscreenButton";
+import { NoticeBell } from "../components/NoticeBell";
 import { WhatToWatchModal } from "../components/WhatToWatchModal";
 import { PopcornIcon } from "../components/AnimatedIcons";
 import { Focusable, FocusGroup, OfflineIcon, SearchIcon, Spinner } from "@kinonyx/ui";
@@ -243,6 +244,7 @@ export function HomeScreen() {
           </span>
         </div>
         <div className="home__chrome-right">
+          <NoticeBell focusKey="home:bell" />
           <Focusable as="button" className="home-round" focusKey="home:search" scroll={false} onPress={() => navigate({ name: "search" })}>
             <SearchIcon size={24} />
           </Focusable>
