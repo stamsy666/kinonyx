@@ -166,7 +166,7 @@ export interface PlayerPrefs {
 export type AspectMode = "auto" | "16:9" | "4:3" | "21:9" | "stretch" | "fill";
 export const ASPECT_MODES: AspectMode[] = ["auto", "16:9", "4:3", "21:9", "stretch", "fill"];
 export const ASPECT_LABELS: Record<AspectMode, string> = {
-  auto: "Как в файле",
+  auto: "Исходное",
   "16:9": "16:9",
   "4:3": "4:3",
   "21:9": "21:9",
