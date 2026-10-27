@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { AboutIcon, Focusable, NextIcon, Spinner, onBack } from "@kinonyx/ui";
 import {
   openTorrent,
@@ -96,6 +97,13 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
   const [minSeeds, setMinSeeds] = useState(0);
   const [voice, setVoice] = useState<ReleaseTags["voice"] | "any">("any");
   const [sort, setSort] = useState<Sort>("seeds");
+  // A filter changes the list under the viewer's thumb: the first row must not grab the focus from the chip (it is `autoFocus`
+  // only for the first showing), and the chip is given the focus again once the list has been redrawn.
+  const [filtersUsed, setFiltersUsed] = useState(false);
+  const chipPressed = (key: string) => {
+    setFiltersUsed(true);
+    requestAnimationFrame(() => requestAnimationFrame(() => setFocus(key)));
+  };
   const cancel = useRef({ cancelled: false });
 
   // Fresh token per mount: StrictMode's dev-only unmount/remount would otherwise leave the
@@ -301,6 +309,10 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
   const heading = stage === "inspect" ? "Что внутри раздачи" : download ? (stage === "files" ? "Какую серию скачать" : "Что скачать") : stage === "files" ? "Выбор серии" : "Выбор раздачи";
 
   const shownAll = showHidden ? [...releases, ...hidden] : releases;
+  // The suggestion: the best-seeded release in good quality, with enough seeders to play smoothly.
+  const bestId = [...releases]
+    .filter((r) => ["4K", "1080p"].includes(parseTags(r.name).quality ?? "") && (r.seeds ?? 0) >= 10)
+    .sort((a, b) => (b.seeds ?? 0) - (a.seeds ?? 0))[0]?.id;
   const visible = shownAll
     .filter((r) => (r.seeds ?? 0) >= minSeeds && (voice === "any" || parseTags(r.name).voice === voice))
     .sort((a, b) => {
@@ -313,21 +325,36 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
     <Modal focusKey="release-picker" preferredChildFocusKey="release:0" className="links-tv rel-tv" onClose={onClose}>
       <h3 className="links-tv__title">{heading}</h3>
       {stage === "list" && (
-        <p className="links-tv__text">
-          {qualityMissed && quality
-            ? `Раздач в качестве «${qualityLabel(quality)}» не нашлось — выберите из того, что есть.`
-            : `${year ? `«${title}», ${year}. ` : ""}Скорость зависит от числа сидов (▲) раздачи, а не от вашего интернета.`}
-        </p>
+        <div className="rel-tv__lead">
+          <div className="rel-tv__film">
+            {title}
+            {year ? <span>{year}</span> : null}
+          </div>
+          <div className="rel-tv__note">
+            {qualityMissed && quality
+              ? `Раздач в качестве «${qualityLabel(quality)}» не нашлось — выберите из того, что есть`
+              : `Найдено раздач: ${shownAll.length} · скорость зависит от числа сидов, а не от вашего интернета`}
+          </div>
+        </div>
       )}
       {stage === "list" && (
         <div className="rel-tv__filters">
-          <Focusable as="button" className="rel-tv__chip" focusKey="rel:f:seeds" scroll={false} onPress={() => setMinSeeds((v) => MIN_SEEDS[(MIN_SEEDS.indexOf(v) + 1) % MIN_SEEDS.length])}>
+          <Focusable as="button" className="rel-tv__chip" focusKey="rel:f:seeds" scroll={false} onPress={() => {
+            setMinSeeds((v) => MIN_SEEDS[(MIN_SEEDS.indexOf(v) + 1) % MIN_SEEDS.length]);
+            chipPressed("rel:f:seeds");
+          }}>
             {minSeeds ? `Сидов от ${minSeeds}` : "Любые сиды"}
           </Focusable>
-          <Focusable as="button" className="rel-tv__chip" focusKey="rel:f:voice" scroll={false} onPress={() => setVoice((v) => VOICES[(VOICES.indexOf(v) + 1) % VOICES.length])}>
+          <Focusable as="button" className="rel-tv__chip" focusKey="rel:f:voice" scroll={false} onPress={() => {
+            setVoice((v) => VOICES[(VOICES.indexOf(v) + 1) % VOICES.length]);
+            chipPressed("rel:f:voice");
+          }}>
             {voice === "any" ? "Любая озвучка" : voice}
           </Focusable>
-          <Focusable as="button" className="rel-tv__chip" focusKey="rel:f:sort" scroll={false} onPress={() => setSort((v) => SORTS[(SORTS.indexOf(v) + 1) % SORTS.length])}>
+          <Focusable as="button" className="rel-tv__chip" focusKey="rel:f:sort" scroll={false} onPress={() => {
+            setSort((v) => SORTS[(SORTS.indexOf(v) + 1) % SORTS.length]);
+            chipPressed("rel:f:sort");
+          }}>
             Сортировка {SORT_LABEL[sort]}
           </Focusable>
         </div>
@@ -355,36 +382,40 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
         {stage === "list" &&
           visible.map((r, i) => {
             const need = neededMbit(r.size, durationMin);
-            const few = (r.seeds ?? 0) < FEW_SEEDS;
+            const seeds = r.seeds ?? 0;
+            const few = seeds < FEW_SEEDS;
+            const tags = parseTags(r.name);
+            const labels = tagLabels({ ...tags, quality: undefined });
+            const tier = tags.quality === "4K" ? "4k" : tags.quality === "1080p" ? "fhd" : tags.quality === "720p" ? "hd" : tags.quality === "SD" ? "sd" : "none";
             return (
               <div className="rel-tv__item" key={r.provider + r.id}>
-              <Focusable
-                as="button"
-                focusKey={`release:${i}`}
-                className="rel-tv__row"
-                onPress={() => void pick(r)}
-                autoFocus={i === 0}
-              >
-                <span className="rel-tv__title">{r.name}</span>
-                {tagLabels(parseTags(r.name)).length > 0 && (
-                  <span className="rel-tv__tags">
-                    {tagLabels(parseTags(r.name)).map((t) => (
-                      <i key={t}>{t}</i>
-                    ))}
+                <Focusable as="button" focusKey={`release:${i}`} className="rel-tv__row" onPress={() => void pick(r)} autoFocus={i === 0 && !filtersUsed}>
+                  <span className={`rel-tv__badge rel-tv__badge--${tier}`}>{tags.quality ?? "?"}</span>
+                  <span className="rel-tv__main">
+                    <span className="rel-tv__title">{r.name}</span>
+                    {(labels.length > 0 || r.id === bestId) && (
+                      <span className="rel-tv__tags">
+                        {r.id === bestId && <i className="rel-tv__best">★ лучший выбор</i>}
+                        {labels.map((t) => (
+                          <i key={t}>{t}</i>
+                        ))}
+                      </span>
+                    )}
+                    <span className="rel-tv__meta">
+                      <span>{r.size ?? "—"}</span>
+                      {need && <span>≈ {need < 10 ? need.toFixed(1) : Math.round(need)} Мбит/с</span>}
+                      <span>{r.provider}</span>
+                      {few && <span className="release-warn">мало сидов — возможна буферизация</span>}
+                    </span>
                   </span>
-                )}
-                <span className="rel-tv__meta">
-                  <span>{r.size ?? "—"}</span>
-                  {need && <span>≈ {need < 10 ? need.toFixed(1) : Math.round(need)} Мбит/с</span>}
-                  <span className={few ? "release-seeds release-seeds--few" : "release-seeds"}>▲ {r.seeds ?? 0}</span>
-                  <span>▼ {r.peers ?? 0}</span>
-                  <span>{r.provider}</span>
-                  {few && <span className="release-warn">мало сидов — возможна буферизация</span>}
-                </span>
-              </Focusable>
-              <Focusable as="button" className="rel-tv__info" focusKey={`release:${i}:info`} aria-label="Что внутри раздачи" scroll={false} onPress={() => void inspect(r)}>
-                <AboutIcon size={22} />
-              </Focusable>
+                  <span className={`rel-tv__seeds ${few ? "rel-tv__seeds--few" : ""}`}>
+                    <b>{seeds}</b>
+                    <small>сидов</small>
+                  </span>
+                </Focusable>
+                <Focusable as="button" className="rel-tv__info" focusKey={`release:${i}:info`} aria-label="Что внутри раздачи" scroll={false} onPress={() => void inspect(r)}>
+                  <AboutIcon size={22} />
+                </Focusable>
               </div>
             );
           })}
