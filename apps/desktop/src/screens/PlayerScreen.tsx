@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { logEvent } from "../data/log";
+import { getTrackPrefs, matchTrack, rememberTrack } from "../store/trackPrefs";
+import { getLearnedIntro, learnIntro } from "../store/introPrefs";
+import { learnFromJump, skipFromChapters, skipFromLearned } from "../data/skipSegments";
 import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import {
   Html5Adapter,
@@ -240,11 +243,67 @@ export function PlayerScreen({
     }
     logEvent("error", "player", `${state.error ?? "error"} (${host || "no url"})`);
   }, [state.status, state.error, source.url]);
+
+  // The sound track and subtitles picked earlier for this film or series come back by themselves: the tracks of
+  // a new file (the next episode, another release) are matched by language and name, once per loaded file.
+  const tracksAppliedFor = useRef("");
+  useEffect(() => {
+    if (!filmId || state.tracks.length === 0 || tracksAppliedFor.current === source.url) return;
+    const saved = getTrackPrefs(filmId);
+    tracksAppliedFor.current = source.url;
+    if (!saved) return;
+    const a = adapterRef.current;
+    if (!a) return;
+    const audio = saved.audio && matchTrack(state.tracks.filter((t) => t.kind === "audio"), saved.audio);
+    if (audio && !audio.selected) void a.selectTrack("audio", audio.id);
+    if (saved.subtitle === "off") {
+      if (state.tracks.some((t) => t.kind === "subtitle" && t.selected)) void a.selectTrack("subtitle", null);
+    } else if (saved.subtitle) {
+      const sub = matchTrack(state.tracks.filter((t) => t.kind === "subtitle"), saved.subtitle);
+      if (sub && !sub.selected) void a.selectTrack("subtitle", sub.id);
+    }
+  }, [filmId, source.url, state.tracks]);
   // A press on the picture (anywhere outside the volume control) closes the volume slider.
   useCloseOnOutsidePress(volumeOpen, () => setVolumeOpen(false));
 
   // Episode of a series pack being played — progress is kept per episode (see store/episodeProgress.ts).
   const epKey = episodes ? episodeKey(episodes.files[episodes.index]) : null;
+
+  // "Skip intro": the file's own chapter marks first; in a series, also the stretch the viewer jumped over in an
+  // earlier episode (learned from their own seeking, nothing to mark by hand).
+  const learnedIntro = useMemo(() => (filmId && episodes ? getLearnedIntro(filmId) : undefined), [filmId, episodes, source.url]);
+  const skipTarget = !filmId || state.status === "error" ? null : skipFromChapters(state.chapters, state.position, state.duration) ?? (episodes ? skipFromLearned(learnedIntro, state.position) : null);
+  const lastTick = useRef({ pos: -1, at: 0 });
+  const skippedByButton = useRef(false);
+  useEffect(() => {
+    const now = performance.now();
+    const prev = lastTick.current;
+    lastTick.current = { pos: state.position, at: now };
+    if (!filmId || !episodes || state.status !== "playing") return;
+    // A real forward jump during playback — not the first position after a resume or a new file (prev ≤ 3 s).
+    if (skippedByButton.current) {
+      skippedByButton.current = false;
+      return;
+    }
+    if (prev.pos > 3 && now - prev.at < 5000) {
+      const jump = learnFromJump(prev.pos, state.position);
+      if (jump) learnIntro(filmId, jump);
+    }
+  }, [state.position, state.status, filmId, episodes]);
+  const skipNow = () => {
+    if (!skipTarget) return;
+    skippedByButton.current = true;
+    void adapterRef.current?.seek(skipTarget.to);
+  };
+  const skipShown = useRef(false);
+  useEffect(() => {
+    // Appears under the viewer's thumb: focus goes to it so that OK skips (as in the streaming apps).
+    if (skipTarget && !skipShown.current && !menu) {
+      skipShown.current = true;
+      window.setTimeout(() => setFocus("player:skip"), 50);
+    }
+    if (!skipTarget) skipShown.current = false;
+  }, [skipTarget, menu]);
 
   // Discord status: the film (and episode) being watched. Trailers show as such.
   usePresence(
@@ -723,6 +782,7 @@ export function PlayerScreen({
                 onPress={() => {
                   turnTranslationOff();
                   void adapterRef.current?.selectTrack("subtitle", null);
+                  if (filmId) rememberTrack(filmId, "subtitle", null);
                 }}
                 autoFocus
               />
@@ -760,6 +820,7 @@ export function PlayerScreen({
                   // An embedded track replaces the translation — never both on screen.
                   if (menu === "subtitle") turnTranslationOff();
                   void adapterRef.current?.selectTrack(menu, t.id);
+                  if (filmId) rememberTrack(filmId, menu, t);
                 }}
                 autoFocus={menu === "audio" && i === 0}
               />
@@ -871,6 +932,12 @@ export function PlayerScreen({
             }}
           />
         </Modal>
+      )}
+
+      {skipTarget && autoNext === null && (
+        <Focusable as="button" className="skip-btn" focusKey="player:skip" scroll={false} onPress={skipNow}>
+          {skipTarget.label}
+        </Focusable>
       )}
 
       {autoNext !== null && nextEpisode && (

@@ -23,6 +23,12 @@ export interface Track {
   selected: boolean;
 }
 
+/** A chapter mark of the file (mpv `chapter-list`): where it starts and what it is called. */
+export interface Chapter {
+  title: string;
+  start: number;
+}
+
 export interface PlayerStats {
   width?: number;
   height?: number;
@@ -46,6 +52,8 @@ export interface PlayerState {
   muted: boolean;
   live: boolean;
   tracks: Track[];
+  /** Chapter marks of the file, when it has any (backends without them leave this out). */
+  chapters?: Chapter[];
   stats: PlayerStats;
   error?: string;
 }

@@ -21,6 +21,7 @@ const OBSERVED_PROPERTIES = [
   ["volume", "double"],
   ["mute", "flag"],
   ["track-list", "node"],
+  ["chapter-list", "node"],
   ["width", "int64", "none"],
   ["height", "int64", "none"],
   ["video-codec", "string", "none"],
@@ -255,6 +256,11 @@ export class MpvAdapter implements PlayerAdapter {
       case "track-list":
         this.syncTracks(data as MpvTrack[] | null);
         break;
+      case "chapter-list": {
+        const list = (data as { title?: string; time?: number }[] | null) ?? [];
+        this.store.patch({ chapters: list.map((c) => ({ title: c.title ?? "", start: c.time ?? 0 })) });
+        break;
+      }
       case "width":
       case "height":
       case "video-codec":

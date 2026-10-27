@@ -8687,3 +8687,41 @@ body .sidebar__item.is-focused .sidebar__icon {
 .player--tvos .autonext__card {
   zoom: var(--ps, 1);
 }
+
+/* ----- "Skip intro" / "Skip credits": a white pill at the bottom right of the picture ----- */
+.player--tvos .skip-btn {
+  position: absolute;
+  z-index: 6;
+  right: 64px;
+  bottom: 230px;
+  height: 56px;
+  padding: 0 30px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(40, 40, 46, 0.62);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  color: #fff;
+  font-size: 19px;
+  font-weight: 800;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  animation: skip-in 0.35s var(--ease) both;
+}
+
+.player--tvos .skip-btn.is-focused,
+.player--tvos .skip-btn:hover {
+  background: #fff;
+  color: #111;
+  transform: scale(1.06);
+}
+
+.player--tvos .skip-btn.is-focused::after {
+  content: none;
+}
+
+@keyframes skip-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
