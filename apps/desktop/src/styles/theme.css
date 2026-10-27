@@ -9628,6 +9628,11 @@ body .sidebar__item.is-focused .sidebar__icon {
   flex: none;
 }
 
+/* room between the notices: the chosen one has a ring round it that touched its neighbours at the usual 10 */
+.notice-list {
+  gap: calc(20 * var(--mu));
+}
+
 /* ----- The sign that flashes when the video is paused or goes on ----- */
 .play-flash {
   position: absolute;
