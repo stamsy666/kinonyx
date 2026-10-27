@@ -9308,3 +9308,13 @@ body .sidebar__item.is-focused .sidebar__icon {
 .links-tv__row--center .links-tv__name {
   flex: none;
 }
+
+/* "What is inside": the text stands in the middle, like the other windows' lines */
+.rel-tv__probe {
+  text-align: center;
+}
+
+.rel-tv__probe-line {
+  border-radius: 999px;
+  text-align: center;
+}

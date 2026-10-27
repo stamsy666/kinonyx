@@ -373,6 +373,10 @@ pub async fn probe_tracks(url: String) -> Result<ProbeResult, String> {
         for i in 0..count {
             let p = |name: &str| mpv.get(&format!("track-list/{i}/{name}")).unwrap_or_default();
             let kind = p("type");
+            // Pictures attached to the file (cover.jpg, small_cover.jpg) are "video" tracks to mpv, but not a picture of the film.
+            if kind == "video" && p("albumart") == "yes" {
+                continue;
+            }
             let detail = match kind.as_str() {
                 "video" => {
                     let (w, h) = (p("demux-w"), p("demux-h"));
