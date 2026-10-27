@@ -23,3 +23,24 @@ describe("parseTags", () => {
     expect(tagLabels(parseTags("Фильм BDRip 1080p AVC | Дубляж"))).toEqual(["1080p", "BDRip", "AVC", "Дубляж"]);
   });
 });
+
+describe("seasons and episodes", () => {
+  it("reads a single season and a range", () => {
+    expect(parseTags("Сериал / Show (2021) 2 сезон WEB-DL 1080p").seasons).toEqual([2]);
+    expect(parseTags("Show [S01-03] BDRip 1080p").seasons).toEqual([1, 2, 3]);
+    expect(parseTags("Сериал Сезон 1-2 из 2 WEB-DL").seasons).toEqual([1, 2]);
+    expect(parseTags("Show.S04E05.1080p").seasons).toEqual([4]);
+  });
+  it("reads the episodes", () => {
+    expect(parseTags("Сериал 1 сезон Серии: 1-8 из 12 WEB-DL").episodes).toBe("1–8");
+    expect(parseTags("Сериал 1 сезон Серии: 1-8 из 12 WEB-DL").of).toBe(12);
+    expect(parseTags("Show S02E05 WEB-DL").episodes).toBe("5");
+  });
+  it("has nothing about seasons in a film", () => {
+    expect(parseTags("Дюна / Dune (2021) BDRemux 2160p").seasons).toBeUndefined();
+    expect(parseTags("Дюна / Dune (2021) BDRemux 2160p").episodes).toBeUndefined();
+  });
+  it("puts the season first among the labels", () => {
+    expect(tagLabels(parseTags("Сериал 2 сезон Серии: 1-10 из 10 WEB-DL 1080p"))[0]).toBe("Сезон 2");
+  });
+});

@@ -98,6 +98,8 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
   const [minSeeds, setMinSeeds] = useState(0);
   const [voice, setVoice] = useState<ReleaseTags["voice"] | "any">("any");
   const [sort, setSort] = useState<Sort>("seeds");
+  // For a series: only the releases that hold this season (0 = any).
+  const [season, setSeason] = useState(0);
   // A filter changes the list under the viewer's thumb: the first row must not grab the focus from the chip (it is `autoFocus`
   // only for the first showing), and the chip is given the focus again once the list has been redrawn.
   const [filtersUsed, setFiltersUsed] = useState(false);
@@ -321,8 +323,10 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
   const bestId = [...releases]
     .filter((r) => ["4K", "1080p"].includes(parseTags(r.name).quality ?? "") && (r.seeds ?? 0) >= 10 && fits(r))
     .sort((a, b) => (b.seeds ?? 0) - (a.seeds ?? 0))[0]?.id;
+  // The seasons the releases speak of: the season chip is only there for a series (two seasons or more are named).
+  const seasonOptions = [...new Set(shownAll.flatMap((r) => parseTags(r.name).seasons ?? []))].sort((a, b) => a - b);
   const visible = shownAll
-    .filter((r) => (r.seeds ?? 0) >= minSeeds && (voice === "any" || parseTags(r.name).voice === voice))
+    .filter((r) => (r.seeds ?? 0) >= minSeeds && (voice === "any" || parseTags(r.name).voice === voice) && (season === 0 || (parseTags(r.name).seasons ?? []).includes(season)))
     .sort((a, b) => {
       if (sort === "size") return (parseSize(b.size) ?? 0) - (parseSize(a.size) ?? 0);
       if (sort === "quality") return (QUALITY_RANK[parseTags(b.name).quality ?? ""] ?? 0) - (QUALITY_RANK[parseTags(a.name).quality ?? ""] ?? 0) || (b.seeds ?? 0) - (a.seeds ?? 0);
@@ -359,6 +363,21 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
           }}>
             {voice === "any" ? "Любая озвучка" : voice}
           </Focusable>
+          {seasonOptions.length >= 2 && (
+            <Focusable
+              as="button"
+              className="rel-tv__chip"
+              focusKey="rel:f:season"
+              scroll={false}
+              onPress={() => {
+                const order = [0, ...seasonOptions];
+                setSeason((v) => order[(Math.max(0, order.indexOf(v)) + 1) % order.length]);
+                chipPressed("rel:f:season");
+              }}
+            >
+              {season ? `Сезон ${season}` : "Любой сезон"}
+            </Focusable>
+          )}
           <Focusable as="button" className="rel-tv__chip" focusKey="rel:f:sort" scroll={false} onPress={() => {
             setSort((v) => SORTS[(SORTS.indexOf(v) + 1) % SORTS.length]);
             chipPressed("rel:f:sort");
