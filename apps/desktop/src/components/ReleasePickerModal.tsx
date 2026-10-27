@@ -15,6 +15,8 @@ import {
   type TorrentFile,
 } from "../data/api";
 import { useLastRelease, type LastRelease } from "../store/lastRelease";
+import { buildExtraTracks } from "../data/extraTracks";
+import type { ExtraTrack } from "@kinonyx/player-core";
 import { episodeKey, episodeLabel } from "../data/episodes";
 import { useEpisodeProgress } from "../store/episodeProgress";
 import { splitByYear } from "../data/releaseFilter";
@@ -46,7 +48,9 @@ interface Props {
     hash: string;
     /** Set when this release is a season pack (more than one playable file) — the rest
      *  of the files, so the player can offer "next episode" without reopening this modal. */
-    episodes?: { hash: string; files: TorrentFile[]; index: number };
+    episodes?: { hash: string; files: TorrentFile[]; index: number; all?: TorrentFile[] };
+    /** Subtitles and sound tracks that came in the release beside the video. */
+    extras?: ExtraTrack[];
   }) => void;
 }
 
@@ -87,7 +91,7 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
   // Releases that name only another year (other films with the same title) — hidden unless asked for.
   const [hidden, setHidden] = useState<TorApiRelease[]>([]);
   const [showHidden, setShowHidden] = useState(false);
-  const [files, setFiles] = useState<{ hash: string; name: string; link: string; choices: TorrentFile[] } | null>(null);
+  const [files, setFiles] = useState<{ hash: string; name: string; link: string; choices: TorrentFile[]; all: TorrentFile[] } | null>(null);
   const [error, setError] = useState<string>("");
   // The quick pick found nothing of the asked resolution — the list is shown with a note.
   const [qualityMissed, setQualityMissed] = useState(false);
@@ -139,7 +143,7 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
     setStage("error");
   };
 
-  async function play(link: string, hash: string, name: string, file: TorrentFile, episodeChoices: TorrentFile[]) {
+  async function play(link: string, hash: string, name: string, file: TorrentFile, episodeChoices: TorrentFile[], allFiles: TorrentFile[] = []) {
     if (download) {
       onDownload?.({ link, hash, name, file, multi: episodeChoices.length > 1 });
       return;
@@ -147,9 +151,11 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
     const url = await streamUrlFor(hash, file);
     if (cancel.current.cancelled) return;
     const episodes =
-      episodeChoices.length > 1 ? { hash, files: episodeChoices, index: episodeChoices.findIndex((f) => f.id === file.id) } : undefined;
+      episodeChoices.length > 1 ? { hash, files: episodeChoices, index: episodeChoices.findIndex((f) => f.id === file.id), all: allFiles } : undefined;
+    const extras = allFiles.length ? await buildExtraTracks(hash, allFiles, file, episodeChoices) : [];
+    if (cancel.current.cancelled) return;
     useLastRelease.getState().set(filmId, { link, fileId: file.id, filePath: file.path, releaseTitle: name });
-    onReady({ title: name, url, hash, episodes });
+    onReady({ title: name, url, hash, episodes, extras });
   }
 
   // Tries the previously-picked release again — same TorrServer add + file lookup as a
@@ -171,7 +177,7 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
         // left half-watched, else the one after the last watched.
         const file = (choices.length > 1 ? useEpisodeProgress.getState().smartPick(filmId, choices) : undefined) ?? remembered_;
         if (!file) throw new Error("Файл не найден в раздаче");
-        await play(remembered.link, torrent.hash, remembered.releaseTitle, file, choices);
+        await play(remembered.link, torrent.hash, remembered.releaseTitle, file, choices, torrent.files);
       } catch {
         if (cancelled) return;
         // Dead link (no seeds left, file renamed) — don't keep retrying it on every
@@ -294,12 +300,12 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
       if (cancel.current.cancelled) return;
       const { auto, choices } = playableFiles(torrent.files);
       if (auto) {
-        await play(link, torrent.hash, name, auto, []);
+        await play(link, torrent.hash, name, auto, [], torrent.files);
       } else if (choices.length > 1 && useEpisodeProgress.getState().smartPick(filmId, choices) && quality) {
         // Quick pick of a series already started: no episode list, straight to the right one.
-        await play(link, torrent.hash, name, useEpisodeProgress.getState().smartPick(filmId, choices)!, choices);
+        await play(link, torrent.hash, name, useEpisodeProgress.getState().smartPick(filmId, choices)!, choices, torrent.files);
       } else {
-        setFiles({ hash: torrent.hash, name, link, choices });
+        setFiles({ hash: torrent.hash, name, link, choices, all: torrent.files });
         setStage("files");
       }
     } catch (e) {
@@ -506,7 +512,7 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
                 focusKey={`file:${i}`}
                 className="rel-tv__row"
                 autoFocus={smartFile ? next : i === 0}
-                onPress={() => void play(files.link, files.hash, `${files.name} — ${f.name}`, f, files.choices).catch(fail)}
+                onPress={() => void play(files.link, files.hash, `${files.name} — ${f.name}`, f, files.choices, files.all).catch(fail)}
               >
                 <span className="rel-tv__title">
                   {label}

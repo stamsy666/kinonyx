@@ -8,7 +8,7 @@ import {
   type MpvObservableProperty,
 } from "tauri-plugin-libmpv-api";
 import { StateStore } from "./state-store";
-import type { PlaySource, PlayerAdapter, PlayerState, StateListener, Track, TrackKind } from "./types";
+import type { ExtraTrack, PlaySource, PlayerAdapter, PlayerState, StateListener, Track, TrackKind } from "./types";
 
 const OBSERVED_PROPERTIES = [
   ["pause", "flag"],
@@ -361,10 +361,32 @@ export class MpvAdapter implements PlayerAdapter {
       this.loading = false;
       await this.primeState();
       this.syncStatus();
+      if (source.extraTracks?.length) void this.addExtraTracks(source.extraTracks, ++this.loadSerial);
     } catch (e) {
       if (this.destroyed) return;
       this.loading = false;
       this.store.patch({ status: "error", error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  private loadSerial = 0;
+
+  /**
+   * Subtitles and sound tracks from beside the file: added with `sub-add` / `audio-add` (which give them a name and a language
+   * for the menu) once mpv has the file open — it says "no file" until then, so each is tried again every half second for a while.
+   * A newer load makes the older one stop.
+   */
+  private async addExtraTracks(tracks: ExtraTrack[], serial: number): Promise<void> {
+    for (const t of tracks) {
+      for (let attempt = 0; attempt < 40; attempt++) {
+        if (this.destroyed || serial !== this.loadSerial) return;
+        try {
+          await mpvCommand(t.kind === "subtitle" ? "sub-add" : "audio-add", [t.url, "auto", t.title ?? "", t.lang ?? ""]);
+          break;
+        } catch {
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      }
     }
   }
 

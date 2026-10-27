@@ -10,6 +10,17 @@ export interface PlaySource {
   title?: string;
   /** Per-file mpv options (applied for this title only, e.g. a deliberate start delay). */
   mpvOptions?: Record<string, string>;
+  /** Subtitles and sound tracks that lie beside the file (a release's .srt / .mka), added once it is open. */
+  extraTracks?: ExtraTrack[];
+}
+
+export interface ExtraTrack {
+  kind: "subtitle" | "audio";
+  url: string;
+  /** What the menu shows (the file's name). */
+  title?: string;
+  /** "rus", "eng"… */
+  lang?: string;
 }
 
 export type TrackKind = "audio" | "subtitle";

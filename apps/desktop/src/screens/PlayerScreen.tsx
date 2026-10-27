@@ -3,6 +3,7 @@ import { logEvent } from "../data/log";
 import { getTrackPrefs, matchTrack, rememberTrack } from "../store/trackPrefs";
 import { getLearnedIntro, learnIntro } from "../store/introPrefs";
 import { findSkip, learnFromJump } from "../data/skipSegments";
+import { buildExtraTracks } from "../data/extraTracks";
 import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import {
   Html5Adapter,
@@ -13,6 +14,7 @@ import {
   type PlayerStats,
   type PlaySource,
   type TrackKind,
+  type ExtraTrack,
 } from "@kinonyx/player-core";
 import {
   BackIcon,
@@ -71,6 +73,8 @@ interface EpisodeQueue {
   hash: string;
   files: TorrentFile[];
   index: number;
+  /** Every file of the release (the subtitles and sound tracks of the next episode are looked for in them). */
+  all?: TorrentFile[];
 }
 
 export function PlayerScreen({
@@ -83,6 +87,7 @@ export function PlayerScreen({
   film,
   poster,
   episodes,
+  extras,
   mini = false,
 }: {
   /** Minimised to a corner: only the small window is drawn, no keys or Back are taken. */
@@ -96,6 +101,8 @@ export function PlayerScreen({
   film?: { nameRu?: string; nameOriginal?: string; year?: string | number; genres?: string[] };
   poster?: string;
   episodes?: EpisodeQueue;
+  /** Subtitles and sound tracks that came in the release beside the video. */
+  extras?: ExtraTrack[];
 }) {
   const back = useApp((s) => s.back);
   const replace = useApp((s) => s.replace);
@@ -153,8 +160,8 @@ export function PlayerScreen({
     if (resumeAt > 1) mpvOptions.start = String(Math.floor(resumeAt));
     // The player settings (subtitles, night mode, scaling, HDR…) are mpv options set before each load.
     Object.assign(mpvOptions, buildMpvOptions(prefs));
-    return { url: curUrl, title, live: false, mpvOptions };
-  }, [curUrl, curAudio, title, resumeAt, prefs]);
+    return { url: curUrl, title, live: false, mpvOptions, extraTracks: extras };
+  }, [curUrl, curAudio, title, resumeAt, prefs, extras]);
 
   // Local translation of the film's speech into Russian subtitles (torrent films only; same
   // engine as the channels' translator). Off for every new film.
@@ -380,6 +387,7 @@ export function PlayerScreen({
     if (!file) return;
     setEpisodesOpen(false);
     const nextUrl = await streamUrlFor(episodes.hash, file);
+    const nextExtras = episodes.all?.length ? await buildExtraTracks(episodes.hash, episodes.all, file, episodes.files) : [];
     replace({
       name: "player",
       title: file.name,
@@ -388,7 +396,8 @@ export function PlayerScreen({
       filmId,
       film,
       poster,
-      episodes: { hash: episodes.hash, files: episodes.files, index },
+      episodes: { hash: episodes.hash, files: episodes.files, index, all: episodes.all },
+      extras: nextExtras,
     });
   };
   const goToNextEpisode = () => void goToEpisode(episodes ? episodes.index + 1 : 0);

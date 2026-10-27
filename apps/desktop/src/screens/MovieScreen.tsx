@@ -554,6 +554,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
                 film: { nameRu: film.nameRu, nameOriginal: film.nameOriginal, year: film.year, genres: film.genres?.map((g) => g.genre) },
                 poster: film.posterUrlPreview ? img(film.posterUrlPreview) : undefined,
                 episodes: source.episodes,
+                extras: source.extras,
               }),
             );
           }}

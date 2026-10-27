@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { ExtraTrack } from "@kinonyx/player-core";
 import { isFullscreen, setFullscreen } from "../data/fullscreen";
 import {
   focusBackFromSidebar,
@@ -51,7 +52,9 @@ export type Screen =
       film?: { nameRu?: string; nameOriginal?: string; year?: string | number; genres?: string[] };
       /** The other playable files from the same torrent (a season pack) — lets the OSD
        *  offer "next episode" without reopening the release picker. */
-      episodes?: { hash: string; files: TorrentFile[]; index: number };
+      episodes?: { hash: string; files: TorrentFile[]; index: number; all?: TorrentFile[] };
+      /** Subtitles and sound tracks from the release itself (see data/companions.ts). */
+      extras?: ExtraTrack[];
     }
   /** Trailers Kinopoisk only offers as its own embeddable widget (not a YouTube link
    *  yt-dlp can resolve) — shown full-screen in an iframe instead of the mpv player. */
