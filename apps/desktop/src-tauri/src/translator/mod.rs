@@ -318,3 +318,99 @@ pub async fn audio_devices() -> Result<Vec<AudioDevice>, String> {
     .await
     .map_err(|e| e.to_string())?
 }
+
+
+#[derive(Serialize)]
+pub struct ProbeTrack {
+    pub kind: String,
+    pub lang: String,
+    pub title: String,
+    pub codec: String,
+    /// "3840×2160" for the picture, "5.1" for the sound.
+    pub detail: String,
+    pub default: bool,
+}
+
+#[derive(Serialize)]
+pub struct ProbeResult {
+    pub duration: f64,
+    pub tracks: Vec<ProbeTrack>,
+}
+
+/// What is inside a release before it is watched: the pictures, the sound tracks and the subtitles of the file. A throwaway
+/// mpv core opens the stream paused (no picture, no sound), waits for the headers and reads its `track-list`.
+#[tauri::command]
+pub async fn probe_tracks(url: String) -> Result<ProbeResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mpv = mpv::Mpv::new(
+            "probe",
+            &[
+                ("vo", "null".into()),
+                ("ao", "null".into()),
+                ("idle", "yes".into()),
+                ("pause", "yes".into()),
+                ("audio-display", "no".into()),
+                ("network-timeout", "20".into()),
+                ("cache", "no".into()),
+            ],
+        )?;
+        mpv.command(&["loadfile", &url, "replace"])?;
+        let started = std::time::Instant::now();
+        loop {
+            let (event, error) = mpv.wait_event(0.5);
+            if event == mpv::EVENT_FILE_LOADED {
+                break;
+            }
+            if event == mpv::EVENT_END_FILE && error < 0 {
+                return Err("Не удалось прочитать файл раздачи".to_string());
+            }
+            if event == mpv::EVENT_SHUTDOWN || started.elapsed() > std::time::Duration::from_secs(40) {
+                return Err("Файл раздачи не открылся вовремя — возможно, у неё мало сидов".to_string());
+            }
+        }
+        let count = mpv.get("track-list/count").and_then(|c| c.parse::<usize>().ok()).unwrap_or(0);
+        let mut tracks = Vec::new();
+        for i in 0..count {
+            let p = |name: &str| mpv.get(&format!("track-list/{i}/{name}")).unwrap_or_default();
+            let kind = p("type");
+            let detail = match kind.as_str() {
+                "video" => {
+                    let (w, h) = (p("demux-w"), p("demux-h"));
+                    if w.is_empty() || h.is_empty() { String::new() } else { format!("{w}×{h}") }
+                }
+                "audio" => match p("demux-channel-count").as_str() {
+                    "" => String::new(),
+                    "1" => "1.0".to_string(),
+                    "2" => "2.0".to_string(),
+                    "6" => "5.1".to_string(),
+                    "8" => "7.1".to_string(),
+                    n => format!("{n} кан."),
+                },
+                _ => String::new(),
+            };
+            if kind == "video" || kind == "audio" || kind == "sub" {
+                tracks.push(ProbeTrack { kind, lang: p("lang"), title: p("title"), codec: p("codec"), detail, default: p("default") == "yes" });
+            }
+        }
+        let duration = mpv.get_f64("duration").unwrap_or(0.0);
+        Ok(ProbeResult { duration, tracks })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[cfg(test)]
+mod probe_tests {
+    /// Needs libmpv next to the test binary and a file: `KINONYX_PROBE_URL=<url or path> cargo test --lib probe -- --ignored`.
+    #[test]
+    #[ignore]
+    fn probe_reads_the_tracks_of_a_file() {
+        let url = std::env::var("KINONYX_PROBE_URL").expect("set KINONYX_PROBE_URL");
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let out = rt.block_on(super::probe_tracks(url)).expect("probe failed");
+        for t in &out.tracks {
+            println!("{} | {} | {} | {} | {}", t.kind, t.lang, t.title, t.codec, t.detail);
+        }
+        assert!(out.tracks.iter().any(|t| t.kind == "video"));
+    }
+}

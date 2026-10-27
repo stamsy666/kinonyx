@@ -368,6 +368,21 @@ export async function torApiSearchId(provider: string, id: string): Promise<TorA
   };
 }
 
+/** One picture, sound or subtitle track of a file (`probe_tracks`). */
+export interface ProbeTrack {
+  kind: "video" | "audio" | "sub";
+  lang: string;
+  title: string;
+  codec: string;
+  detail: string;
+  default: boolean;
+}
+
+/** What is inside a file of a release, read from the stream before it is watched. */
+export function probeTracks(url: string) {
+  return invoke<{ duration: number; tracks: ProbeTrack[] }>("probe_tracks", { url });
+}
+
 // ---------- Torrserve ----------
 
 export function torrserveHealth() {

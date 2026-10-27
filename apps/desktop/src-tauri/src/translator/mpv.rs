@@ -27,6 +27,7 @@ struct LogMessage {
 pub const EVENT_SHUTDOWN: i32 = 1;
 const EVENT_LOG_MESSAGE: i32 = 2;
 pub const EVENT_END_FILE: i32 = 7;
+pub const EVENT_FILE_LOADED: i32 = 8;
 pub const EVENT_PLAYBACK_RESTART: i32 = 21;
 
 struct Api {

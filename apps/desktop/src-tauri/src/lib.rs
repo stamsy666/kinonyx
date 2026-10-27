@@ -145,6 +145,7 @@ pub fn run() {
             tv::read_playlist_file,
             translator::translator_status,
             translator::audio_devices,
+            translator::probe_tracks,
             translator::translator_download,
             translator::translator_cancel_download,
             translator::translator_delete,

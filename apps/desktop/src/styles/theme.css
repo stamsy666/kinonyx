@@ -9053,3 +9053,81 @@ body .sidebar__item.is-focused .sidebar__icon {
   background: rgba(0, 0, 0, 0.12);
   color: #1d1d20;
 }
+
+/* ----- A release with a button "what is inside" beside it, and the window that answers ----- */
+.rel-tv__item {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.rel-tv__item .rel-tv__row {
+  flex: 1;
+  min-width: 0;
+}
+
+.rel-tv__info {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 56px;
+  border: 0;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.rel-tv__info.is-focused,
+.rel-tv__info:hover {
+  background: #fff;
+  color: #111;
+  transform: none;
+}
+
+.rel-tv__info.is-focused::after {
+  content: none;
+}
+
+.rel-tv__probe {
+  display: grid;
+  gap: 14px;
+  margin: 6px 0 14px;
+}
+
+.rel-tv__probe-file {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.rel-tv__probe-head {
+  margin-bottom: 4px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.rel-tv__probe-line {
+  padding: 8px 14px;
+  margin-bottom: 4px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.rel-tv__probe-line i {
+  margin-left: 10px;
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.rel-tv__probe-line--none {
+  color: rgba(255, 255, 255, 0.5);
+}

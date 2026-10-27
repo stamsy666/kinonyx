@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Focusable, NextIcon, Spinner, onBack } from "@kinonyx/ui";
+import { AboutIcon, Focusable, NextIcon, Spinner, onBack } from "@kinonyx/ui";
 import {
   openTorrent,
   parseSize,
@@ -8,6 +8,8 @@ import {
   torApiSearchId,
   torApiSearchTitle,
   torrserveHealth,
+  probeTracks,
+  type ProbeTrack,
   type TorApiRelease,
   type TorrentFile,
 } from "../data/api";
@@ -46,7 +48,7 @@ interface Props {
   }) => void;
 }
 
-type Stage = "searching" | "list" | "connecting" | "files" | "error";
+type Stage = "searching" | "list" | "connecting" | "files" | "error" | "inspect";
 
 // Filters and sorting of the list of releases (they are chips above it).
 const MIN_SEEDS = [0, 3, 10, 30];
@@ -87,6 +89,10 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
   const [error, setError] = useState<string>("");
   // The quick pick found nothing of the asked resolution — the list is shown with a note.
   const [qualityMissed, setQualityMissed] = useState(false);
+  // "What is inside": the release looked into, and what was found (or why not).
+  const [inspecting, setInspecting] = useState<TorApiRelease | null>(null);
+  const [probe, setProbe] = useState<{ tracks: ProbeTrack[]; duration: number; file: string } | null>(null);
+  const [probeError, setProbeError] = useState("");
   const [minSeeds, setMinSeeds] = useState(0);
   const [voice, setVoice] = useState<ReleaseTags["voice"] | "any">("any");
   const [sort, setSort] = useState<Sort>("seeds");
@@ -106,7 +112,7 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
     () =>
       onBack(() => {
         // Back from the episode list returns to the releases, not all the way out.
-        if (stage === "files" || (stage === "error" && releases.length)) {
+        if (stage === "files" || stage === "inspect" || (stage === "error" && releases.length)) {
           setStage("list");
           return true;
         }
@@ -215,33 +221,63 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
     };
   }, [stage, title, year]);
 
+  /** The link TorrServer can add a release by (a magnet, a hash or a .torrent address) and its name. */
+  async function resolveLink(release: TorApiRelease): Promise<{ link: string; name: string }> {
+    let link = release.hash;
+    let name = release.name;
+    let lookupError: unknown;
+    if (!link) {
+      try {
+        const detail = await torApiSearchId(release.provider, release.id);
+        link = detail.magnet || detail.hash || detail.torrent;
+        name = detail.name || name;
+      } catch (e) {
+        lookupError = e;
+      }
+    }
+    // TorrServer can also add straight from the tracker's .torrent URL.
+    link ||= release.torrent;
+    if (!link) {
+      throw new Error(
+        lookupError instanceof Error
+          ? `Не удалось получить ссылку на раздачу: ${lookupError.message}`
+          : "Трекер не отдал ни magnet, ни .torrent для этой раздачи — выберите другую",
+      );
+    }
+    return { link, name };
+  }
+
+  // "What is inside": connects to the release, opens its biggest file (the first episode of a pack) and reads its tracks.
+  async function inspect(release: TorApiRelease) {
+    setInspecting(release);
+    setProbe(null);
+    setProbeError("");
+    setStage("inspect");
+    try {
+      if (!(await torrserveHealth())) throw new Error("TorrServer не запущен");
+      const { link } = await resolveLink(release);
+      const torrent = await openTorrent(link, cancel.current);
+      if (cancel.current.cancelled) return;
+      const { auto, choices } = playableFiles(torrent.files);
+      const file = auto ?? choices[0];
+      if (!file) throw new Error("В раздаче нет видеофайла");
+      const url = await streamUrlFor(torrent.hash, file);
+      const result = await probeTracks(url);
+      if (cancel.current.cancelled) return;
+      setProbe({ tracks: result.tracks, duration: result.duration, file: file.name });
+    } catch (e) {
+      if (cancel.current.cancelled) return;
+      setProbeError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   async function pick(release: TorApiRelease) {
     setStage("connecting");
     try {
       if (!(await torrserveHealth())) {
         throw new Error("TorrServer не запущен — он стартует вместе с приложением, проверьте binaries/ (см. CLAUDE.md)");
       }
-      let link = release.hash;
-      let name = release.name;
-      let lookupError: unknown;
-      if (!link) {
-        try {
-          const detail = await torApiSearchId(release.provider, release.id);
-          link = detail.magnet || detail.hash || detail.torrent;
-          name = detail.name || name;
-        } catch (e) {
-          lookupError = e;
-        }
-      }
-      // TorrServer can also add straight from the tracker's .torrent URL.
-      link ||= release.torrent;
-      if (!link) {
-        throw new Error(
-          lookupError instanceof Error
-            ? `Не удалось получить ссылку на раздачу: ${lookupError.message}`
-            : "Трекер не отдал ни magnet, ни .torrent для этой раздачи — выберите другую",
-        );
-      }
+      const { link, name } = await resolveLink(release);
       const torrent = await openTorrent(link, cancel.current);
       if (cancel.current.cancelled) return;
       const { auto, choices } = playableFiles(torrent.files);
@@ -262,7 +298,7 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
   // The episode to highlight in the list: the one in progress, else the one after the last watched.
   const smartFile = stage === "files" && files ? useEpisodeProgress.getState().smartPick(filmId, files.choices) : undefined;
 
-  const heading = download ? (stage === "files" ? "Какую серию скачать" : "Что скачать") : stage === "files" ? "Выбор серии" : "Выбор раздачи";
+  const heading = stage === "inspect" ? "Что внутри раздачи" : download ? (stage === "files" ? "Какую серию скачать" : "Что скачать") : stage === "files" ? "Выбор серии" : "Выбор раздачи";
 
   const shownAll = showHidden ? [...releases, ...hidden] : releases;
   const visible = shownAll
@@ -321,8 +357,8 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
             const need = neededMbit(r.size, durationMin);
             const few = (r.seeds ?? 0) < FEW_SEEDS;
             return (
+              <div className="rel-tv__item" key={r.provider + r.id}>
               <Focusable
-                key={r.provider + r.id}
                 as="button"
                 focusKey={`release:${i}`}
                 className="rel-tv__row"
@@ -346,6 +382,10 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
                   {few && <span className="release-warn">мало сидов — возможна буферизация</span>}
                 </span>
               </Focusable>
+              <Focusable as="button" className="rel-tv__info" focusKey={`release:${i}:info`} aria-label="Что внутри раздачи" scroll={false} onPress={() => void inspect(r)}>
+                <AboutIcon size={22} />
+              </Focusable>
+              </div>
             );
           })}
         {stage === "list" && visible.length === 0 && shownAll.length > 0 && (
@@ -355,6 +395,45 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
           <Focusable as="button" className="links-tv__row links-tv__row--close" focusKey="release:show-hidden" scroll={false} onPress={() => setShowHidden(true)}>
             <span className="links-tv__name">Показать ещё {hidden.length} — с другим годом</span>
           </Focusable>
+        )}
+        {stage === "inspect" && inspecting && (
+          <>
+            <p className="links-tv__text">{inspecting.name}</p>
+            {!probe && !probeError && (
+              <div className="links-tv__wait">
+                <Spinner />
+                <span className="links-tv__text">Читаю начало файла раздачи…</span>
+              </div>
+            )}
+            {probeError && <p className="links-tv__text">{probeError}</p>}
+            {probe && (
+              <div className="rel-tv__probe">
+                {probe.file && <div className="rel-tv__probe-file">{probe.file}{probe.duration > 0 ? ` · ${Math.round(probe.duration / 60)} мин` : ""}</div>}
+                {(["video", "audio", "sub"] as const).map((kind) => {
+                  const list = probe.tracks.filter((t) => t.kind === kind);
+                  return (
+                    <div className="rel-tv__probe-group" key={kind}>
+                      <div className="rel-tv__probe-head">{kind === "video" ? "Видео" : kind === "audio" ? "Звук" : "Субтитры"}</div>
+                      {list.length === 0 && <div className="rel-tv__probe-line rel-tv__probe-line--none">{kind === "sub" ? "нет вшитых субтитров" : "нет"}</div>}
+                      {list.map((t, n) => (
+                        <div className="rel-tv__probe-line" key={n}>
+                          {[t.lang && t.lang.toUpperCase(), t.title, t.codec, t.detail].filter(Boolean).join(" · ") || "без описания"}
+                          {t.default && <i>по умолчанию</i>}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <Focusable as="button" className="links-tv__row" focusKey="release:inspect:go" scroll={false} autoFocus onPress={() => void pick(inspecting)}>
+              <span className="links-tv__name">{download ? "Скачать эту раздачу" : "Смотреть эту раздачу"}</span>
+              <NextIcon size={20} />
+            </Focusable>
+            <Focusable as="button" back className="links-tv__row links-tv__row--close" focusKey="release:inspect:back" scroll={false} onPress={() => setStage("list")}>
+              <span className="links-tv__name">К списку раздач</span>
+            </Focusable>
+          </>
         )}
         {stage === "files" &&
           files?.choices.map((f, i) => {
