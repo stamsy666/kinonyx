@@ -458,9 +458,8 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
                 })}
               </div>
             )}
-            <Focusable as="button" className="links-tv__row" focusKey="release:inspect:go" scroll={false} autoFocus onPress={() => void pick(inspecting)}>
+            <Focusable as="button" className="links-tv__row links-tv__row--center" focusKey="release:inspect:go" scroll={false} autoFocus onPress={() => void pick(inspecting)}>
               <span className="links-tv__name">{download ? "Скачать эту раздачу" : "Смотреть эту раздачу"}</span>
-              <NextIcon size={20} />
             </Focusable>
             <Focusable as="button" back className="links-tv__row links-tv__row--close" focusKey="release:inspect:back" scroll={false} onPress={() => setStage("list")}>
               <span className="links-tv__name">К списку раздач</span>

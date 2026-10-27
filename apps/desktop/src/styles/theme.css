@@ -9298,3 +9298,13 @@ body .sidebar__item.is-focused .sidebar__icon {
 .settings--tv .settings-pane .settings__label + .field {
   margin-top: calc(4 * var(--u));
 }
+
+/* a row of a window whose one line stands in the middle (the choice's own buttons) */
+.links-tv__row--center {
+  justify-content: center;
+  text-align: center;
+}
+
+.links-tv__row--center .links-tv__name {
+  flex: none;
+}
