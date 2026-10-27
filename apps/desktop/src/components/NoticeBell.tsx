@@ -52,7 +52,7 @@ function NoticesModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal focusKey="notices" preferredChildFocusKey="notice:0" className="links-tv" onClose={onClose}>
+    <Modal focusKey="notices" preferredChildFocusKey={items.length > 0 ? "notice:0" : "notice:close"} className="links-tv" onClose={onClose}>
       <h3 className="links-tv__title">Уведомления</h3>
       <div className="links-tv__list links-tv__scroll">
         {items.length === 0 && <EmptyState compact icon={<BellIcon size={34} strokeWidth={1.6} />} title="Пока ничего нового" hint="Здесь появятся новые серии избранных сериалов, готовые загрузки и обновления." />}
@@ -72,7 +72,7 @@ function NoticesModal({ onClose }: { onClose: () => void }) {
           <span className="links-tv__name">Очистить список</span>
         </Focusable>
       )}
-      <Focusable as="button" back className="links-tv__row links-tv__row--close links-tv__foot" focusKey="notice:close" scroll={false} onPress={onClose}>
+      <Focusable as="button" back className="links-tv__row links-tv__row--close links-tv__foot" focusKey="notice:close" autoFocus={items.length === 0} scroll={false} onPress={onClose}>
         <span className="links-tv__name">Закрыть</span>
       </Focusable>
     </Modal>
