@@ -19,6 +19,12 @@ export function buildMpvOptions(prefs: PlayerPrefs): Record<string, string> {
     o.cscale = "ewa_lanczossharp";
   }
   if (prefs.deband) o.deband = "yes";
+  if (prefs.smooth) {
+    // The frames are timed to the screen and blended between (no new frames are made — it takes out the jerks of 24 fps on a 60 Hz screen).
+    o["video-sync"] = "display-resample";
+    o.interpolation = "yes";
+    o.tscale = "oversample";
+  }
   if (prefs.toneMapping !== "auto") {
     o["tone-mapping"] = prefs.toneMapping === "soft" ? "bt.2390" : "hable";
     o["hdr-compute-peak"] = "yes";
@@ -44,6 +50,9 @@ export function liveMpvOptions(prefs: PlayerPrefs): Record<string, string> {
     scale: "bilinear",
     cscale: "bilinear",
     deband: "no",
+    "video-sync": "audio",
+    interpolation: "no",
+    tscale: "mitchell",
     "tone-mapping": "auto",
     "hdr-compute-peak": "auto",
     "target-colorspace-hint": "no",

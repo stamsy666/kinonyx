@@ -81,6 +81,13 @@ export function PicturePanel({ adapterRef, onClose }: { adapterRef: MutableRefOb
           active={prefs.deband}
           onPress={() => change({ deband: !prefs.deband })}
         />
+        <Row
+          focusKey="pic:smooth"
+          label="Плавность движения"
+          hint={prefs.smooth ? "Включена" : "Выключена"}
+          active={prefs.smooth}
+          onPress={() => change({ smooth: !prefs.smooth })}
+        />
       </div>
       <p className="links-tv__text links-tv__text--small">
         Нажатие листает значения. HDR-вывод работает, если в Windows включён HDR для этого экрана; если картинка стала странной, выключите.

@@ -647,9 +647,26 @@ export function SettingsScreen() {
                 </span>
                 Сглаживать полосы на градиентах
               </Focusable>
+              <Focusable
+                as="button"
+                className={`checkbox ${playerPrefs.smooth ? "is-on" : ""}`}
+                focusKey="settings:smooth"
+                onPress={() => setPlayerPrefs({ smooth: !playerPrefs.smooth })}
+                style={{ marginTop: 16 }}
+              >
+                <span className="checkbox__box">
+                  {playerPrefs.smooth && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </span>
+                Плавность движения (смешивание кадров)
+              </Focusable>
               <div className="settings__hint">
                 «Чёткое» и «Максимум» делают картинку резче на видео ниже разрешения экрана, но нагружают видеокарту.
                 «Мягкий» / «Контрастный» меняют, как HDR-фильмы выглядят на обычном экране; «Авто» оставляет решение плееру.
+                «Плавность движения» убирает рывки на панорамах (24 кадра на экране 60 Гц), но новых кадров не рисует и слегка нагружает видеокарту.
                 Применяется со следующего запуска видео.
               </div>
             </section>

@@ -156,6 +156,8 @@ export interface PlayerPrefs {
   upscale: "default" | "sharp" | "max";
   /** Smooths banding in gradients (mpv `deband`). */
   deband: boolean;
+  /** Smooth motion: frames are blended to the screen's rate (mpv `interpolation`, `video-sync=display-resample`) — no jerks in pans. */
+  smooth: boolean;
   /** HDR → SDR mapping for ordinary screens (mpv `tone-mapping`). */
   toneMapping: "auto" | "soft" | "contrast";
   /** Passes HDR through to an HDR display (mpv `target-colorspace-hint`) instead of squeezing it to SDR. */
@@ -189,6 +191,7 @@ export const DEFAULT_PLAYER_PREFS: PlayerPrefs = {
   nightMode: false,
   upscale: "default",
   deband: false,
+  smooth: false,
   toneMapping: "auto",
   hdrOutput: false,
   aspect: "auto",
@@ -214,6 +217,7 @@ function readPlayerPrefs(): PlayerPrefs {
         nightMode: p.nightMode === true,
         upscale: p.upscale === "sharp" || p.upscale === "max" ? p.upscale : "default",
         deband: p.deband === true,
+        smooth: p.smooth === true,
         toneMapping: p.toneMapping === "soft" || p.toneMapping === "contrast" ? p.toneMapping : "auto",
         hdrOutput: p.hdrOutput === true,
         aspect: (ASPECT_MODES as string[]).includes(p.aspect as string) ? (p.aspect as AspectMode) : "auto",
