@@ -9001,3 +9001,55 @@ body .sidebar__item.is-focused .sidebar__icon {
     transform: translateY(14px);
   }
 }
+
+/* ----- The list of releases: filter chips and tags of what the name says ----- */
+.rel-tv__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.rel-tv__chip {
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.rel-tv__chip.is-focused,
+.rel-tv__chip:hover {
+  background: #fff;
+  color: #111;
+  transform: none;
+}
+
+.rel-tv__chip.is-focused::after {
+  content: none;
+}
+
+.rel-tv__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.rel-tv__tags i {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.rel-tv__row.is-focused .rel-tv__tags i {
+  background: rgba(0, 0, 0, 0.12);
+  color: #1d1d20;
+}

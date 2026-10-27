@@ -33,6 +33,7 @@ import { resetScroll } from "../data/focusRestore";
 import { useUpdater } from "../store/updater";
 import { isTauri, openExternal } from "../data/io";
 import { exportUserData, importUserData, openUserDataDir } from "../data/userdata";
+import { getJacredKey, getJacredUrl, setJacred } from "../data/jacred";
 import { listAudioDevices, type AudioDevice } from "../data/audioDevices";
 import { listMonitors, moveToMonitor, readMonitor, readStartFullscreen, writeMonitor, writeStartFullscreen, type MonitorChoice } from "../data/windowPrefs";
 
@@ -147,6 +148,9 @@ export function SettingsScreen() {
   const clickSparkEnabled = useApp((s) => s.clickSparkEnabled);
   // «Данные»: the answer of the last export / import, and the "press again" guard of the import (it replaces everything).
   const [dataNote, setDataNote] = useState("");
+  // The second source of releases (a JacRed server): saved as it is typed.
+  const [jacUrl, setJacUrl] = useState(getJacredUrl);
+  const [jacKey, setJacKey] = useState(getJacredKey);
   const [importArmed, setImportArmed] = useState(false);
   const [startFull, setStartFull] = useState(readStartFullscreen);
   const [monitor, setMonitor] = useState(readMonitor);
@@ -356,6 +360,31 @@ export function SettingsScreen() {
                 note={torapiNote}
                 fallback="Enter — сохранить. Поиск раздач идёт через этот сервер."
               />
+            </section>
+            <section className="settings__item">
+              <div className="settings__label">JacRed — ещё один источник раздач (необязательно)</div>
+              <TextField
+                focusKey="settings:jacred"
+                value={jacUrl}
+                onChange={(v) => {
+                  setJacUrl(v);
+                  setJacred(v, jacKey);
+                }}
+                placeholder="Адрес сервера JacRed: https://…"
+                type="url"
+              />
+              <TextField
+                focusKey="settings:jacredkey"
+                value={jacKey}
+                onChange={(v) => {
+                  setJacKey(v);
+                  setJacred(jacUrl, v);
+                }}
+                placeholder="Ключ (apikey), если сервер его требует"
+              />
+              <div className="settings__hint">
+                JacRed собирает раздачи с нескольких трекеров. Если указать адрес, его результаты добавятся к обычному поиску и повторы уберутся. Оставьте пустым, чтобы не использовать.
+              </div>
             </section>
             <section className="settings__item">
               <div className="settings__label">API-KEY KINOPOISKUNOFFICIAL</div>

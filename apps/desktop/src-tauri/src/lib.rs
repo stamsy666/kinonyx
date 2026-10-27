@@ -5,6 +5,7 @@ mod discord;
 mod epg;
 mod http;
 mod images;
+mod jacred;
 mod kinopoisk;
 mod logs;
 mod remote;
@@ -105,6 +106,7 @@ pub fn run() {
             userdata::userdata_export,
             userdata::userdata_import,
             trackers::trackers_list,
+            jacred::jacred_search,
             logs::log_write,
             logs::log_dir,
             logs::log_open_dir,

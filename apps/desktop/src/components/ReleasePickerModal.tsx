@@ -15,6 +15,8 @@ import { useLastRelease, type LastRelease } from "../store/lastRelease";
 import { episodeKey, episodeLabel } from "../data/episodes";
 import { useEpisodeProgress } from "../store/episodeProgress";
 import { splitByYear } from "../data/releaseFilter";
+import { jacredSearch, mergeReleases } from "../data/jacred";
+import { parseTags, tagLabels, type ReleaseTags } from "../data/releaseTags";
 import { pickByQuality, qualityLabel, type QualityKey } from "../data/quality";
 import { Modal } from "./Modal";
 
@@ -45,6 +47,14 @@ interface Props {
 }
 
 type Stage = "searching" | "list" | "connecting" | "files" | "error";
+
+// Filters and sorting of the list of releases (they are chips above it).
+const MIN_SEEDS = [0, 3, 10, 30];
+const VOICES: (ReleaseTags["voice"] | "any")[] = ["any", "Дубляж", "Многоголосая", "Оригинал"];
+type Sort = "seeds" | "size" | "quality";
+const SORTS: Sort[] = ["seeds", "size", "quality"];
+const SORT_LABEL: Record<Sort, string> = { seeds: "по сидам", size: "по размеру", quality: "по качеству" };
+const QUALITY_RANK: Record<string, number> = { "4K": 4, "1080p": 3, "720p": 2, SD: 1 };
 
 // Below this many seeders a release rarely sustains even 1080p.
 const FEW_SEEDS = 5;
@@ -77,6 +87,9 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
   const [error, setError] = useState<string>("");
   // The quick pick found nothing of the asked resolution — the list is shown with a note.
   const [qualityMissed, setQualityMissed] = useState(false);
+  const [minSeeds, setMinSeeds] = useState(0);
+  const [voice, setVoice] = useState<ReleaseTags["voice"] | "any">("any");
+  const [sort, setSort] = useState<Sort>("seeds");
   const cancel = useRef({ cancelled: false });
 
   // Fresh token per mount: StrictMode's dev-only unmount/remount would otherwise leave the
@@ -163,11 +176,19 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
     // "Title year" first — the year in the query cuts out other films with the same name; if
     // the trackers' own search doesn't cope with it (nothing found), the plain title.
     (async () => {
-      if (year) {
-        const withYear = await torApiSearchTitle(`${title} ${year}`, year).catch(() => []);
-        if (withYear.length) return withYear;
+      // The second source (a JacRed server from Settings, if there is one) is asked at the same time; its failure is not the search's.
+      const jac = jacredSearch(title).catch(() => []);
+      let first: TorApiRelease[] = [];
+      let failure: unknown;
+      try {
+        if (year) first = await torApiSearchTitle(`${title} ${year}`, year).catch(() => []);
+        if (!first.length) first = await torApiSearchTitle(title, year);
+      } catch (e) {
+        failure = e;
       }
-      return torApiSearchTitle(title, year);
+      const second = await jac;
+      if (!first.length && !second.length && failure) throw failure;
+      return mergeReleases(first, second);
     })()
       .then((all) => {
         if (cancelled) return;
@@ -243,7 +264,14 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
 
   const heading = download ? (stage === "files" ? "Какую серию скачать" : "Что скачать") : stage === "files" ? "Выбор серии" : "Выбор раздачи";
 
-  const visible = showHidden ? [...releases, ...hidden] : releases;
+  const shownAll = showHidden ? [...releases, ...hidden] : releases;
+  const visible = shownAll
+    .filter((r) => (r.seeds ?? 0) >= minSeeds && (voice === "any" || parseTags(r.name).voice === voice))
+    .sort((a, b) => {
+      if (sort === "size") return (parseSize(b.size) ?? 0) - (parseSize(a.size) ?? 0);
+      if (sort === "quality") return (QUALITY_RANK[parseTags(b.name).quality ?? ""] ?? 0) - (QUALITY_RANK[parseTags(a.name).quality ?? ""] ?? 0) || (b.seeds ?? 0) - (a.seeds ?? 0);
+      return (b.seeds ?? 0) - (a.seeds ?? 0);
+    });
 
   return (
     <Modal focusKey="release-picker" preferredChildFocusKey="release:0" className="links-tv rel-tv" onClose={onClose}>
@@ -254,6 +282,19 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
             ? `Раздач в качестве «${qualityLabel(quality)}» не нашлось — выберите из того, что есть.`
             : `${year ? `«${title}», ${year}. ` : ""}Скорость зависит от числа сидов (▲) раздачи, а не от вашего интернета.`}
         </p>
+      )}
+      {stage === "list" && (
+        <div className="rel-tv__filters">
+          <Focusable as="button" className="rel-tv__chip" focusKey="rel:f:seeds" scroll={false} onPress={() => setMinSeeds((v) => MIN_SEEDS[(MIN_SEEDS.indexOf(v) + 1) % MIN_SEEDS.length])}>
+            {minSeeds ? `Сидов от ${minSeeds}` : "Любые сиды"}
+          </Focusable>
+          <Focusable as="button" className="rel-tv__chip" focusKey="rel:f:voice" scroll={false} onPress={() => setVoice((v) => VOICES[(VOICES.indexOf(v) + 1) % VOICES.length])}>
+            {voice === "any" ? "Любая озвучка" : voice}
+          </Focusable>
+          <Focusable as="button" className="rel-tv__chip" focusKey="rel:f:sort" scroll={false} onPress={() => setSort((v) => SORTS[(SORTS.indexOf(v) + 1) % SORTS.length])}>
+            Сортировка {SORT_LABEL[sort]}
+          </Focusable>
+        </div>
       )}
       <div className="rel-tv__list">
         {(stage === "searching" || stage === "connecting") && (
@@ -289,6 +330,13 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
                 autoFocus={i === 0}
               >
                 <span className="rel-tv__title">{r.name}</span>
+                {tagLabels(parseTags(r.name)).length > 0 && (
+                  <span className="rel-tv__tags">
+                    {tagLabels(parseTags(r.name)).map((t) => (
+                      <i key={t}>{t}</i>
+                    ))}
+                  </span>
+                )}
                 <span className="rel-tv__meta">
                   <span>{r.size ?? "—"}</span>
                   {need && <span>≈ {need < 10 ? need.toFixed(1) : Math.round(need)} Мбит/с</span>}
@@ -300,6 +348,9 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
               </Focusable>
             );
           })}
+        {stage === "list" && visible.length === 0 && shownAll.length > 0 && (
+          <p className="links-tv__text">Под выбранные фильтры раздач нет — ослабьте их выше.</p>
+        )}
         {stage === "list" && hidden.length > 0 && !showHidden && (
           <Focusable as="button" className="links-tv__row links-tv__row--close" focusKey="release:show-hidden" scroll={false} onPress={() => setShowHidden(true)}>
             <span className="links-tv__name">Показать ещё {hidden.length} — с другим годом</span>
