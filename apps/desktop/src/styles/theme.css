@@ -8968,6 +8968,28 @@ body .sidebar__item.is-focused .sidebar__icon {
   color: rgba(255, 255, 255, 0.62);
 }
 
+/* inside a list (the settings pane): the same card, tighter and without the top gap */
+.empty-state--compact {
+  width: 100%;
+  margin: 0;
+  padding: 26px 28px 28px;
+  border-radius: 28px;
+}
+
+.empty-state--compact .empty-state__icon {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 4px;
+}
+
+.empty-state--compact .empty-state__title {
+  font-size: 21px;
+}
+
+.empty-state--compact .empty-state__hint {
+  font-size: 16px;
+}
+
 .empty-state--error .empty-state__icon {
   background: rgba(255, 120, 120, 0.14);
   color: #ffb0b0;

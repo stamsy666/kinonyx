@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChannelsIcon, Focusable, FocusGroup, NextIcon, PlusIcon, TrashIcon } from "@kinonyx/ui";
 import { FileDropZone } from "../../components/FileDropZone";
 import { HomeChrome } from "../../components/HomeChrome";
+import { EmptyState } from "../../components/EmptyState";
 import { useTv, type SavedPlaylist } from "../../store/tv";
 import { TextField } from "../../components/TextField";
 
@@ -82,7 +83,7 @@ export function TvPlaylistsScreen() {
             <section className="settings__item">
               <div className="settings__label">Мои плейлисты</div>
               {playlists.length === 0 ? (
-                <div className="settings__hint">Пока пусто — вставьте ссылку на плейлист или выберите файл.</div>
+                <EmptyState compact icon={<ChannelsIcon size={34} strokeWidth={1.6} />} title="Плейлистов пока нет" hint="Вставьте ссылку выше или перетащите файл, и каналы появятся здесь." />
               ) : (
                 playlists.map((p, i) => {
                   const isActive = p.id === activeId;
