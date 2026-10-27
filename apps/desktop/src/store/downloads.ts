@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { isTauri } from "../data/io";
 import { logEvent } from "../data/log";
+import { useNotices } from "./notifications";
 import { openTorrent, streamUrlFor } from "../data/api";
 
 const KEY = "kinonyx.downloads";
@@ -172,6 +173,10 @@ export async function installDownloadEvents(): Promise<void> {
   await listen<{ id: string; received: number; total: number; speed: number }>("download://progress", (e) =>
     patch(e.payload.id, { received: e.payload.received, total: e.payload.total, speed: e.payload.speed }),
   );
-  await listen<{ id: string; path: string }>("download://done", (e) => patch(e.payload.id, { status: "done", path: e.payload.path, speed: 0 }));
+  await listen<{ id: string; path: string }>("download://done", (e) => {
+    patch(e.payload.id, { status: "done", path: e.payload.path, speed: 0 });
+    const item = useDownloads.getState().items.find((d) => d.id === e.payload.id);
+    useNotices.getState().add({ id: `dl:${e.payload.id}`, kind: "download", title: item?.title ?? "Загрузка", text: "Загрузка завершена, фильм можно смотреть без интернета", poster: item?.poster, goto: "downloads" });
+  });
   await listen<{ id: string; message: string }>("download://error", (e) => patch(e.payload.id, { status: "error", error: e.payload.message, speed: 0 }));
 }

@@ -160,6 +160,13 @@ export const KP_COLLECTIONS = {
 export function kpFilm(id: number) {
   return cached<KpFilm>("kp_film", { id });
 }
+/** The seasons of a series with the date of each episode (see `kp_seasons`). */
+export interface KpSeasonsResponse {
+  items?: { number: number; episodes?: { seasonNumber: number; episodeNumber: number; nameRu?: string; nameEn?: string; releaseDate?: string }[] }[];
+}
+export function kpSeasons(id: number) {
+  return cached<KpSeasonsResponse>("kp_seasons", { id });
+}
 export function kpCollection(kind: string, page = 1) {
   return cached<KpCollectionResponse>("kp_collection", { kind, page });
 }

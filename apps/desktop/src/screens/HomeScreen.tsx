@@ -9,6 +9,8 @@ import { useApp } from "../store/app";
 import { useFavorites } from "../store/favorites";
 import { useChannelFavorites } from "../store/channelFavorites";
 import { useContinueWatching } from "../store/continueWatching";
+import { useTimetable } from "../store/timetable";
+import { episodeCode, pickNext, pickRecent, whenLabel } from "../data/timetable";
 import { useTv } from "../store/tv";
 import type { Channel } from "@kinonyx/epg";
 import { kpCollection, kpSimilars, KP_COLLECTIONS, type KpCollectionItem } from "../data/api";
@@ -148,6 +150,16 @@ export function HomeScreen() {
   const favoriteChannels = useChannelFavorites((s) => s.items);
   // Most-recently-touched first — that's the one you're most likely picking back up.
   const continueWatching = useContinueWatching((s) => s.items).slice().sort((a, b) => b.updatedAt - a.updatedAt);
+  // The schedule of the favourite series: what is coming and what came out lately.
+  const timetable = useTimetable((s) => s.episodes);
+  const upcoming = pickNext(timetable).flatMap((e) => {
+    const film = favorites.find((f) => f.kinopoiskId === e.filmId);
+    return film ? [{ film, e }] : [];
+  });
+  const recent = pickRecent(timetable).flatMap((e) => {
+    const film = favorites.find((f) => f.kinopoiskId === e.filmId);
+    return film ? [{ film, e }] : [];
+  });
   // Deliberately NOT the same collection as the "Топ-10 популярных" shelf right below —
   // showing the top of that same list twice in one screen made the hero feel redundant.
   // A ratingFrom/order filter for the very highest-rated titles gives the banner its own
@@ -283,6 +295,20 @@ export function HomeScreen() {
               progress={e.position / e.duration}
               onPress={() => navigate({ name: "movie", id: e.filmId, preview: { kinopoiskId: e.filmId, nameRu: e.title, posterUrlPreview: e.poster } })}
             />
+          ))}
+        </RowScroll>
+      )}
+      {hero && upcoming.length > 0 && (
+        <RowScroll label="Скоро новые серии" description="Выйдут в ближайшее время у сериалов из избранного." count={upcoming.length}>
+          {upcoming.map(({ film, e }) => (
+            <MovieCard key={`${film.kinopoiskId}:${episodeCode(e)}`} film={film} focusKey={`upcoming-shelf:${film.kinopoiskId}`} tag={`${episodeCode(e)} · ${whenLabel(e.date)}`} onPress={() => open(film)} />
+          ))}
+        </RowScroll>
+      )}
+      {hero && recent.length > 0 && (
+        <RowScroll label="Недавние серии" description="Вышли за последние две недели." count={recent.length}>
+          {recent.map(({ film, e }) => (
+            <MovieCard key={`${film.kinopoiskId}:${episodeCode(e)}`} film={film} focusKey={`recent-shelf:${film.kinopoiskId}`} tag={`${episodeCode(e)} · ${whenLabel(e.date)}`} onPress={() => open(film)} />
           ))}
         </RowScroll>
       )}

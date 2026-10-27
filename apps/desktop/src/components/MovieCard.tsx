@@ -13,11 +13,13 @@ interface Props {
   /** 0–1 — a thin bar across the bottom of the poster, "continue watching" style. */
   progress?: number;
   autoFocus?: boolean;
+  /** Words on the poster instead of the genre ("S02E05 · завтра"). */
+  tag?: string;
   /** `false` — focusing this card does not scroll the page (a card focused on arrival). */
   scroll?: boolean;
 }
 
-export function MovieCard({ film, focusKey, onPress, rank, progress, autoFocus, scroll }: Props) {
+export function MovieCard({ film, focusKey, onPress, rank, progress, autoFocus, scroll, tag }: Props) {
   const title = film.nameRu || film.nameOriginal || "Без названия";
   const genre = film.genres?.[0]?.genre;
   const poster = img(film.posterUrlPreview);
@@ -40,7 +42,7 @@ export function MovieCard({ film, focusKey, onPress, rank, progress, autoFocus, 
           </svg>
         </span>
         {rank != null && <span className="movie-card__rank">{rank}</span>}
-        {genre && <span className="movie-card__label">{genre}</span>}
+        {(tag || genre) && <span className="movie-card__label">{tag || genre}</span>}
         {progress != null && (
           <div className="movie-card__progress">
             <i style={{ width: `${Math.round(Math.min(1, Math.max(0, progress)) * 100)}%` }} />

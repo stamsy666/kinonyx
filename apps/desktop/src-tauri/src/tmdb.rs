@@ -409,6 +409,29 @@ pub async fn kp_similars(id: u32, config: &AppConfig) -> Result<Value, String> {
     Ok(json!({ "total": items.len(), "items": items }))
 }
 
+// ---------- kp_seasons ----------
+
+/// TMDB tells a series' last and next episode on air; that is what the schedule of new episodes needs.
+pub async fn kp_seasons(id: u32, config: &AppConfig) -> Result<Value, String> {
+    let (v, kind) = fetch_media(config, id, "", 6 * HOUR).await?;
+    if kind != "tv" {
+        return Ok(json!({ "total": 0, "items": [] }));
+    }
+    let mut by_season: std::collections::BTreeMap<i64, Vec<Value>> = std::collections::BTreeMap::new();
+    for key in ["last_episode_to_air", "next_episode_to_air"] {
+        let e = &v[key];
+        let (Some(season), Some(episode), Some(date)) = (e["season_number"].as_i64(), e["episode_number"].as_i64(), e["air_date"].as_str()) else { continue };
+        by_season.entry(season).or_default().push(json!({
+            "seasonNumber": season,
+            "episodeNumber": episode,
+            "nameRu": s(e, "name"),
+            "releaseDate": date,
+        }));
+    }
+    let items: Vec<Value> = by_season.into_iter().map(|(number, episodes)| json!({ "number": number, "episodes": episodes })).collect();
+    Ok(json!({ "total": items.len(), "items": items }))
+}
+
 // ---------- kp_staff ----------
 
 pub async fn kp_staff(film_id: u32, config: &AppConfig) -> Result<Value, String> {

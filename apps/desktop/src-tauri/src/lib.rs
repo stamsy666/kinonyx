@@ -137,6 +137,7 @@ pub fn run() {
             kinopoisk::kp_images,
             kinopoisk::kp_similars,
             kinopoisk::kp_staff,
+            kinopoisk::kp_seasons,
             kinopoisk::kp_person,
             kinopoisk::kp_videos,
             kinopoisk::kp_external_sources,

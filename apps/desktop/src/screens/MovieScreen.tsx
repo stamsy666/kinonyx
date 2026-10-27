@@ -58,6 +58,7 @@ interface FilmView {
   premiereRu?: string;
   premiereWorld?: string;
   premiereDigital?: string;
+  type?: string;
 }
 
 const MONTHS_RU = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
@@ -334,6 +335,7 @@ export function MovieScreen({ id, preview }: { id: number; preview?: KpCollectio
       posterUrlPreview: film.posterUrlPreview,
       ratingKinopoisk: film.ratingKinopoisk,
       genres: film.genres,
+      type: film.type,
     });
   };
 

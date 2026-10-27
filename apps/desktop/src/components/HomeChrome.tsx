@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { BackIcon, cancelGlides, Focusable } from "@kinonyx/ui";
 import { SearchLensIcon } from "./AnimatedIcons";
 import { FullscreenButton } from "./FullscreenButton";
+import { NoticeBell } from "./NoticeBell";
 import { useApp } from "../store/app";
 import logoMark from "../assets/logo-mark.png";
 
@@ -53,6 +54,7 @@ export function HomeChrome({ id, label, extra, hideSearch }: { id: string; label
       </div>
       <div className="home__chrome-right">
         {extra}
+        <NoticeBell focusKey={`${id}:bell`} />
         {!hideSearch && (
           <Focusable as="button" className="home-round" focusKey={`${id}:search`} scroll={false} onPress={() => navigate({ name: "search" })}>
             <SearchLensIcon />

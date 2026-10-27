@@ -9373,3 +9373,84 @@ body .sidebar__item.is-focused .sidebar__icon {
   background: rgba(40, 40, 46, 0.55);
   animation: skip-in 0.35s var(--ease) both;
 }
+
+/* ----- The bell and its list ----- */
+.home-round--bell {
+  position: relative;
+}
+
+.home-round__dot {
+  position: absolute;
+  top: calc(-4 * var(--u));
+  right: calc(-4 * var(--u));
+  display: grid;
+  place-items: center;
+  min-width: calc(20 * var(--u));
+  height: calc(20 * var(--u));
+  padding: 0 calc(5 * var(--u));
+  border-radius: 999px;
+  background: #ff4d5e;
+  color: #fff;
+  font-size: calc(12 * var(--u));
+  font-style: normal;
+  font-weight: 800;
+}
+
+.notice-row {
+  align-items: center;
+  gap: calc(16 * var(--mu));
+  min-height: calc(84 * var(--mu));
+  padding: calc(10 * var(--mu)) calc(24 * var(--mu)) calc(10 * var(--mu)) calc(12 * var(--mu));
+  border-radius: calc(36 * var(--mu));
+}
+
+.notice-row__poster {
+  flex: none;
+  width: calc(46 * var(--mu));
+  height: calc(64 * var(--mu));
+  border-radius: calc(10 * var(--mu));
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.notice-row__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  text-align: left;
+}
+
+.notice-row__title {
+  overflow: hidden;
+  font-size: calc(18 * var(--mu));
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notice-row__text {
+  overflow: hidden;
+  font-size: calc(15 * var(--mu));
+  font-weight: 600;
+  opacity: 0.7;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notice-row__when {
+  flex: none;
+  font-size: calc(14 * var(--mu));
+  font-weight: 700;
+  opacity: 0.6;
+}
+
+.notice-row--new .notice-row__title::before {
+  content: "";
+  display: inline-block;
+  width: calc(10 * var(--mu));
+  height: calc(10 * var(--mu));
+  margin-right: calc(10 * var(--mu));
+  border-radius: 50%;
+  background: #ff4d5e;
+}

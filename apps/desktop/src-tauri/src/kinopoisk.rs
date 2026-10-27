@@ -185,6 +185,17 @@ pub async fn kp_similars(id: u32, config: tauri::State<'_, AppConfig>) -> Result
     get_json(&config, &format!("/api/v2.2/films/{id}/similars"), WEEK).await
 }
 
+/// The seasons of a series with the date of every episode — the schedule of new episodes is built from it. Kinopoisk answers
+/// `{total, items: [{number, episodes: [{seasonNumber, episodeNumber, nameRu, nameEn, releaseDate}]}]}`; TMDB is translated to the same
+/// shape (only the last and the next episode it knows about).
+#[tauri::command]
+pub async fn kp_seasons(id: u32, config: tauri::State<'_, AppConfig>) -> Result<Value, String> {
+    if uses_tmdb(&config) {
+        return crate::tmdb::kp_seasons(id, &config).await;
+    }
+    get_json(&config, &format!("/api/v2.2/films/{id}/seasons"), 6 * HOUR).await
+}
+
 #[tauri::command]
 pub async fn kp_staff(film_id: u32, config: tauri::State<'_, AppConfig>) -> Result<Value, String> {
     if uses_tmdb(&config) {

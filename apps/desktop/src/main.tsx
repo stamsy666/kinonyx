@@ -26,6 +26,8 @@ async function boot() {
   const { installDownloadEvents } = await import("./store/downloads");
   void installDownloadEvents();
   void refreshTrackers();
+  const { startTimetableLoop } = await import("./store/timetable");
+  startTimetableLoop();
 
   initSpatialNavigation();
   installBackKeyListener();

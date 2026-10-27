@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useNotices } from "./notifications";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "../data/io";
@@ -62,7 +63,10 @@ export const useUpdater = create<UpdaterState>((set, get) => ({
     set({ status: "checking", error: null });
     try {
       const update = await check();
-      if (update) set({ status: "available", update, dismissed: false });
+      if (update) {
+        set({ status: "available", update, dismissed: false });
+        useNotices.getState().add({ id: `upd:${update.version}`, kind: "update", title: `Доступна версия ${update.version}`, text: "Обновление можно поставить в Настройки → О программе", goto: "settings" });
+      }
       else set({ status: "uptodate", update: null });
     } catch (e) {
       // Typically: no release published yet / the update source isn't configured / offline.
