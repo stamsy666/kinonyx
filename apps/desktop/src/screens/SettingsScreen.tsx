@@ -3,7 +3,7 @@ import { doesFocusableExist, setFocus } from "@noriginmedia/norigin-spatial-navi
 import { BackIcon, Focusable, FocusGroup, NextIcon, onBack } from "@kinonyx/ui";
 import { HomeChrome } from "../components/HomeChrome";
 import { CycleRow } from "../components/CycleRow";
-import { useApp } from "../store/app";
+import { ASPECT_LABELS, ASPECT_MODES, useApp } from "../store/app";
 import {
   configStatus,
   setKinopoiskApiKey,
@@ -32,6 +32,8 @@ import { StatsPanel } from "../components/StatsPanel";
 import { resetScroll } from "../data/focusRestore";
 import { useUpdater } from "../store/updater";
 import { isTauri, openExternal } from "../data/io";
+import { listAudioDevices, type AudioDevice } from "../data/audioDevices";
+import { listMonitors, moveToMonitor, readMonitor, readStartFullscreen, writeMonitor, writeStartFullscreen, type MonitorChoice } from "../data/windowPrefs";
 
 /** Whole-program zoom steps; 100% is the design size (a Full HD screen — 4K screens are brought to it by themselves) and the default. */
 const ZOOM_OPTIONS = [
@@ -142,6 +144,14 @@ export function SettingsScreen() {
   const showStats = useApp((s) => s.showStreamStats);
   const setShowStats = useApp((s) => s.setShowStreamStats);
   const clickSparkEnabled = useApp((s) => s.clickSparkEnabled);
+  const [startFull, setStartFull] = useState(readStartFullscreen);
+  const [monitor, setMonitor] = useState(readMonitor);
+  const [monitors, setMonitors] = useState<MonitorChoice[]>([]);
+  const [devices, setDevices] = useState<AudioDevice[]>([]);
+  useEffect(() => {
+    void listMonitors().then(setMonitors, () => undefined);
+    void listAudioDevices().then(setDevices, () => undefined);
+  }, []);
   const uiZoom = useApp((s) => s.uiZoom);
   const setUiZoom = useApp((s) => s.setUiZoom);
   const setClickSparkEnabled = useApp((s) => s.setClickSparkEnabled);
@@ -475,6 +485,19 @@ export function SettingsScreen() {
               <div className="settings__hint">Сколько секунд без нажатий кнопки остаются на экране.</div>
             </section>
             <section className="settings__item">
+              <div className="settings__label">Соотношение сторон</div>
+              <CycleRow
+                label="Картинка"
+                focusKey="settings:aspect:0"
+                options={ASPECT_MODES.map((m) => ({ value: m, label: ASPECT_LABELS[m] }))}
+                value={playerPrefs.aspect}
+                onChange={(v) => setPlayerPrefs({ aspect: v })}
+              />
+              <div className="settings__hint">
+                «Растянуть» заполняет окно, искажая картинку; «Заполнить» обрезает края вместо чёрных полос. В фильме можно сменить и в меню «Картинка».
+              </div>
+            </section>
+            <section className="settings__item">
               <div className="settings__label">Субтитры</div>
               <CycleRow
                 label="Размер"
@@ -645,6 +668,46 @@ export function SettingsScreen() {
               </section>
             ))}
             <section className="settings__item">
+              <div className="settings__label">Окно</div>
+              <Focusable
+                as="button"
+                className={`checkbox ${startFull ? "is-on" : ""}`}
+                focusKey="settings:startFullscreen"
+                onPress={() => {
+                  const on = !startFull;
+                  setStartFull(on);
+                  writeStartFullscreen(on);
+                }}
+              >
+                <span className="checkbox__box">
+                  {startFull && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </span>
+                Запускать в полном экране
+              </Focusable>
+              {monitors.length > 2 && (
+                <CycleRow
+                  label="Экран программы"
+                  focusKey="settings:monitor:0"
+                  options={monitors.map((m) => ({ value: m.value, label: m.label }))}
+                  value={monitor}
+                  onChange={(v) => {
+                    setMonitor(v);
+                    writeMonitor(v);
+                    void moveToMonitor(v);
+                  }}
+                />
+              )}
+              <div className="settings__hint">
+                {monitors.length > 2
+                  ? "Программа откроется на выбранном экране и перенесётся на него сразу. Если экран отключён, окно откроется там, где обычно."
+                  : "Полный экран при каждом запуске. Если подключить второй монитор, здесь появится выбор экрана."}
+              </div>
+            </section>
+            <section className="settings__item">
               <div className="settings__label">Интерфейс</div>
               <CycleRow
                 label="Масштаб программы"
@@ -691,6 +754,19 @@ export function SettingsScreen() {
         )}
         {tab === "sound" && (
           <>
+            <section className="settings__item">
+              <div className="settings__label">Вывод звука</div>
+              <CycleRow
+                label="Устройство"
+                focusKey="settings:audiodevice:0"
+                options={[{ value: "", label: "По умолчанию в Windows" }, ...devices.filter((d) => d.name !== "auto").map((d) => ({ value: d.name, label: d.description }))]}
+                value={playerPrefs.audioDevice}
+                onChange={(v) => setPlayerPrefs({ audioDevice: v })}
+              />
+              <div className="settings__hint">
+                Куда играет звук фильмов, каналов и трейлеров в плеере; применяется со следующего запуска видео. Звуки меню и музыка идут на устройство Windows по умолчанию.
+              </div>
+            </section>
             <section className="settings__item">
               <div className="settings__label">Набор звуков</div>
               <SoundKitRow focusPrefix="settings:snd:kit" />

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { logEvent } from "../data/log";
 import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import {
   Html5Adapter,
@@ -31,7 +32,7 @@ import {
   VolumeIcon,
   onBack,
 } from "@kinonyx/ui";
-import { useApp } from "../store/app";
+import { ASPECT_LABELS, ASPECT_MODES, useApp } from "../store/app";
 import { useTranslator } from "../store/translator";
 import { translatorRelease } from "../data/translator";
 import { LiveSubtitles, useFilmTranslation } from "../components/LiveSubtitles";
@@ -228,6 +229,17 @@ export function PlayerScreen({
   };
 
   const revealed = useMpvReveal(state.status, source);
+  // The log: a player that stops on an error, and what it was playing (the host only — links carry tokens).
+  useEffect(() => {
+    if (state.status !== "error") return;
+    let host = "";
+    try {
+      host = new URL(source.url).host;
+    } catch {
+      /* a local path or something that isn't a URL */
+    }
+    logEvent("error", "player", `${state.error ?? "error"} (${host || "no url"})`);
+  }, [state.status, state.error, source.url]);
   // A press on the picture (anywhere outside the volume control) closes the volume slider.
   useCloseOnOutsidePress(volumeOpen, () => setVolumeOpen(false));
 
@@ -792,6 +804,13 @@ export function PlayerScreen({
               onPress={() =>
                 changePicture({ toneMapping: prefs.toneMapping === "auto" ? "soft" : prefs.toneMapping === "soft" ? "contrast" : "auto" })
               }
+            />
+            <TrackItem
+              focusKey="pic:aspect"
+              label="Соотношение сторон"
+              hint={ASPECT_LABELS[prefs.aspect]}
+              active={prefs.aspect !== "auto"}
+              onPress={() => changePicture({ aspect: ASPECT_MODES[(ASPECT_MODES.indexOf(prefs.aspect) + 1) % ASPECT_MODES.length] })}
             />
             <TrackItem
               focusKey="pic:sharp"

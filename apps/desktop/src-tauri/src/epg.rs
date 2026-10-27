@@ -370,8 +370,8 @@ mod tests {
         let text = String::from_utf8_lossy(&bytes);
         let out = parse_xmltv(&text, 0.0, f64::MAX).unwrap();
         let n: usize = out.programmes.values().map(|p| p.start.len()).sum();
-        eprintln!("parsed {} channels / {} programmes in {:?}", out.channels.len(), n, t0.elapsed());
+        crate::elog!("parsed {} channels / {} programmes in {:?}", out.channels.len(), n, t0.elapsed());
         let json = serde_json::to_string(&out).unwrap();
-        eprintln!("json payload: {} MB", json.len() / 1_000_000);
+        crate::elog!("json payload: {} MB", json.len() / 1_000_000);
     }
 }

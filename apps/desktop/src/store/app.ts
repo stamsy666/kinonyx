@@ -154,7 +154,22 @@ export interface PlayerPrefs {
   toneMapping: "auto" | "soft" | "contrast";
   /** Passes HDR through to an HDR display (mpv `target-colorspace-hint`) instead of squeezing it to SDR. */
   hdrOutput: boolean;
+  /** Picture shape: the file's own, a fixed one, stretched to the window, or cropped to fill it (mpv `video-aspect-override` / `keepaspect` / `panscan`). */
+  aspect: AspectMode;
+  /** The mpv sound output ("" = the system's default one). */
+  audioDevice: string;
 }
+
+export type AspectMode = "auto" | "16:9" | "4:3" | "21:9" | "stretch" | "fill";
+export const ASPECT_MODES: AspectMode[] = ["auto", "16:9", "4:3", "21:9", "stretch", "fill"];
+export const ASPECT_LABELS: Record<AspectMode, string> = {
+  auto: "Как в файле",
+  "16:9": "16:9",
+  "4:3": "4:3",
+  "21:9": "21:9",
+  stretch: "Растянуть",
+  fill: "Заполнить (обрезать края)",
+};
 
 export const DEFAULT_PLAYER_PREFS: PlayerPrefs = {
   uiScale: 1,
@@ -166,6 +181,8 @@ export const DEFAULT_PLAYER_PREFS: PlayerPrefs = {
   deband: false,
   toneMapping: "auto",
   hdrOutput: false,
+  aspect: "auto",
+  audioDevice: "",
 };
 
 function readPlayerPrefs(): PlayerPrefs {
@@ -188,6 +205,8 @@ function readPlayerPrefs(): PlayerPrefs {
         deband: p.deband === true,
         toneMapping: p.toneMapping === "soft" || p.toneMapping === "contrast" ? p.toneMapping : "auto",
         hdrOutput: p.hdrOutput === true,
+        aspect: (ASPECT_MODES as string[]).includes(p.aspect as string) ? (p.aspect as AspectMode) : "auto",
+        audioDevice: typeof p.audioDevice === "string" ? p.audioDevice.slice(0, 300) : "",
       };
     }
   } catch {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { logEvent } from "../../data/log";
 import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { buildCatchupUrl, isWithinCatchupWindow, nowNext, type Programme } from "@kinonyx/epg";
 import {
@@ -276,6 +277,17 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
 
   // mpv renders into a native window behind a transparent hole — see useMpvReveal.
   const revealed = useMpvReveal(state.status, source);
+  // The log: a player that stops on an error, and what it was playing (the host only — links carry tokens).
+  useEffect(() => {
+    if (state.status !== "error") return;
+    let host = "";
+    try {
+      host = new URL(source?.url ?? "").host;
+    } catch {
+      /* a local path or something that isn't a URL */
+    }
+    logEvent("error", "player", `${state.error ?? "error"} (${host || "no url"})`);
+  }, [state.status, state.error, source?.url]);
   // A press on the picture (anywhere outside the volume control) closes the volume slider.
   useCloseOnOutsidePress(volumeOpen, () => setVolumeOpen(false));
 

@@ -3,6 +3,7 @@ import { AboutIcon, BackIcon, Focusable, FocusGroup, NextIcon, Spinner } from "@
 import { HomeChrome } from "../components/HomeChrome";
 import { useApp } from "../store/app";
 import { runDiagnostics, type DiagnosticCheck } from "../data/api";
+import { logTail, openLogDir } from "../data/log";
 
 const STATUS_LABEL = { ok: "OK", warn: "Внимание", fail: "Проблема" } as const;
 
@@ -21,15 +22,26 @@ export function DiagnosticsScreen() {
   const [checks, setChecks] = useState<DiagnosticCheck[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [logCopied, setLogCopied] = useState(false);
 
   const run = useCallback(() => {
     setChecks(null);
     setError(null);
     setCopied(false);
+    setLogCopied(false);
     runDiagnostics().then(setChecks, (e) => setError(String(e)));
   }, []);
 
   useEffect(run, [run]);
+
+  const copyLog = async () => {
+    try {
+      await navigator.clipboard.writeText(await logTail(300));
+      setLogCopied(true);
+    } catch {
+      setError("Не удалось скопировать журнал");
+    }
+  };
 
   const copy = async () => {
     if (!checks) return;
@@ -96,6 +108,15 @@ export function DiagnosticsScreen() {
             <section className="settings__item">
               <Focusable as="button" className="cycle-row" focusKey="diagnostics:rerun" onPress={run}>
                 <span className="cycle-row__label">Проверить ещё раз</span>
+                <NextIcon size={20} />
+              </Focusable>
+              <Focusable as="button" className="cycle-row" focusKey="diagnostics:logs" onPress={() => void openLogDir()}>
+                <span className="cycle-row__label">Открыть папку журналов</span>
+                <NextIcon size={20} />
+              </Focusable>
+              <Focusable as="button" className="cycle-row" focusKey="diagnostics:logcopy" onPress={() => void copyLog()}>
+                <span className="cycle-row__label">Копировать журнал (последние 300 строк)</span>
+                <span className="cycle-row__value">{logCopied ? "Скопировано" : ""}</span>
                 <NextIcon size={20} />
               </Focusable>
               <Focusable as="button" className="cycle-row" focusKey="diagnostics:copy" onPress={() => void copy()}>

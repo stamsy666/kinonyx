@@ -1,10 +1,17 @@
 import { isTauri } from "./io";
+import { logEvent } from "./log";
 import { MOCK } from "./mock";
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (!isTauri) return MOCK.call<T>(cmd, args);
   const { invoke: tauriInvoke } = await import("@tauri-apps/api/core");
-  return tauriInvoke<T>(cmd, args);
+  try {
+    return await tauriInvoke<T>(cmd, args);
+  } catch (e) {
+    // The log gets the command and the reason, never the arguments (they hold keys and queries).
+    logEvent("error", "rust", `${cmd} failed: ${typeof e === "string" ? e : (e as Error)?.message ?? String(e)}`);
+    throw e;
+  }
 }
 
 // Same request twice in one session (back to a film, reopening the gallery) shouldn't
@@ -168,7 +175,8 @@ export function kpFilmsFilter(f: KpFilter, page = 1) {
     kind: f.kind,
     genre: f.genre,
     order: f.order,
-    ratingFrom: f.ratingFrom,
+    // Both sources take a whole number (a 7.5 made the command fail to start).
+    ratingFrom: f.ratingFrom === undefined ? undefined : Math.floor(f.ratingFrom),
     yearFrom: f.yearFrom,
     language: f.language,
     page,

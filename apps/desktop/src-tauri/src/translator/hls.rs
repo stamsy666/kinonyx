@@ -145,7 +145,7 @@ pub async fn run(url: String, relay: Arc<Relay>, mut stop: watch::Receiver<bool>
             match fetch_segment(&client, seg, &relay, &mut stop).await {
                 Ok(true) => {}
                 Ok(false) => return Outcome::Stopped,
-                Err(e) => eprintln!("[translator] segment {seq}: {e}"),
+                Err(e) => crate::elog!("[translator] segment {seq}: {e}"),
             }
             next = seq + 1;
             fetched_any = true;
@@ -168,7 +168,7 @@ pub async fn run(url: String, relay: Arc<Relay>, mut stop: watch::Receiver<bool>
                 playlist = p;
             }
             Ok(Err(())) => return Outcome::Unsupported,
-            Err(e) => eprintln!("[translator] playlist: {e}"),
+            Err(e) => crate::elog!("[translator] playlist: {e}"),
         }
         // A frozen playlist (seen on this provider: the same segments for minutes) is just
         // waited out, like any player would; only giving up if it never comes back.

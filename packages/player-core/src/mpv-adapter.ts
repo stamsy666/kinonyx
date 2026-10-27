@@ -119,6 +119,10 @@ const OPTION_DEFAULTS: Record<string, string> = {
   "tone-mapping": "auto",
   "hdr-compute-peak": "auto",
   "target-colorspace-hint": "no",
+  "video-aspect-override": "-1",
+  keepaspect: "yes",
+  panscan: "0",
+  "audio-device": "auto",
 };
 
 /** Audio filter a source adds (via `mpvOptions.af`) to make `setDuck` work. */

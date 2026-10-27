@@ -291,3 +291,30 @@ pub async fn translator_position(state: State<'_, Translator>, session: u64, pos
     }
     Ok(())
 }
+
+#[derive(Serialize)]
+pub struct AudioDevice {
+    pub name: String,
+    pub description: String,
+}
+
+/// The sound outputs mpv can play to (`audio-device`), for the choice in Settings → Звук. A throwaway core with
+/// no video and no sound reads mpv's own list, so the names are exactly what `audio-device` accepts.
+#[tauri::command]
+pub async fn audio_devices() -> Result<Vec<AudioDevice>, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let mpv = mpv::Mpv::new("devices", &[("vo", "null".into()), ("ao", "null".into()), ("idle", "yes".into())])?;
+        let raw = mpv.get("audio-device-list").ok_or("mpv gave no device list")?;
+        let list: Vec<serde_json::Value> = serde_json::from_str(&raw).map_err(|e| format!("device list: {e}"))?;
+        Ok(list
+            .iter()
+            .filter_map(|d| {
+                let name = d.get("name")?.as_str()?.to_string();
+                let description = d.get("description").and_then(|v| v.as_str()).unwrap_or(&name).to_string();
+                Some(AudioDevice { name, description })
+            })
+            .collect())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}

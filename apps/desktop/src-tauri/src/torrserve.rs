@@ -34,12 +34,12 @@ pub fn spawn(app: &tauri::AppHandle) {
     let data_dir = match app.path().app_data_dir() {
         Ok(dir) => dir.join("torrserve"),
         Err(e) => {
-            eprintln!("[torrserve] no app data dir ({e}), not starting sidecar");
+            crate::elog!("[torrserve] no app data dir ({e}), not starting sidecar");
             return;
         }
     };
     if let Err(e) = std::fs::create_dir_all(&data_dir) {
-        eprintln!("[torrserve] can't create {}: {e}", data_dir.display());
+        crate::elog!("[torrserve] can't create {}: {e}", data_dir.display());
         return;
     }
     let port = state_port(app).to_string();
@@ -57,13 +57,13 @@ pub fn spawn(app: &tauri::AppHandle) {
                 tauri::async_runtime::spawn(async move {
                     match tune(&base).await {
                         Ok(()) => println!("[torrserve] streaming settings applied"),
-                        Err(e) => eprintln!("[torrserve] couldn't apply streaming settings: {e}"),
+                        Err(e) => crate::elog!("[torrserve] couldn't apply streaming settings: {e}"),
                     }
                 });
             }
-            Err(e) => eprintln!("[torrserve] failed to start sidecar: {e}"),
+            Err(e) => crate::elog!("[torrserve] failed to start sidecar: {e}"),
         },
-        Err(e) => eprintln!(
+        Err(e) => crate::elog!(
             "[torrserve] sidecar binary not found ({e}) — place it at src-tauri/binaries/torrserve-<target-triple>.exe, see CLAUDE.md"
         ),
     }

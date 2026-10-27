@@ -5,6 +5,7 @@ mod epg;
 mod http;
 mod images;
 mod kinopoisk;
+mod logs;
 mod remote;
 mod rutube;
 mod tmdb;
@@ -42,6 +43,7 @@ async fn prepare_for_update(app: tauri::AppHandle, translator: tauri::State<'_, 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    logs::init();
     #[cfg(windows)]
     tie_child_processes_to_this_one();
 
@@ -88,6 +90,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             ytdlp::resolve_trailer_url,
             prepare_for_update,
+            logs::log_write,
+            logs::log_dir,
+            logs::log_open_dir,
+            logs::log_tail,
             config::config_status,
             config::set_torapi_base_url,
             config::set_kinopoisk_api_key,
@@ -121,6 +127,7 @@ pub fn run() {
             tv::fetch_bytes,
             tv::read_playlist_file,
             translator::translator_status,
+            translator::audio_devices,
             translator::translator_download,
             translator::translator_cancel_download,
             translator::translator_delete,
@@ -166,6 +173,6 @@ fn tie_child_processes_to_this_one() {
         Ok(job) => {
             let _ = CHILD_JOB.set(job);
         }
-        Err(e) => eprintln!("[job] couldn't tie child processes to the app: {e}"),
+        Err(e) => crate::elog!("[job] couldn't tie child processes to the app: {e}"),
     }
 }

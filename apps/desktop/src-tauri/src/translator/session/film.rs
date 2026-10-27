@@ -176,11 +176,11 @@ impl FileSession {
         if last.is_some_and(|(at, to)| at.elapsed() < SEEK_GRACE && (p - to).abs() < 40.0) {
             return; // already on its way there
         }
-        eprintln!("[translator] film: decoder moves to {:.1}s", p - 3.0);
+        crate::elog!("[translator] film: decoder moves to {:.1}s", p - 3.0);
         *last = Some((Instant::now(), p - 3.0));
         self.release.store(true, Ordering::SeqCst);
         if let Err(e) = point(&self.audio_mpv, &self.url, p - 3.0) {
-            eprintln!("[translator] film seek: {e}");
+            crate::elog!("[translator] film seek: {e}");
         }
     }
 

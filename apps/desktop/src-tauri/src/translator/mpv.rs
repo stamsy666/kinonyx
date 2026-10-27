@@ -112,7 +112,7 @@ impl Mpv {
         for (k, v) in base.iter().map(|(k, v)| (*k, v.to_string())).chain(options.iter().map(|(k, v)| (*k, v.clone()))) {
             let rc = unsafe { (api.set_option_string)(h, cstr(k).as_ptr(), cstr(&v).as_ptr()) };
             if rc < 0 {
-                eprintln!("[translator/{name}] option {k}={v} rejected ({rc})");
+                crate::elog!("[translator/{name}] option {k}={v} rejected ({rc})");
             }
         }
         if unsafe { (api.initialize)(h) } < 0 {
@@ -170,7 +170,7 @@ impl Mpv {
         if ev.event_id == EVENT_LOG_MESSAGE && !ev.data.is_null() {
             let m = unsafe { &*(ev.data as *const LogMessage) };
             let text = |p: *const c_char| if p.is_null() { String::new() } else { unsafe { CStr::from_ptr(p) }.to_string_lossy().into_owned() };
-            eprintln!("[translator/{} {}] {}", self.name, text(m.prefix), text(m.text).trim_end());
+            crate::elog!("[translator/{} {}] {}", self.name, text(m.prefix), text(m.text).trim_end());
         }
         (ev.event_id, ev.error)
     }

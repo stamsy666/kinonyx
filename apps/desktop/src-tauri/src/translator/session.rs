@@ -193,11 +193,11 @@ impl Session {
                 match hls::run(url.clone(), relay.clone(), stop_rx.clone()).await {
                     hls::Outcome::Stopped => {}
                     hls::Outcome::Failed(e) => {
-                        eprintln!("[translator] upstream: {e}");
+                        crate::elog!("[translator] upstream: {e}");
                         emit_status(&app, id, "error", Some(e));
                     }
                     hls::Outcome::Unsupported => {
-                        eprintln!("[translator] not plain live HLS — recording through mpv");
+                        crate::elog!("[translator] not plain live HLS — recording through mpv");
                         match start_recorder(&relay, &url) {
                             Ok(m) => {
                                 *recorder.lock().unwrap() = Some(m);
@@ -369,11 +369,11 @@ fn spawn_event_loop(m: Arc<Mpv>, audio: Option<Arc<Mutex<Audio>>>) {
         let (id, err) = m.wait_event(1.0);
         match id {
             mpv::EVENT_SHUTDOWN => break,
-            mpv::EVENT_END_FILE if err < 0 => eprintln!("[translator] mpv end-file error {err}"),
+            mpv::EVENT_END_FILE if err < 0 => crate::elog!("[translator] mpv end-file error {err}"),
             mpv::EVENT_PLAYBACK_RESTART => {
                 if let Some(audio) = &audio {
                     if let Some(pts) = m.get_f64("audio-pts").or_else(|| m.get_f64("time-pos")) {
-                        eprintln!("[translator] audio anchored at {pts:.2}");
+                        crate::elog!("[translator] audio anchored at {pts:.2}");
                         audio.lock().unwrap().start_block(pts);
                     }
                     let _ = m.set("pause", "no");
@@ -405,7 +405,7 @@ async fn read_pcm(
         if !read_connection(pipe, &audio, throttle.as_ref(), &mut stop).await {
             return;
         }
-        eprintln!("[translator] audio output reopened by mpv");
+        crate::elog!("[translator] audio output reopened by mpv");
     }
 }
 
@@ -496,7 +496,7 @@ async fn watch_stall(app: AppHandle, session: u64, relay: Arc<Relay>, mut stop: 
         }
         let limit = if last == 0 { 45 } else { 15 };
         if since.elapsed() > Duration::from_secs(limit) {
-            eprintln!("[translator] broadcast stalled for {limit}s — reconnecting");
+            crate::elog!("[translator] broadcast stalled for {limit}s — reconnecting");
             emit_status(&app, session, "stalled", None);
             return;
         }
@@ -522,7 +522,7 @@ async fn watch_drift(m: Arc<Mpv>, audio: Arc<Mutex<Audio>>, mut stop: watch::Rec
         let expected = anchor_pts + (a.total - at) as f64 / SR;
         // ≤0.13 s of PCM can sit in mpv's stdio buffer, so small differences are normal.
         if (pts - expected).abs() > 0.4 {
-            eprintln!("[translator] timestamp jump: expected {expected:.2}, audio-pts {pts:.2}");
+            crate::elog!("[translator] timestamp jump: expected {expected:.2}, audio-pts {pts:.2}");
             a.start_block(pts);
         }
     }
@@ -636,7 +636,7 @@ async fn recognize(
         let resp = match asr::transcribe(&client, port, asr::Request { audio: &window, language: hint, prompt: prompt.as_deref() }).await {
             Ok(r) => r,
             Err(e) => {
-                eprintln!("[translator] asr: {e}");
+                crate::elog!("[translator] asr: {e}");
                 tokio::time::sleep(Duration::from_secs(1)).await;
                 continue;
             }
@@ -664,7 +664,7 @@ async fn recognize(
             }
             commit_to = Some(end);
             if let Some(reason) = asr::reject_reason(s, prompt.as_deref()) {
-                eprintln!("[translator] dropped ({reason}): {}", s.text.trim());
+                crate::elog!("[translator] dropped ({reason}): {}", s.text.trim());
                 continue;
             }
             last_text = s.text.trim().to_string();
@@ -694,7 +694,7 @@ async fn recognize(
             }
         }
         if committed_any {
-            eprintln!(
+            crate::elog!(
                 "[translator] asr {:.1}s window in {} ms, lang {:?}, lookahead {:.1}s",
                 len_s,
                 t0.elapsed().as_millis(),
@@ -814,12 +814,12 @@ async fn emit_group(
         let t0 = Instant::now();
         match mt::translate(client, port, &orig, &ctx).await {
             Ok(t) if !t.is_empty() => {
-                eprintln!("[translator] mt {} ms: {orig}\n    -> {t}", t0.elapsed().as_millis());
+                crate::elog!("[translator] mt {} ms: {orig}\n    -> {t}", t0.elapsed().as_millis());
                 t
             }
             Ok(_) => return,
             Err(e) => {
-                eprintln!("[translator] mt: {e}");
+                crate::elog!("[translator] mt: {e}");
                 return;
             }
         }
@@ -937,7 +937,7 @@ async fn speak(
         let vis = load_f64(&visible_pos);
         let lead = if vis.is_finite() { job.start - vis } else { f64::NAN };
         if vis.is_finite() && job.start < vis - 0.5 {
-            eprintln!("[translator] voice skipped (too late by {:.1}s): {}", vis - job.start, job.text);
+            crate::elog!("[translator] voice skipped (too late by {:.1}s): {}", vis - job.start, job.text);
             continue;
         }
         let pcm: Vec<u8> = job.audio.iter().flat_map(|s| ((s.clamp(-1.0, 1.0) * 32767.0) as i16).to_le_bytes()).collect();
@@ -961,21 +961,21 @@ async fn speak(
             Ok(r) if r.status().is_success() => match r.bytes().await {
                 Ok(b) => b,
                 Err(e) => {
-                    eprintln!("[translator] voice: {e}");
+                    crate::elog!("[translator] voice: {e}");
                     continue;
                 }
             },
             Ok(r) => {
-                eprintln!("[translator] voice: server answered {}", r.status());
+                crate::elog!("[translator] voice: server answered {}", r.status());
                 continue;
             }
             Err(e) => {
-                eprintln!("[translator] voice: {e}");
+                crate::elog!("[translator] voice: {e}");
                 continue;
             }
         };
         let vis = load_f64(&visible_pos);
-        eprintln!(
+        crate::elog!(
             "[translator] voice {} ms, lead {:.1}s: {}",
             t0.elapsed().as_millis(),
             if vis.is_finite() { job.start - vis } else { f64::NAN },

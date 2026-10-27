@@ -12,7 +12,10 @@ import { initSpatialNavigation, installBackKeyListener, startGamepadBridge } fro
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { App } from "./App";
 import { isTauri } from "./data/io";
+import { installLogCapture } from "./data/log";
+import { applyStartupWindow } from "./data/windowPrefs";
 
+installLogCapture();
 initSpatialNavigation();
 installBackKeyListener();
 startGamepadBridge();
@@ -37,4 +40,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 // (tauri.conf.json `visible: false`): shown before the page's first paint, it was a
 // see-through frame over the desktop for a moment. Two frames in, the opaque background
 // is on screen. src-tauri/src/lib.rs shows it anyway after a few seconds if this never runs.
-if (isTauri) requestAnimationFrame(() => requestAnimationFrame(() => void getCurrentWindow().show()));
+if (isTauri) {
+  // The chosen screen / full screen first, then show — otherwise the window would hop in front of the user.
+  void applyStartupWindow().finally(() => requestAnimationFrame(() => requestAnimationFrame(() => void getCurrentWindow().show())));
+}
