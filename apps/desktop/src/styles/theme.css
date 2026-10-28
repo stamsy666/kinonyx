@@ -9682,7 +9682,8 @@ body .sidebar__item.is-focused .sidebar__icon {
 }
 
 /* ----- The shelves run to the window's edges: the posters go off the screen, not into a cut a little way in from it ----- */
-.home--tv :is(.home__rows, .mtv__rows) .row-scroll__track {
+.home--tv :is(.home__rows, .mtv__rows) .row-scroll__track,
+.home--tv.ptv .row-scroll__track {
   margin-inline: calc(-1 * var(--page-x));
   padding-inline: var(--page-x);
   scroll-padding-inline: var(--page-x);
