@@ -9681,12 +9681,10 @@ body .sidebar__item.is-focused .sidebar__icon {
   }
 }
 
-/* ----- Poster cards: no frame round the chosen one, only the lift (and a soft shadow so it still stands out) ----- */
-.home--tv .movie-card.is-focused .movie-card__poster::after {
-  display: none;
-}
-
-.home--tv .movie-card.is-focused .movie-card__poster {
-  box-shadow: 0 calc(18 * var(--u)) calc(44 * var(--u)) rgba(0, 0, 0, 0.55);
+/* ----- The shelves run to the window's edges: the posters go off the screen, not into a cut a little way in from it ----- */
+.home--tv .home__rows .row-scroll__track {
+  margin-inline: calc(-1 * var(--page-x));
+  padding-inline: var(--page-x);
+  scroll-padding-inline: var(--page-x);
 }
 
