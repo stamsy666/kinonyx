@@ -9680,3 +9680,13 @@ body .sidebar__item.is-focused .sidebar__icon {
     transform: scale(1.55);
   }
 }
+
+/* ----- Poster cards: no frame round the chosen one, only the lift (and a soft shadow so it still stands out) ----- */
+.home--tv .movie-card.is-focused .movie-card__poster::after {
+  display: none;
+}
+
+.home--tv .movie-card.is-focused .movie-card__poster {
+  box-shadow: 0 calc(18 * var(--u)) calc(44 * var(--u)) rgba(0, 0, 0, 0.55);
+}
+
