@@ -9689,3 +9689,16 @@ body .sidebar__item.is-focused .sidebar__icon {
   scroll-padding-inline: var(--page-x);
 }
 
+/* ----- The channels' carousel runs to the window's edges as well: the covers slide off the screen, not into a cut ----- */
+.home--tv.ctv .ch-carousel__stage {
+  margin-inline: calc(-1 * var(--page-x));
+}
+
+.home--tv.ctv .ch-carousel__strip {
+  padding-left: calc(var(--page-x) + 4px + var(--cover-s) + var(--cover-gap));
+}
+
+.home--tv.ctv .ch-frame {
+  left: calc(var(--page-x) + 4px + var(--cover-s) + var(--cover-gap));
+}
+
