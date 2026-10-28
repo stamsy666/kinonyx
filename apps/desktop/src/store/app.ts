@@ -28,6 +28,8 @@ export type Screen =
   | { name: "home" }
   | { name: "catalog"; kind: CatalogKind }
   | { name: "categories-hub" }
+  /** "Для взрослых" (18+), opened from the Categories page. */
+  | { name: "adult" }
   | { name: "genre"; kind: CatalogKind; title: string; filter: KpFilter }
   /** `preview` is the card the film was opened from — it already has title, poster,
    *  rating, genres and description, so the page renders at once instead of waiting
@@ -55,6 +57,8 @@ export type Screen =
       episodes?: { hash: string; files: TorrentFile[]; index: number; all?: TorrentFile[] };
       /** Subtitles and sound tracks from the release itself (see data/companions.ts). */
       extras?: ExtraTrack[];
+      /** Sent as the stream's Referer (hosts that refuse a bare request, see PlayerScreen). */
+      referer?: string;
     }
   /** Trailers Kinopoisk only offers as its own embeddable widget (not a YouTube link
    *  yt-dlp can resolve) — shown full-screen in an iframe instead of the mpv player. */
@@ -88,6 +92,8 @@ function focusKeyOfScreen(s: Screen): string | undefined {
       return "categories-hub";
     case "genre":
       return "genre";
+    case "adult":
+      return "adult";
     case "movie":
       return "movie";
     case "person":

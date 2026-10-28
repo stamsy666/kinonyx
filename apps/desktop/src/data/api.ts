@@ -288,6 +288,60 @@ export function resolveTrailerUrl(url: string, film?: { nameRu?: string; nameOri
   });
 }
 
+// ---------- Для взрослых (18+) ----------
+
+export interface AdultVideo {
+  key: string;
+  title: string;
+  thumb: string;
+  duration: string;
+  views: string;
+}
+
+export interface AdultCategory {
+  /** The category's address part (`mamki`), what `adultList` takes as `category`. */
+  slug: string;
+  name: string;
+  image: string;
+}
+
+/** One page of a list, newest first. `query` set = a search (it wins over the rest); otherwise the page of one
+ *  `performer`, of one `category` (a slug of `adultCategories`) or of everything. The site only has "show more", so
+ *  `totalPages` is the page asked for plus one when there is a next. */
+export function adultList(query: string | undefined, category: string | undefined, performer: string | undefined, page: number) {
+  return invoke<{ videos: AdultVideo[]; totalPages: number }>("adult_list", { query: query ?? null, category: category ?? null, performer: performer ?? null, page });
+}
+
+export interface AdultPerformer {
+  /** `models/eva-elfie` — the address of her page, what `adultList` takes as `performer`. */
+  path: string;
+  name: string;
+  /** The same name in latin letters ("Riley Reid"); empty when the site gives none. */
+  altName: string;
+  image: string;
+  /** How many videos she has, as the site prints it (empty when it does not). */
+  videos: string;
+}
+
+/** One page of the site's list of models (about 30 to 40, the busiest first), and whether there is a next. */
+export function adultModels(page: number) {
+  return cached<{ models: AdultPerformer[]; hasNext: boolean }>("adult_models", { page });
+}
+
+/** The model whose page has the name's address, if there is one (the site has no model search). */
+export function adultPerformers(query: string) {
+  return cached<AdultPerformer[]>("adult_performers", { query });
+}
+
+export function adultCategories() {
+  return cached<AdultCategory[]>("adult_categories", {});
+}
+
+/** The video's mp4 files (every quality up to 1080p), read from its page. */
+export function adultStreamsFast(key: string) {
+  return invoke<{ qualities: TrailerQuality[]; defaultIndex: number }>("adult_streams", { key });
+}
+
 // ---------- TorAPI ----------
 
 /** Field names vary per tracker (Seeds vs seeds, Magnet vs magnet, ...) — normalized here. */

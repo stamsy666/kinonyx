@@ -93,7 +93,10 @@ fn pick_qualities(info: &serde_json::Value, allow_hls: bool) -> Vec<TrailerQuali
     for f in &formats {
         let Some(height) = f["height"].as_u64() else { continue };
         let Some(url) = direct_url(f, allow_hls) else { continue };
-        let (video, muxed) = (has_codec(f, "vcodec"), has_codec(f, "acodec"));
+        // Some sites list plain mp4 files without saying which codecs: a file with a height and no
+        // codec information at all is one muxed picture-and-sound file.
+        let unlabelled = f["vcodec"].is_null() && f["acodec"].is_null();
+        let (video, muxed) = if unlabelled { (true, true) } else { (has_codec(f, "vcodec"), has_codec(f, "acodec")) };
         if !video {
             continue;
         }

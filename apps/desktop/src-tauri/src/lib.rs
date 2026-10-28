@@ -1,3 +1,4 @@
+mod adult;
 mod config;
 mod diagnostics;
 mod download;
@@ -148,6 +149,11 @@ pub fn run() {
             torrserve::ts_get_torrent,
             torrserve::ts_stream_url,
             epg::fetch_epg,
+            adult::adult_list,
+            adult::adult_categories,
+            adult::adult_performers,
+            adult::adult_models,
+            adult::adult_streams,
             tv::fetch_bytes,
             tv::read_playlist_file,
             translator::translator_status,

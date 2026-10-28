@@ -78,6 +78,9 @@ interface EpisodeQueue {
   all?: TorrentFile[];
 }
 
+/** Hosts that check the request's Referer usually check the User-Agent too. */
+const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+
 export function PlayerScreen({
   title,
   url,
@@ -89,8 +92,11 @@ export function PlayerScreen({
   poster,
   episodes,
   extras,
+  referer,
   mini = false,
 }: {
+  /** The page the stream belongs to, for hosts that refuse a request without it (sent as Referer, with a browser User-Agent). */
+  referer?: string;
   /** Minimised to a corner: only the small window is drawn, no keys or Back are taken. */
   mini?: boolean;
   title: string;
@@ -161,8 +167,15 @@ export function PlayerScreen({
     if (resumeAt > 1) mpvOptions.start = String(Math.floor(resumeAt));
     // The player settings (subtitles, night mode, scaling, HDR…) are mpv options set before each load.
     Object.assign(mpvOptions, buildMpvOptions(prefs));
-    return { url: curUrl, title, live: false, mpvOptions, extraTracks: extras };
-  }, [curUrl, curAudio, title, resumeAt, prefs, extras]);
+    return {
+      url: curUrl,
+      title,
+      live: false,
+      mpvOptions,
+      extraTracks: extras,
+      ...(referer ? { headers: { Referer: referer }, userAgent: BROWSER_UA } : {}),
+    };
+  }, [curUrl, curAudio, title, resumeAt, prefs, extras, referer]);
 
   // Local translation of the film's speech into Russian subtitles (torrent films only; same
   // engine as the channels' translator). Off for every new film.

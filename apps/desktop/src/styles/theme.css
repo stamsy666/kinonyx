@@ -9702,3 +9702,94 @@ body .sidebar__item.is-focused .sidebar__icon {
   left: calc(var(--page-x) + 4px + var(--cover-s) + var(--cover-gap));
 }
 
+
+/* "Для взрослых": wide cards of a video catalogue — a 16:9 frame with its length in the corner, the title and the views under it. */
+.home--tv .grid-cards--wide {
+  grid-template-columns: repeat(auto-fill, minmax(calc(360 * var(--u)), 1fr));
+  gap: calc(40 * var(--u)) calc(24 * var(--u));
+}
+
+.home--tv .grid-cards--wide .movie-card__poster {
+  height: auto;
+  aspect-ratio: 16 / 9;
+}
+
+.home--tv .movie-card--wide.is-focused .movie-card__poster {
+  transform: scale(1.05);
+}
+
+.home--tv .movie-card--wide .movie-card__label {
+  left: auto;
+  right: calc(10 * var(--u));
+  bottom: calc(10 * var(--u));
+  padding: calc(3 * var(--u)) calc(8 * var(--u));
+  border-radius: calc(6 * var(--u));
+  background: rgba(0, 0, 0, 0.78);
+  font-size: calc(14 * var(--u));
+  line-height: 1.3;
+}
+
+.home--tv .movie-card--wide .movie-card__title {
+  display: -webkit-box;
+  margin-top: calc(12 * var(--u));
+  font-size: calc(17 * var(--u));
+  line-height: 1.3;
+  white-space: normal;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.home--tv .movie-card--wide .movie-card__meta {
+  display: block;
+  margin-top: calc(4 * var(--u));
+  font-size: calc(14 * var(--u));
+}
+
+/* The chip of the list / category that is on (the focused one is the filled white pill). */
+.cats__chip.is-active {
+  border-color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* "Для взрослых": the categories button beside the search field — a chip as tall as the field, icon and word. */
+.home--tv .cats__chip.adult__cats {
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--u));
+  flex: none;
+  height: auto;
+  min-height: calc(62 * var(--u));
+  padding: 0 calc(30 * var(--u));
+  border-radius: 999px;
+  font-size: calc(19 * var(--u));
+}
+
+/* "Для взрослых": the page numbers under the grid — round-ended chips like the rest of the page, the current one filled. */
+.adult__pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: calc(12 * var(--u));
+  margin-top: calc(44 * var(--u));
+  padding: calc(8 * var(--u));
+}
+
+.home--tv .cats__chip.adult__page {
+  min-width: calc(54 * var(--u));
+  padding: 0 calc(18 * var(--u));
+  font-size: calc(19 * var(--u));
+}
+
+.home--tv .cats__chip.adult__page.is-active:not(.is-focused) {
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+}
+
+.adult__gap {
+  min-width: calc(30 * var(--u));
+  text-align: center;
+  font-size: calc(22 * var(--u));
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+}

@@ -1,6 +1,6 @@
 [package]
 name = "kinonyx"
-version = "1.2.6"
+version = "1.2.7"
 description = "KINONYX — фильмы и сериалы через торренты, с метаданными Kinopoisk"
 authors = ["KINONYX"]
 edition = "2021"
@@ -33,6 +33,8 @@ libloading = "0.8"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 tauri-plugin-dialog = "2"
 quick-xml = "0.42"
+regex = "1"
+encoding_rs = "0.8"
 chrono = "0.4"
 tauri-plugin-updater = "2.13.1"
 discord-rich-presence = "1.1.0"

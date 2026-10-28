@@ -49,6 +49,7 @@ function sectionOf(s: Screen): string | undefined {
     case "genre":
       return s.kind;
     case "categories-hub":
+    case "adult":
       return "categories";
     case "favorites":
       return "favorites";

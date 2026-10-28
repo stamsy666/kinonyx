@@ -16,11 +16,14 @@ interface TextFieldProps {
   /** Start in edit mode (keyboard goes straight into the input) — for screens whose
    *  whole purpose is typing, like search. */
   editOnMount?: boolean;
+  /** Called when the field takes the focus; `scroll={false}` leaves the page where it is (the caller scrolls it). */
+  onFocus?: () => void;
+  scroll?: boolean;
 }
 
 /** A text input that lives inside spatial navigation: Enter (or click) starts editing and
  *  pauses D-pad navigation; Enter/Escape/Up/Down leave editing and hand control back. */
-export function TextField({ value, onChange, onSubmit, placeholder, icon, focusKey, autoFocus, className = "", type = "text", editOnMount }: TextFieldProps) {
+export function TextField({ value, onChange, onSubmit, placeholder, icon, focusKey, autoFocus, className = "", type = "text", editOnMount, onFocus, scroll }: TextFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
 
@@ -47,6 +50,8 @@ export function TextField({ value, onChange, onSubmit, placeholder, icon, focusK
     <Focusable
       focusKey={focusKey}
       autoFocus={autoFocus}
+      onFocus={onFocus}
+      scroll={scroll}
       className={`field ${editing ? "is-editing" : ""} ${className}`}
       onPress={() => {
         if (!editing) startEdit();

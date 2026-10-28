@@ -184,6 +184,16 @@ export const MOCK = {
           })),
         } as T;
       }
+      case "adult_streams":
+        throw new Error("no streams in the browser preview");
+      case "adult_categories":
+      case "adult_performers":
+        return [] as T;
+      case "adult_models":
+        return { models: [], hasNext: false } as T;
+      case "adult_list":
+        // Browser preview has no real source: an empty list, so the screen's states can be looked at.
+        return { videos: [], totalPages: 1 } as T;
       case "kp_genres":
         return {
           genres: [

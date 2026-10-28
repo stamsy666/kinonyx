@@ -27,6 +27,7 @@ export function PlayerHost() {
         film={route.film}
         episodes={route.episodes}
         extras={route.extras}
+        referer={route.referer}
       />
     );
   }

@@ -23,6 +23,44 @@ use tauri::{Manager, Runtime, UriSchemeContext, UriSchemeResponder};
 const ALLOWED_HOSTS: &[&str] =
     &["kinopoiskapiunofficial.tech", "st.kp.yandex.net", "avatars.mds.yandex.net", "image.tmdb.org"];
 
+/// The picture host of the "Для взрослых" section (thumbnails and category pictures).
+fn is_adult_cdn(host: &str) -> bool {
+    host.ends_with(".vidb365.com")
+}
+
+/// A page of the section asks for dozens of pictures at once, and that CDN answers a burst with refusals and resets for some
+/// of them (they showed as covers that never loaded). So: a few at a time, each tried again after a short wait.
+static ADULT_SLOTS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(6);
+const ADULT_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+
+async fn fetch_adult_image(parsed: &reqwest::Url) -> Result<Vec<u8>, String> {
+    let _slot = ADULT_SLOTS.acquire().await.map_err(|e| e.to_string())?;
+    let mut last = String::from("no attempt");
+    for attempt in 0..3u64 {
+        if attempt > 0 {
+            tokio::time::sleep(Duration::from_millis(500 * attempt)).await;
+        }
+        let sent = CLIENT
+            .get(parsed.clone())
+            .header("User-Agent", ADULT_UA)
+            .timeout(Duration::from_secs(15))
+            .send()
+            .await;
+        match sent {
+            Ok(res) if res.status().is_success() => match res.bytes().await {
+                Ok(b) if !b.is_empty() => return Ok(b.to_vec()),
+                Ok(_) => last = "empty".into(),
+                Err(e) => last = e.to_string(),
+            },
+            // The picture itself is gone or not allowed: asking again won't change that.
+            Ok(res) if matches!(res.status().as_u16(), 403 | 404 | 410) => return Err(format!("upstream HTTP {}", res.status())),
+            Ok(res) => last = format!("upstream HTTP {}", res.status()),
+            Err(e) => last = e.to_string(),
+        }
+    }
+    Err(last)
+}
+
 /// Where TMDB posters can be had when `image.tmdb.org` itself is not reachable (it is blocked in some countries): the mirrors
 /// Lampa uses — the same path on another host. A host that fails is left alone for a few minutes, and the order of the
 /// rest stays as it is, so a working mirror is used for as long as it works.
@@ -97,7 +135,7 @@ pub fn handle<R: Runtime>(ctx: UriSchemeContext<'_, R>, request: Request<Vec<u8>
 async fn serve(encoded: &str, cache_dir: Option<PathBuf>) -> Result<(Vec<u8>, &'static str), String> {
     let url = urlencoding::decode(encoded).map_err(|e| e.to_string())?.into_owned();
     let parsed = reqwest::Url::parse(&url).map_err(|e| e.to_string())?;
-    if parsed.scheme() != "https" || !parsed.host_str().is_some_and(|h| ALLOWED_HOSTS.contains(&h)) {
+    if parsed.scheme() != "https" || !parsed.host_str().is_some_and(|h| ALLOWED_HOSTS.contains(&h) || is_adult_cdn(h)) {
         return Err(format!("host not allowed: {url}"));
     }
 
@@ -113,6 +151,8 @@ async fn serve(encoded: &str, cache_dir: Option<PathBuf>) -> Result<(Vec<u8>, &'
 
     let bytes = if parsed.host_str() == Some("image.tmdb.org") {
         fetch_tmdb_image(&parsed).await?
+    } else if parsed.host_str().is_some_and(is_adult_cdn) {
+        fetch_adult_image(&parsed).await?
     } else {
         // reqwest follows the redirect chain itself (up to 10 hops).
         let res = CLIENT.get(parsed).send().await.map_err(|e| e.to_string())?;

@@ -2166,16 +2166,18 @@ dependencies = [
 
 [[package]]
 name = "kinonyx"
-version = "1.2.6"
+version = "1.2.7"
 dependencies = [
  "base64 0.22.1",
  "chrono",
  "discord-rich-presence",
  "dotenvy",
+ "encoding_rs",
  "if-addrs",
  "libloading 0.8.9",
  "qrcode",
  "quick-xml",
+ "regex",
  "reqwest 0.12.28",
  "serde",
  "serde_json",

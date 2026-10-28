@@ -1,7 +1,7 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { isTauri } from "./io";
 
-const PROXIED = /^https:\/\/(kinopoiskapiunofficial\.tech|st\.kp\.yandex\.net|avatars\.mds\.yandex\.net|image\.tmdb\.org)\//;
+const PROXIED = /^https:\/\/(kinopoiskapiunofficial\.tech|st\.kp\.yandex\.net|avatars\.mds\.yandex\.net|image\.tmdb\.org|[\w-]+\.vidb365\.com)\//;
 
 /** Kinopoisk image → the Rust `kpimg` proxy (pooled connections + disk cache, see
  *  images.rs). In the browser preview there is no proxy, so the URL is used as-is. */
