@@ -22,7 +22,6 @@ import {
   Focusable,
   FocusGroup,
   ForwardIcon,
-  GearIcon,
   MiniPlayerIcon,
   PlayerSettingsIcon,
   MuteIcon,
@@ -76,6 +75,17 @@ interface EpisodeQueue {
   index: number;
   /** Every file of the release (the subtitles and sound tracks of the next episode are looked for in them). */
   all?: TorrentFile[];
+}
+
+/** "HD" in a rounded frame — the quality button, drawn like the other line icons (22 px, 1.8 stroke). */
+function HdIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2.5" y="5" width="19" height="14" rx="3.5" />
+      <path d="M7 9.2v5.6M7 12h3.2M10.2 9.2v5.6" />
+      <path d="M13.4 9.2v5.6h1.4a2.8 2.8 0 0 0 0-5.6z" />
+    </svg>
+  );
 }
 
 /** Hosts that check the request's Referer usually check the User-Agent too. */
@@ -682,17 +692,6 @@ export function PlayerScreen({
                   <PlayerSettingsIcon />
                 </Focusable>
               )}
-              {qualities && qualities.length > 1 && (
-                <Focusable
-                  as="button"
-                  className={`icon-btn ${qualityOpen ? "icon-btn--active" : ""}`}
-                  focusKey="pl:quality"
-                  onPress={toggleQuality}
-                  scroll={false}
-                >
-                  <GearIcon />
-                </Focusable>
-              )}
             </div>
 
             <div className="player__controls-center">
@@ -713,6 +712,18 @@ export function PlayerScreen({
             </div>
 
             <div className="player__controls-side player__controls-side--right">
+              {qualities && qualities.length > 1 && (
+                <Focusable
+                  as="button"
+                  className={`icon-btn ${qualityOpen ? "icon-btn--active" : ""}`}
+                  focusKey="pl:quality"
+                  aria-label="Качество"
+                  onPress={toggleQuality}
+                  scroll={false}
+                >
+                  <HdIcon />
+                </Focusable>
+              )}
               {isTauri && (
                 <Focusable as="button" className="icon-btn" focusKey="pl:mini" onPress={minimize} scroll={false}>
                   <MiniPlayerIcon />

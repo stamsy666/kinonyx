@@ -199,6 +199,8 @@ pub fn set_youtube_cookies_browser(browser: String, config: tauri::State<AppConf
     if !["", "chrome", "edge", "firefox"].contains(&browser.as_str()) {
         return Err("Неизвестный браузер".into());
     }
+    // Another browser or "off": the cookies saved from the old one go (read again from the new one when needed).
+    let _ = std::fs::remove_file(crate::ytdlp::cookies_file());
     *config.youtube_cookies_browser.lock().unwrap() = browser;
     config.persist()
 }

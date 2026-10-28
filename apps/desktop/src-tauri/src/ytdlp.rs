@@ -5,6 +5,7 @@
 //! making a silent failure impossible to diagnose; shelling out ourselves means real
 //! stderr, in a UI-visible error, when it doesn't work.
 
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -134,19 +135,19 @@ pub async fn resolve_trailer_url(
         || name_original.as_deref().is_some_and(|n| !n.trim().is_empty());
 
     if !url.is_empty() {
-        match run_ytdlp(url.clone(), cookies_browser).await {
-            Ok(r) => return Ok(r),
-            // A trailer the viewer picked by name must not silently turn into a name search
-            // on Rutube — every pick would then play the same video. The error is shown
-            // instead (with "open in browser"); the Rutube list entry is the explicit way.
-            Err(e) => return Err(e),
+        // A trailer the viewer picked by name must not silently turn into a name search
+        // on Rutube — every pick would then play the same video. The error is shown
+        // instead (with "open in browser"); the Rutube list entry is the explicit way.
+        if !is_youtube(&url) {
+            return run_ytdlp(url, Auth::None, None).await;
         }
+        return resolve_youtube(url, cookies_browser).await;
     } else if !can_search {
         return Err("Нет данных для поиска трейлера".into());
     }
 
     let fallback = match crate::rutube::find_trailer(name_ru.as_deref(), name_original.as_deref(), year.as_deref()).await {
-        Ok(Some(page)) => match run_ytdlp(page, String::new()).await {
+        Ok(Some(page)) => match run_ytdlp(page, Auth::None, None).await {
             Ok(r) => return Ok(r),
             Err(e) => format!("Rutube: {e}"),
         },
@@ -156,9 +157,98 @@ pub async fn resolve_trailer_url(
     Err(fallback)
 }
 
-async fn run_ytdlp(url: String, cookies_browser: String) -> Result<ResolvedTrailer, String> {
-    let cookies_browser_used = cookies_browser.clone();
+/// Marks the error YouTube gives a flagged IP ("Sign in to confirm you're not a bot"), so the
+/// chain below can tell it from the rest and try the next way.
+const BOT: &str = "\u{1}bot";
+const COOKIES_LOCKED: &str = "Не удалось прочитать cookies браузера";
+
+/// The cookies kept between runs: `%USERPROFILE%\.kinonyx\youtube-cookies.txt`. Read once from the
+/// browser (that is the only moment it has to be closed); yt-dlp writes the file back after every run,
+/// so the session it holds stays fresh. A cookies.txt exported by hand (FAQ: private window +
+/// "Get cookies.txt LOCALLY") can be put there too.
+pub fn cookies_file() -> PathBuf {
+    crate::logs::dir().parent().map(|p| p.join("youtube-cookies.txt")).unwrap_or_else(|| PathBuf::from("youtube-cookies.txt"))
+}
+
+enum Auth {
+    None,
+    File(PathBuf),
+    /// Read from the browser and saved into the file for the next time.
+    Browser(String, PathBuf),
+}
+
+/// YouTube without making the viewer close the browser every time:
+/// 1. the saved cookies file, if there is one, else no cookies at all — yt-dlp's own default clients
+///    (the ones that need no PO token right now; measured: 1080p without cookies);
+/// 2. YouTube says "not a bot" (it flags the IP, typically a VPN): clients that skip that check for
+///    embeddable videos — trailers nearly always are;
+/// 3. still flagged and a browser is chosen in Settings: read its cookies once into the file.
+async fn resolve_youtube(url: String, browser: String) -> Result<ResolvedTrailer, String> {
+    let file = cookies_file();
+    let have_file = file.is_file();
+    let first = run_ytdlp(url.clone(), if have_file { Auth::File(file.clone()) } else { Auth::None }, None).await;
+    match &first {
+        Err(e) if e == BOT => {}
+        _ => return first,
+    }
+    if let ok @ Ok(_) = run_ytdlp(url.clone(), Auth::None, Some("web_embedded,android_vr,tv")).await {
+        return ok;
+    }
+    if browser.is_empty() {
+        return Err(bot_message(have_file, false));
+    }
+    let result = run_ytdlp(url, Auth::Browser(browser, file.clone()), None).await;
+    keep_only_youtube(&file);
+    match result {
+        Err(e) if e == BOT => Err(bot_message(true, true)),
+        other => other,
+    }
+}
+
+/// yt-dlp saves the browser's whole cookie jar; only YouTube's and Google's (the sign-in) stay on disk.
+fn keep_only_youtube(file: &std::path::Path) {
+    let Ok(text) = std::fs::read_to_string(file) else { return };
+    let kept: Vec<&str> = text
+        .lines()
+        .filter(|line| {
+            // Netscape format: the domain is the first tab-separated field; "#HttpOnly_" prefixes some.
+            if line.trim().is_empty() || (line.starts_with('#') && !line.starts_with("#HttpOnly_")) {
+                return true;
+            }
+            let domain = line.trim_start_matches("#HttpOnly_").split('\t').next().unwrap_or("");
+            let domain = domain.trim_start_matches('.');
+            ["youtube.com", "google.com"].iter().any(|d| domain == *d || domain.ends_with(&format!(".{d}")))
+        })
+        .collect();
+    let _ = std::fs::write(file, kept.join(if cfg!(windows) { "\r\n" } else { "\n" }) + if cfg!(windows) { "\r\n" } else { "\n" });
+}
+
+fn bot_message(had_cookies: bool, from_browser: bool) -> String {
+    if from_browser {
+        "YouTube всё равно просит подтвердить, что вы не бот, даже с cookies браузера — проверьте, что \
+         вы залогинены в YouTube в этом браузере, или откройте трейлер в браузере."
+            .into()
+    } else if had_cookies {
+        "YouTube просит подтвердить, что вы не бот: сохранённые cookies устарели. Выберите браузер в Настройках → \
+         «Cookies YouTube для трейлеров» — они прочитаются из него один раз (браузер нужно закрыть только сейчас), \
+         либо смените сервер VPN или откройте трейлер в браузере."
+            .into()
+    } else {
+        "YouTube просит подтвердить, что вы не бот — так бывает, когда включён VPN или прокси. \
+         Выберите свой браузер в Настройках → «Cookies YouTube для трейлеров» (нужно быть в нём \
+         залогиненным в YouTube; закрыть его нужно один раз — cookies сохранятся), либо смените сервер VPN, \
+         либо откройте трейлер в браузере."
+            .into()
+    }
+}
+
+async fn run_ytdlp(url: String, auth: Auth, clients: Option<&'static str>) -> Result<ResolvedTrailer, String> {
     let youtube = is_youtube(&url);
+    if let Auth::Browser(_, file) = &auth {
+        if let Some(dir) = file.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+    }
     let bin = ytdlp_path()?;
 
     let output = tauri::async_runtime::spawn_blocking(move || {
@@ -166,11 +256,6 @@ async fn run_ytdlp(url: String, cookies_browser: String) -> Result<ResolvedTrail
         // Connection resets make yt-dlp retry silently for minutes (measured: 90 s+) —
         // fail fast instead, the UI offers "open in browser".
         cmd.args(["--socket-timeout", "8", "--retries", "1", "--extractor-retries", "1"]);
-        // YouTube's "web" player client now demands a PO token yt-dlp can't produce
-        // without real browser cookies ("Sign in to confirm you're not a bot") — the
-        // Android client's API doesn't have that requirement, at the cost of only offering
-        // lower-bitrate progressive formats (confirmed live: still gets a working mp4 link,
-        // just capped around 360p instead of whatever "best" would otherwise pick).
         // `-J`: the full format list as JSON, so the player can offer every quality instead
         // of one picked here (the single muxed file YouTube still serves tops out at 360p).
         cmd.args(["-J", "--no-playlist"]);
@@ -182,14 +267,22 @@ async fn run_ytdlp(url: String, cookies_browser: String) -> Result<ResolvedTrail
         if let Some(qjs) = tool_path(if cfg!(windows) { "qjs.exe" } else { "qjs" }) {
             cmd.arg("--js-runtimes").arg(format!("quickjs:{}", qjs.display()));
         }
-        if !youtube {
-            // Other sites (Rutube) need neither the YouTube client trick nor cookies.
-        } else if cookies_browser.is_empty() {
-            cmd.args(["--extractor-args", "youtube:player_client=android"]);
-        } else {
-            // The user's own signed-in YouTube session (opt-in, Settings) — the Android
-            // client ignores cookies, so it's left at yt-dlp's default client here.
-            cmd.args(["--cookies-from-browser", &cookies_browser]);
+        // Other sites (Rutube) need neither the YouTube clients nor cookies. The forced Android client
+        // used here before now wants a PO token itself (yt-dlp PO Token Guide) — yt-dlp's default
+        // client list already skips the ones that do.
+        if youtube {
+            if let Some(c) = clients {
+                cmd.arg("--extractor-args").arg(format!("youtube:player_client={c}"));
+            }
+            match &auth {
+                Auth::None => {}
+                Auth::File(file) => {
+                    cmd.arg("--cookies").arg(file);
+                }
+                Auth::Browser(browser, file) => {
+                    cmd.args(["--cookies-from-browser", browser]).arg("--cookies").arg(file);
+                }
+            }
         }
         cmd.arg(&url);
         #[cfg(windows)]
@@ -238,25 +331,25 @@ async fn run_ytdlp(url: String, cookies_browser: String) -> Result<ResolvedTrail
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         if stderr.contains("Could not copy") && stderr.contains("cookie") {
-            return Err("Не удалось прочитать cookies браузера — полностью закройте его (включая фон в трее) и попробуйте снова.".into());
+            return Err(format!(
+                "{COOKIES_LOCKED} — закройте его полностью (включая фон в трее) и попробуйте снова. Это нужно один раз: \
+                 дальше cookies берутся из сохранённого файла."
+            ));
         }
         // yt-dlp's own message (video unavailable, no network, etc.) is far more useful
         // than a bare exit code — the last non-empty line is normally the actual error.
         let reason = stderr.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("неизвестная ошибка").trim();
-        // YouTube flags the *IP address* (typically a VPN/proxy/hosting range), not the
-        // client — once flagged, every player client and even a plain embed in a real
-        // browser asks to sign in. Nothing on our side gets past that; say so plainly.
-        if reason.contains("not a bot") {
-            return Err(if cookies_browser_used.is_empty() {
-                "YouTube просит подтвердить, что вы не бот — так бывает, когда включён VPN или прокси. \
-                 Выберите свой браузер в Настройках → «Cookies YouTube для трейлеров» (нужно быть в нём \
-                 залогиненным в YouTube), либо отключите VPN, либо откройте трейлер в браузере."
-                    .into()
-            } else {
-                "YouTube всё равно просит подтвердить, что вы не бот, даже с cookies браузера — проверьте, что \
-                 вы залогинены в YouTube в этом браузере, или откройте трейлер в браузере."
-                    .into()
-            });
+        // YouTube flags the *IP address* (typically a VPN/proxy/hosting range); `resolve_youtube`
+        // decides what to try next and what to tell the viewer.
+        if reason.contains("not a bot") || reason.contains("Sign in to confirm") {
+            return Err(BOT.into());
+        }
+        // Rutube drops the connection (TLS "EOF", timeouts) when it is reached through a foreign VPN/proxy exit.
+        // The raw Python error says nothing about that, so say it.
+        if reason.contains("[rutube]") && (reason.contains("EOF occurred") || reason.contains("timed out") || reason.contains("SSLError")) {
+            return Err("Rutube не открывается: он обрывает соединения через VPN или прокси. Добавьте rutube.ru в правила прямого \
+                        подключения (DIRECT) вашего VPN либо откройте трейлер в браузере."
+                .into());
         }
         return Err(format!("yt-dlp: {reason}"));
     }
