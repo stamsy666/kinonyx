@@ -145,6 +145,7 @@ pub fn run() {
             torapi::torapi_search_title,
             torapi::torapi_search_id,
             torrserve::torrserve_health,
+            torrserve::torrserve_problem,
             torrserve::ts_add_magnet,
             torrserve::ts_get_torrent,
             torrserve::ts_stream_url,

@@ -15,10 +15,11 @@
 use crate::config::AppConfig;
 use crate::http::CLIENT;
 use serde_json::{json, Value};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::Manager;
-use tauri_plugin_shell::process::CommandChild;
+use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
 pub struct TorrserveProcess(pub Mutex<Option<CommandChild>>);
@@ -42,30 +43,152 @@ pub fn spawn(app: &tauri::AppHandle) {
         crate::elog!("[torrserve] can't create {}: {e}", data_dir.display());
         return;
     }
-    let port = state_port(app).to_string();
     let path = data_dir.to_string_lossy().into_owned();
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move { start(app, path).await });
+}
 
-    let shell = app.shell();
-    match shell.sidecar("torrserve") {
-        Ok(cmd) => match cmd.args(["--port", &port, "--path", &path]).spawn() {
-            Ok((_rx, child)) => {
-                if let Some(state) = app.try_state::<TorrserveProcess>() {
-                    *state.0.lock().unwrap() = Some(child);
-                }
-                println!("[torrserve] sidecar started");
-                let base = format!("http://127.0.0.1:{port}");
-                tauri::async_runtime::spawn(async move {
-                    match tune(&base).await {
-                        Ok(()) => println!("[torrserve] streaming settings applied"),
-                        Err(e) => crate::elog!("[torrserve] couldn't apply streaming settings: {e}"),
-                    }
-                });
+/// Why TorrServer is not running, in words for the viewer ("" = nothing wrong).
+static PROBLEM: Mutex<String> = Mutex::new(String::new());
+
+fn set_problem(text: impl Into<String>) {
+    *PROBLEM.lock().unwrap() = text.into();
+}
+
+pub fn problem() -> String {
+    PROBLEM.lock().unwrap().clone()
+}
+
+#[tauri::command]
+pub fn torrserve_problem() -> String {
+    problem()
+}
+
+fn port_free(port: u16) -> bool {
+    std::net::TcpListener::bind(("127.0.0.1", port)).is_ok()
+}
+
+fn free_port() -> Option<u16> {
+    std::net::TcpListener::bind(("127.0.0.1", 0)).ok()?.local_addr().ok().map(|a| a.port())
+}
+
+async fn echo_ok(port: u16) -> bool {
+    CLIENT
+        .get(format!("http://127.0.0.1:{port}/echo"))
+        .timeout(Duration::from_millis(500))
+        .send()
+        .await
+        .is_ok_and(|r| r.status().is_success())
+}
+
+/// Starts the sidecar and makes sure it answers. 8090 is a popular port — another program (or a TorrServer left
+/// from an earlier run) may hold it, and then the player would talk to the wrong thing or to nothing: so a free port
+/// is taken in that case, and if the process dies at once (port taken after all, blocked by an antivirus) it is tried
+/// again on a fresh one. Whatever goes wrong is kept in `PROBLEM` for the error window and Diagnostics.
+async fn start(app: tauri::AppHandle, path: String) {
+    let config = app.state::<AppConfig>();
+    let preferred = config.torrserve_port.load(Ordering::Relaxed);
+
+    // A TorrServer already answers there (kept from before) — use it as it is.
+    if echo_ok(preferred).await {
+        println!("[torrserve] already running on {preferred}");
+        set_problem("");
+        let base = format!("http://127.0.0.1:{preferred}");
+        if let Err(e) = tune(&base).await {
+            crate::elog!("[torrserve] couldn't apply streaming settings: {e}");
+        }
+        return;
+    }
+
+    let mut port = if port_free(preferred) { preferred } else { free_port().unwrap_or(preferred) };
+    if port != preferred {
+        crate::elog!("[torrserve] port {preferred} is taken by another program, using {port}");
+    }
+
+    for attempt in 1..=3 {
+        config.torrserve_port.store(port, Ordering::Relaxed);
+        let cmd = match app.shell().sidecar("torrserve") {
+            Ok(cmd) => cmd,
+            Err(e) => {
+                crate::elog!("[torrserve] sidecar binary not found ({e})");
+                set_problem("torrserve.exe не найден рядом с программой — вероятно, его удалил антивирус; переустановите KINONYX и добавьте папку установки в исключения антивируса");
+                return;
             }
-            Err(e) => crate::elog!("[torrserve] failed to start sidecar: {e}"),
-        },
-        Err(e) => crate::elog!(
-            "[torrserve] sidecar binary not found ({e}) — place it at src-tauri/binaries/torrserve-<target-triple>.exe, see CLAUDE.md"
-        ),
+        };
+        let (mut rx, child) = match cmd.args(["--port", &port.to_string(), "--path", &path]).spawn() {
+            Ok(pair) => pair,
+            Err(e) => {
+                crate::elog!("[torrserve] failed to start sidecar: {e}");
+                set_problem(format!("не удалось запустить torrserve.exe: {e} — возможно, его блокирует антивирус"));
+                return;
+            }
+        };
+        if let Some(state) = app.try_state::<TorrserveProcess>() {
+            *state.0.lock().unwrap() = Some(child);
+        }
+
+        // Everything the process says is kept in the log; its end is noted here.
+        let exited = Arc::new(AtomicBool::new(false));
+        let last_line = Arc::new(Mutex::new(String::new()));
+        {
+            let (exited, last_line) = (exited.clone(), last_line.clone());
+            tauri::async_runtime::spawn(async move {
+                while let Some(event) = rx.recv().await {
+                    match event {
+                        CommandEvent::Stdout(b) | CommandEvent::Stderr(b) => {
+                            let text = String::from_utf8_lossy(&b).trim().to_string();
+                            if !text.is_empty() {
+                                println!("[torrserve] {text}");
+                                *last_line.lock().unwrap() = text;
+                            }
+                        }
+                        CommandEvent::Error(e) => crate::elog!("[torrserve] {e}"),
+                        CommandEvent::Terminated(t) => {
+                            crate::elog!("[torrserve] exited (code {:?})", t.code);
+                            exited.store(true, Ordering::Relaxed);
+                            set_problem(format!("TorrServer завершился (код {:?})", t.code));
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+            });
+        }
+
+        let mut up = false;
+        for _ in 0..75 {
+            if exited.load(Ordering::Relaxed) {
+                break;
+            }
+            if echo_ok(port).await {
+                up = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+        if up {
+            println!("[torrserve] sidecar started on {port}");
+            set_problem("");
+            let base = format!("http://127.0.0.1:{port}");
+            match tune(&base).await {
+                Ok(()) => println!("[torrserve] streaming settings applied"),
+                Err(e) => crate::elog!("[torrserve] couldn't apply streaming settings: {e}"),
+            }
+            return;
+        }
+        if exited.load(Ordering::Relaxed) && attempt < 3 {
+            let said = last_line.lock().unwrap().clone();
+            crate::elog!("[torrserve] attempt {attempt} on port {port} failed ({said}), trying another port");
+            if let Some(p) = free_port() {
+                port = p;
+            }
+            continue;
+        }
+        let said = last_line.lock().unwrap().clone();
+        crate::elog!("[torrserve] didn't come up on {port} ({said})");
+        let base = if said.is_empty() { String::new() } else { format!(": {said}") };
+        set_problem(format!("TorrServer не запустился{base} — проверьте, не блокирует ли его антивирус или брандмауэр"));
+        return;
     }
 }
 
@@ -145,12 +268,8 @@ pub fn kill(app: &tauri::AppHandle) {
     }
 }
 
-fn state_port(app: &tauri::AppHandle) -> u16 {
-    app.try_state::<AppConfig>().map(|c| c.torrserve_port).unwrap_or(8090)
-}
-
 fn base_url(config: &AppConfig) -> String {
-    format!("http://127.0.0.1:{}", config.torrserve_port)
+    format!("http://127.0.0.1:{}", config.torrserve_port.load(Ordering::Relaxed))
 }
 
 #[tauri::command]

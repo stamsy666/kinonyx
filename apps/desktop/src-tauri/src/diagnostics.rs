@@ -138,18 +138,22 @@ pub async fn run_diagnostics(config: tauri::State<'_, AppConfig>) -> Result<Vec<
     let kp_key = config.kinopoisk_api_key.lock().unwrap().clone();
     let tmdb_key = config.tmdb_api_key.lock().unwrap().clone();
     let torapi = config.torapi_base_url.lock().unwrap().clone();
-    let ts_url = format!("http://127.0.0.1:{}/echo", config.torrserve_port);
+    let ts_url = format!("http://127.0.0.1:{}/echo", config.torrserve_port.load(std::sync::atomic::Ordering::Relaxed));
 
     let ts = async {
         match CLIENT.get(&ts_url).timeout(Duration::from_millis(1500)).send().await {
             Ok(r) if r.status().is_success() => check("torrserve", "TorrServer", Status::Ok, "запущен", None),
-            _ => check(
-                "torrserve",
-                "TorrServer",
-                Status::Fail,
-                "не отвечает",
-                Some("Перезапустите KINONYX; если не помогло — антивирус мог заблокировать torrserve.exe"),
-            ),
+            _ => {
+                let problem = crate::torrserve::problem();
+                let detail = if problem.is_empty() { "не отвечает".to_string() } else { problem };
+                check(
+                    "torrserve",
+                    "TorrServer",
+                    Status::Fail,
+                    detail,
+                    Some("Перезапустите KINONYX; если не помогло — антивирус мог заблокировать torrserve.exe: добавьте папку установки в исключения"),
+                )
+            }
         }
     };
 

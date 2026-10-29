@@ -8,7 +8,7 @@ import {
   streamUrlFor,
   torApiSearchId,
   torApiSearchTitle,
-  torrserveHealth,
+  ensureTorrserve,
   probeTracks,
   type ProbeTrack,
   type TorApiRelease,
@@ -166,9 +166,7 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
     let cancelled = false;
     (async () => {
       try {
-        if (!(await torrserveHealth())) {
-          throw new Error("TorrServer не запущен — он стартует вместе с приложением, проверьте binaries/ (см. CLAUDE.md)");
-        }
+        await ensureTorrserve();
         const torrent = await openTorrent(remembered.link, cancel.current);
         if (cancelled || cancel.current.cancelled) return;
         const remembered_ = torrent.files.find((f) => f.id === remembered.fileId) ?? torrent.files.find((f) => f.path === remembered.filePath);
@@ -272,7 +270,7 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
     setProbeError("");
     setStage("inspect");
     try {
-      if (!(await torrserveHealth())) throw new Error("TorrServer не запущен");
+      await ensureTorrserve();
       const { link } = await resolveLink(release);
       const torrent = await openTorrent(link, cancel.current);
       if (cancel.current.cancelled) return;
@@ -292,9 +290,7 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
   async function pick(release: TorApiRelease) {
     setStage("connecting");
     try {
-      if (!(await torrserveHealth())) {
-        throw new Error("TorrServer не запущен — он стартует вместе с приложением, проверьте binaries/ (см. CLAUDE.md)");
-      }
+      await ensureTorrserve();
       const { link, name } = await resolveLink(release);
       const torrent = await openTorrent(link, cancel.current);
       if (cancel.current.cancelled) return;

@@ -251,6 +251,8 @@ export const MOCK = {
         ] as T;
       case "torrserve_health":
         return true as T;
+      case "torrserve_problem":
+        return "" as T;
       case "ts_add_magnet":
         return { hash: String(args?.magnet ?? "").toLowerCase() } as T;
       case "ts_get_torrent":

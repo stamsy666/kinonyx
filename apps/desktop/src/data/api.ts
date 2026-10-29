@@ -449,6 +449,24 @@ export function probeTracks(url: string) {
 export function torrserveHealth() {
   return invoke<boolean>("torrserve_health");
 }
+
+/**
+ * Resolves when TorrServer answers; it may still be starting (the app launches it in the background, up to
+ * ~15 s with a retry on another port), so it is waited for. When it never comes, the error carries the reason
+ * the Rust side recorded (port, antivirus, missing file) instead of a developer hint.
+ */
+export async function ensureTorrserve(): Promise<void> {
+  for (let i = 0; i < 40; i++) {
+    if (await torrserveHealth()) return;
+    // A recorded reason that is not "still starting" means waiting longer will not help.
+    if (i >= 4) {
+      const why = await invoke<string>("torrserve_problem").catch(() => "");
+      if (why) throw new Error(`TorrServer не запущен: ${why}`);
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error("TorrServer не запущен: не отвечает. Перезапустите KINONYX; если не помогло — добавьте папку установки в исключения антивируса.");
+}
 export function tsAddMagnet(magnet: string) {
   return invoke<{ hash?: string }>("ts_add_magnet", { magnet });
 }

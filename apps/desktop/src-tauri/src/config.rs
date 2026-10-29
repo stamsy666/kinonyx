@@ -7,6 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::Mutex;
 
 pub struct AppConfig {
@@ -25,7 +26,9 @@ pub struct AppConfig {
     pub setup_done: Mutex<bool>,
     /// Discord application id for Rich Presence (see discord.rs); empty = use the built-in one, if any.
     pub discord_app_id: Mutex<String>,
-    pub torrserve_port: u16,
+    /// The port TorrServer listens on. Starts as the preferred one (8090 / `TORRSERVE_PORT`); `torrserve::spawn`
+    /// moves it to a free one when something else already holds it.
+    pub torrserve_port: AtomicU16,
     pub cache_dir: Option<PathBuf>,
     settings_file: Option<PathBuf>,
 }
@@ -79,10 +82,12 @@ impl AppConfig {
             tmdb_api_mirror: Mutex::new(saved.tmdb_api_mirror.unwrap_or_default()),
             setup_done: Mutex::new(saved.setup_done.unwrap_or(false)),
             discord_app_id: Mutex::new(saved.discord_app_id.unwrap_or_default()),
-            torrserve_port: std::env::var("TORRSERVE_PORT")
-                .ok()
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(8090),
+            torrserve_port: AtomicU16::new(
+                std::env::var("TORRSERVE_PORT")
+                    .ok()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(8090),
+            ),
             cache_dir,
             settings_file,
         }
@@ -150,7 +155,7 @@ pub fn config_status(config: tauri::State<AppConfig>) -> ConfigStatus {
         setup_done: *config.setup_done.lock().unwrap(),
         discord_ready: !crate::discord::effective_app_id(&config).is_empty(),
         discord_app_id: config.discord_app_id.lock().unwrap().clone(),
-        torrserve_port: config.torrserve_port,
+        torrserve_port: config.torrserve_port.load(Ordering::Relaxed),
     }
 }
 
