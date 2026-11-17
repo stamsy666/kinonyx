@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DUCK_FILTER, type PlaySource } from "@kinonyx/player-core";
 import { useTranslator } from "../store/translator";
+import { loadFilmHints } from "../data/filmHints";
 import { useApp } from "../store/app";
 import {
   onCue,
@@ -226,7 +227,15 @@ export function LiveSubtitles({
  * timed Russian cues while `enabled`. The decoder runs ahead of the viewer and follows their seeks;
  * all cues are kept here, timed in the film's own timeline, so seeking back shows them at once.
  */
-export function useFilmTranslation(url: string | null, enabled: boolean, position: number) {
+/** What is known about the film being translated (for the translator's background, see data/filmHints.ts). */
+export interface FilmInfo {
+  id?: number;
+  title: string;
+  nameRu?: string;
+  nameOriginal?: string;
+}
+
+export function useFilmTranslation(url: string | null, enabled: boolean, position: number, film?: FilmInfo) {
   const { asrModel, mtModel, sourceLang } = useTranslator();
   const [state, setState] = useState<LiveTranslationState>("off");
   const [error, setError] = useState<string | null>(null);
@@ -234,6 +243,8 @@ export function useFilmTranslation(url: string | null, enabled: boolean, positio
   const sessionRef = useRef<number | null>(null);
   const posRef = useRef(position);
   posRef.current = position;
+  const filmRef = useRef(film);
+  filmRef.current = film;
 
   useEffect(() => {
     if (!enabled || !url) {
@@ -245,7 +256,12 @@ export function useFilmTranslation(url: string | null, enabled: boolean, positio
     setState("starting");
     setError(null);
     setCues([]);
-    translatorFilmStart({ url, asrModel, mtModel, sourceLang, start: posRef.current })
+    const f = filmRef.current;
+    loadFilmHints(f?.id, f, f?.title ?? "")
+      .then((hints) => {
+        if (cancelled) throw new Error("cancelled");
+        return translatorFilmStart({ url, asrModel, mtModel, sourceLang, start: posRef.current, ...hints });
+      })
       .then((id) => {
         if (cancelled) {
           void translatorStop(id);

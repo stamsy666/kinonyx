@@ -1,0 +1,87 @@
+diff --git a/src/tts-server.h b/src/tts-server.h
+index a00b997..0423809 100644
+--- a/src/tts-server.h
++++ b/src/tts-server.h
+@@ -46,6 +46,16 @@ struct tts_request {
+     // random seed per request, matching the CLI convention; anything
+     // else forwards verbatim for reproducible output.
+     int64_t seed;
++
++    // Timing control for dubbing (all optional, 0 = off).
++    // duration > 0 forces exactly that length in seconds. Otherwise
++    // max_duration > 0 fits the line into a slot: the natural length when
++    // it fits, else faster by at most max_speedup, never shorter than the
++    // slot. steps > 0 overrides the MaskGIT step count (default 32).
++    float duration     = 0.0f;
++    float max_duration = 0.0f;
++    float max_speedup  = 1.0f;
++    int   steps        = 0;
+ };
+ 
+ // One voice registration parsed from the POST /v1/audio/voices JSON body.
+@@ -174,6 +184,28 @@ static bool tts_parse_request(const std::string & body, tts_request & req, std::
+     }
+     req.seed = seed ? yyjson_get_sint(seed) : -1;
+ 
++    const char * numeric[] = { "duration", "max_duration", "max_speedup" };
++    float *      targets[] = { &req.duration, &req.max_duration, &req.max_speedup };
++    for (int i = 0; i < 3; i++) {
++        yyjson_val * v = yyjson_obj_get(root, numeric[i]);
++        if (!v) {
++            continue;
++        }
++        if (!yyjson_is_num(v) || yyjson_get_num(v) < 0.0) {
++            err = std::string("'") + numeric[i] + "' must be a non-negative number";
++            yyjson_doc_free(doc);
++            return false;
++        }
++        *targets[i] = (float) yyjson_get_num(v);
++    }
++    yyjson_val * steps = yyjson_obj_get(root, "steps");
++    if (steps && (!yyjson_is_int(steps) || yyjson_get_sint(steps) < 1 || yyjson_get_sint(steps) > 64)) {
++        err = "'steps' must be an integer between 1 and 64";
++        yyjson_doc_free(doc);
++        return false;
++    }
++    req.steps = steps ? (int) yyjson_get_sint(steps) : 0;
++
+     yyjson_doc_free(doc);
+ 
+     if (req.format != "pcm" && req.format != "wav") {
+diff --git a/tools/tts-server.cpp b/tools/tts-server.cpp
+index cf903d0..ac6ba31 100644
+--- a/tools/tts-server.cpp
++++ b/tools/tts-server.cpp
+@@ -11,9 +11,11 @@
+ 
+ #include "backend.h"
+ #include "omnivoice.h"
++#include "duration-estimator.h"
+ #include "rvq-file.h"
+ #include "version.h"
+ 
++#include <algorithm>
+ #include <cstdio>
+ #include <cstdlib>
+ #include <cstring>
+@@ -242,6 +244,20 @@ int main(int argc, char ** argv) {
+             p.instruct = req.instructions.c_str();
+         }
+ 
++        // Dubbing: fit the line to the time the original took. T_override
++        // also forces single-shot, which is what a short subtitle line wants.
++        if (req.steps > 0) {
++            p.mg_num_step = req.steps;
++        }
++        if (req.duration > 0.0f) {
++            p.T_override = ov_duration_sec_to_tokens(ov, req.duration);
++        } else if (req.max_duration > 0.0f) {
++            const int   natural = duration_estimate_tokens(req.input, voice_ref_text, voice_ref_T);
++            const int   slot    = ov_duration_sec_to_tokens(ov, req.max_duration);
++            const float speedup = req.max_speedup > 1.0f ? req.max_speedup : 1.0f;
++            p.T_override        = natural <= slot ? natural : std::max(slot, (int) ((float) natural / speedup));
++        }
++
+         // Seed resolution mirrors the CLI: negative or absent draws a
+         // fresh hardware random seed, anything else lands verbatim on
+         // the MaskGIT sampler for reproducible output.

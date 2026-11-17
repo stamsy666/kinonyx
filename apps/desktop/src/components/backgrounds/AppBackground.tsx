@@ -3,6 +3,7 @@ import { Tranquiluxe, Novatrix, Velustro } from "uvcanvas";
 import { BG_PALETTES, isPlainKind, type BgKind } from "../../data/backgrounds";
 import { BubbleBackground } from "./BubbleBackground";
 import { MonoBackground } from "./MonoBackground";
+import { RibbonBackground } from "./RibbonBackground";
 import { WavesBackground } from "./WavesBackground";
 
 /** Velustro takes `uColor` instead of `color` — everything else here shares the
@@ -14,7 +15,7 @@ function Effect({
   kind,
   color,
 }: {
-  kind: Exclude<BgKind, "plasma" | "ps4" | "ps5" | "bw">;
+  kind: Exclude<BgKind, "plasma" | "ribbon" | "ps4" | "ps5" | "bw">;
   color: [number, number, number];
 }) {
   switch (kind) {
@@ -42,6 +43,14 @@ export function AppBackground({ kind }: { kind: BgKind }) {
     return (
       <div className="app-background">
         <BubbleBackground />
+      </div>
+    );
+  }
+
+  if (kind === "ribbon") {
+    return (
+      <div className="app-background">
+        <RibbonBackground />
       </div>
     );
   }

@@ -110,7 +110,22 @@ async fn run(item: &'static Item, cancel: &AtomicBool, progress: impl Fn(u64, Op
     if !catalog::installed(item) {
         return Err("Загрузка завершилась, но нужных файлов нет — архив изменился?".into());
     }
+    if item.id == "voice-omnivoice" {
+        remove_legacy_omnivoice().await;
+    }
     Ok(())
+}
+
+/// The PyTorch build of OmniVoice (≈3.3 GB of safetensors) is useless once the GGUF one is in.
+/// Only that exact folder, and only if it still holds the old weights.
+async fn remove_legacy_omnivoice() {
+    let old = catalog::models_dir().join(catalog::LEGACY_OMNIVOICE_DIR);
+    if old.join("model.safetensors").is_file() {
+        match tokio::fs::remove_dir_all(&old).await {
+            Ok(()) => crate::elog!("[translator] removed the old PyTorch OmniVoice ({})", old.display()),
+            Err(e) => crate::elog!("[translator] couldn't remove {}: {e}", old.display()),
+        }
+    }
 }
 
 async fn fetch(client: &reqwest::Client, url: &str, part: &Path, cancel: &AtomicBool, progress: impl Fn(u64)) -> Result<(), String> {

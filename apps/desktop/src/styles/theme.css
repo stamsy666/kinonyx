@@ -9793,3 +9793,26 @@ body .sidebar__item.is-focused .sidebar__icon {
   font-weight: 700;
   color: rgba(255, 255, 255, 0.5);
 }
+
+/* Launch intro (components/IntroSplash.tsx): opaque — the window is transparent, mpv draws below. */
+.intro-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: #0a0708;
+  display: grid;
+  place-items: center;
+  opacity: 1;
+  transition: opacity 320ms var(--ease, ease);
+}
+
+.intro-splash.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.intro-splash__video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

@@ -1,7 +1,8 @@
 //! Sets up the voice runtime: the embeddable Python 3.10 from python.org (already unpacked into
-//! `engines/voice`), pip, then PyTorch (CUDA 12.8 build — covers RTX 20xx through 50xx) and
-//! OmniVoice from the official package indexes. Nothing is installed system-wide and the
-//! user's own Python, if any, is never touched.
+//! `engines/voice`), pip, then numpy and sherpa-onnx from PyPI — all the voice-over server
+//! (`tts_server.py`) needs: the synthesis itself runs in omnivoice.cpp (`translator/omnivoice/`),
+//! no PyTorch. Nothing is installed system-wide and the user's own Python, if any, is never
+//! touched.
 //!
 //! pip itself has no machine-readable progress, so the download phase runs in two steps —
 //! `pip download` into a folder (with TEMP pointed inside it) while we watch that folder
@@ -16,16 +17,8 @@ use super::catalog;
 
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-/// Exactly what was tested together. `torch`/`torchaudio` come from PyTorch's CUDA index.
-const REQUIREMENTS: &[&str] = &[
-    "torch==2.11.0",
-    "torchaudio==2.11.0",
-    "omnivoice==0.2.1",
-    "transformers==5.17.0",
-    "sherpa-onnx==1.13.8",
-    "soundfile",
-];
-const TORCH_INDEX: &str = "https://download.pytorch.org/whl/cu128";
+/// What `tts_server.py` imports. numpy is left to pip to match Python 3.10.
+const REQUIREMENTS: &[&str] = &["numpy>=1.24,<3", "sherpa-onnx==1.13.8"];
 const PYPI: &str = "https://pypi.org/simple";
 
 fn log_path() -> PathBuf {
@@ -120,10 +113,10 @@ pub async fn run(dir: &Path, expected: u64, cancel: &AtomicBool, progress: impl 
     let base = dir_size(dir);
     let mut download: Vec<&str> = vec![
         "-m", "pip", "download", "--dest", "wheels", "--progress-bar", "off",
-        "--index-url", TORCH_INDEX, "--extra-index-url", PYPI,
+        "--index-url", PYPI, "--only-binary", ":all:",
     ];
     download.extend_from_slice(REQUIREMENTS);
-    let stage = "Скачиваю PyTorch и OmniVoice…";
+    let stage = "Скачиваю пакеты…";
     progress(0, stage);
     python(dir, &download, cancel, || {
         let grown = dir_size(dir).saturating_sub(base);
@@ -138,9 +131,9 @@ pub async fn run(dir: &Path, expected: u64, cancel: &AtomicBool, progress: impl 
     python(dir, &install, cancel, || {}).await?;
 
     progress(expected * 99 / 100, "Проверяю…");
-    python(dir, &["-c", "import torch, omnivoice, sherpa_onnx; assert torch.cuda.is_available(), 'CUDA недоступна'"], cancel, || {})
+    python(dir, &["-c", "import numpy, sherpa_onnx"], cancel, || {})
         .await
-        .map_err(|e| format!("PyTorch не видит видеокарту NVIDIA: {e}"))?;
+        .map_err(|e| format!("Пакеты озвучки не загружаются: {e}"))?;
 
     let _ = std::fs::remove_dir_all(&wheels);
     let _ = std::fs::remove_dir_all(dir.join("tmp"));

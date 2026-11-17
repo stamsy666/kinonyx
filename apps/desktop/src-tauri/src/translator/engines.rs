@@ -1,5 +1,6 @@
-//! whisper-server (speech recognition), llama-server (translation) and the voice-over server
-//! (OmniVoice, bundled `tts_server.py` on the downloaded Python) child processes.
+//! whisper-server (speech recognition), llama-server (translation) and the voice-over pair —
+//! omnivoice.cpp's `tts-server` (synthesis, bundled `translator/omnivoice/`) driven by the bundled
+//! `tts_server.py` on the downloaded Python (speaker bank, timing) — child processes.
 //!
 //! Started on the first translation session and kept alive across channel switches — loading
 //! the models takes several seconds, which would otherwise be paid on every zap. Both inherit
@@ -36,6 +37,12 @@ pub struct Engines {
     asr: Mutex<Option<Server>>,
     mt: Mutex<Option<Server>>,
     tts: Mutex<Option<Server>>,
+    /// omnivoice.cpp's synthesis server, which `tts` drives. Always started and stopped with it.
+    tts_engine: Mutex<Option<Server>>,
+}
+
+fn alive(slot: &mut Option<Server>) -> bool {
+    slot.as_mut().is_some_and(|s| matches!(s.child.try_wait(), Ok(None)))
 }
 
 fn free_port() -> Result<u16, String> {
@@ -91,7 +98,7 @@ fn log_tail(log_name: &str) -> String {
 
 async fn wait_ready(server: &mut Server, log_name: &str, health_path: Option<&str>) -> Result<(), String> {
     let deadline = Instant::now() + Duration::from_secs(180);
-    let client = reqwest::Client::new();
+    let client = crate::http::local();
     while Instant::now() < deadline {
         if let Ok(Some(status)) = server.child.try_wait() {
             return Err(format!("процесс завершился ({status}): {}", log_tail(log_name)));
@@ -187,58 +194,83 @@ impl Engines {
         Ok(port)
     }
 
-    /// Port of the voice-over server, starting it if needed. Loading OmniVoice and warming it
-    /// up takes ~15–30 s, so it's only started once voice-over is actually switched on.
+    /// Port of the voice-over server, starting it (and its synthesis engine) if needed. Only
+    /// started once voice-over is actually switched on.
     pub async fn tts(&self, app: &AppHandle) -> Result<u16, String> {
         let mut slot = self.tts.lock().await;
-        if let Some(s) = slot.as_mut() {
-            if matches!(s.child.try_wait(), Ok(None)) {
-                return Ok(s.port);
-            }
+        let mut engine = self.tts_engine.lock().await;
+        if alive(&mut slot) && alive(&mut engine) {
+            return Ok(slot.as_ref().unwrap().port);
         }
+        // One without the other is no use: start the pair afresh.
         *slot = None;
+        *engine = None;
         let runtime = catalog::item("voice-runtime").unwrap();
         let model = catalog::item("voice-omnivoice").unwrap();
+        // tts-server.exe is built against the same CUDA as whisper-server: it takes the runtime DLLs
+        // from the engine folder.
+        require(catalog::item("engine-cuda").unwrap())?;
         require(runtime)?;
         require(model)?;
         let script = bundled(app, "tts_server.py").ok_or("tts_server.py не найден в папке программы")?;
+        let engine_exe = bundled(app, "omnivoice/tts-server.exe")
+            .ok_or("omnivoice/tts-server.exe не найден в папке программы (его собирают из omnivoice.cpp, см. scripts/build-omnivoice.ps1)")?;
         let model_dir = catalog::item_dir(model);
+
+        let engine_port = free_port()?;
+        let engine_args: Vec<String> = [
+            "--model", &model_dir.join(catalog::OMNIVOICE_MODEL).to_string_lossy(),
+            "--codec", &model_dir.join(catalog::OMNIVOICE_CODEC).to_string_lossy(),
+            "--host", "127.0.0.1",
+            "--port", &engine_port.to_string(),
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let engine_log = "voice-engine.log";
+        let mut synth = Server { child: spawn(&engine_exe, &engine_args, engine_log)?, port: engine_port, model: model.id };
+        wait_ready(&mut synth, engine_log, Some("/health")).await.map_err(|e| format!("Озвучка (движок): {e}"))?;
+
         let port = free_port()?;
         let args: Vec<String> = vec![
             "-u".into(),
             script.to_string_lossy().into_owned(),
             "--port".into(),
             port.to_string(),
-            "--model".into(),
-            model_dir.to_string_lossy().into_owned(),
             "--speaker-model".into(),
             model_dir.join(catalog::SPEAKER_MODEL).to_string_lossy().into_owned(),
+            "--engine-url".into(),
+            format!("http://127.0.0.1:{engine_port}"),
+            "--steps".into(),
+            "16".into(),
         ];
         let exe = catalog::voice_dir().join("python.exe");
         let mut cmd = Command::new(&exe);
         cmd.current_dir(catalog::voice_dir())
             .env("PYTHONIOENCODING", "utf-8")
-            .env("HF_HUB_OFFLINE", "1")
-            .env("TRANSFORMERS_OFFLINE", "1")
             .env_remove("PYTHONPATH")
             .env_remove("PYTHONHOME");
         let log = "voice-server.log";
         let mut server = Server { child: spawn_cmd(cmd, &exe, &args, log)?, port, model: model.id };
         wait_ready(&mut server, log, Some("/health")).await.map_err(|e| format!("Озвучка: {e}"))?;
+        *engine = Some(synth);
         *slot = Some(server);
         Ok(port)
     }
 
-    /// Kills only the voice-over server (the biggest memory user), keeping recognition and
+    /// Kills only the voice-over pair (server and synthesis engine), keeping recognition and
     /// translation loaded.
     pub async fn stop_tts(&self) {
-        *self.tts.lock().await = None;
+        let mut slot = self.tts.lock().await;
+        let mut engine = self.tts_engine.lock().await;
+        *slot = None;
+        *engine = None;
     }
 
     /// Frees the GPU memory the models hold (e.g. when translation isn't used for a while).
     pub async fn stop_all(&self) {
         *self.asr.lock().await = None;
         *self.mt.lock().await = None;
-        *self.tts.lock().await = None;
+        self.stop_tts().await;
     }
 }

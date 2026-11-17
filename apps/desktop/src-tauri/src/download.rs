@@ -15,7 +15,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::io::AsyncWriteExt;
 
-use crate::http::CLIENT;
+use crate::http::local;
 
 #[derive(Default)]
 pub struct Downloads(Mutex<HashMap<String, Arc<AtomicBool>>>);
@@ -95,7 +95,7 @@ pub async fn dl_start(app: AppHandle, state: State<'_, Downloads>, id: String, u
 /// Ok(Some(path)) — finished; Ok(None) — stopped by the viewer.
 async fn run(app: &AppHandle, id: &str, url: &str, dir: &Path, name: &str, part: &Path, stop: &AtomicBool) -> Result<Option<PathBuf>, String> {
     let have = tokio::fs::metadata(part).await.map(|m| m.len()).unwrap_or(0);
-    let mut req = CLIENT.get(url);
+    let mut req = local().get(url);
     if have > 0 {
         req = req.header("Range", format!("bytes={have}-"));
     }

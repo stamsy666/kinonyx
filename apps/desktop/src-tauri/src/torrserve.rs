@@ -13,7 +13,7 @@
 //!   GET  /stream/<name>?link=<hash>&index=<id>&play=true → 206 byte ranges, so mpv can seek
 
 use crate::config::AppConfig;
-use crate::http::CLIENT;
+use crate::http::local;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -73,7 +73,7 @@ fn free_port() -> Option<u16> {
 }
 
 async fn echo_ok(port: u16) -> bool {
-    CLIENT
+    local()
         .get(format!("http://127.0.0.1:{port}/echo"))
         .timeout(Duration::from_millis(500))
         .send()
@@ -214,7 +214,7 @@ async fn tune(base: &str) -> Result<(), String> {
     // The process was just spawned — wait for its HTTP server.
     let mut up = false;
     for _ in 0..75 {
-        if CLIENT
+        if local()
             .get(format!("{base}/echo"))
             .timeout(Duration::from_millis(500))
             .send()
@@ -232,7 +232,7 @@ async fn tune(base: &str) -> Result<(), String> {
 
     // `set` replaces the whole settings object (missing fields become zero values), so
     // read-modify-write instead of sending only our keys.
-    let mut sets: Value = CLIENT
+    let mut sets: Value = local()
         .post(format!("{base}/settings"))
         .json(&json!({ "action": "get" }))
         .send()
@@ -248,7 +248,7 @@ async fn tune(base: &str) -> Result<(), String> {
     for (k, v) in STREAMING_SETTINGS {
         obj.insert((*k).to_string(), json!(v));
     }
-    let res = CLIENT
+    let res = local()
         .post(format!("{base}/settings"))
         .json(&json!({ "action": "set", "sets": sets }))
         .send()
@@ -274,7 +274,7 @@ fn base_url(config: &AppConfig) -> String {
 
 #[tauri::command]
 pub async fn torrserve_health(config: tauri::State<'_, AppConfig>) -> Result<bool, String> {
-    Ok(CLIENT
+    Ok(local()
         .get(format!("{}/echo", base_url(&config)))
         .timeout(Duration::from_millis(800))
         .send()
@@ -283,7 +283,7 @@ pub async fn torrserve_health(config: tauri::State<'_, AppConfig>) -> Result<boo
 }
 
 async fn torrents_action(config: &AppConfig, body: Value) -> Result<Value, String> {
-    let res = CLIENT
+    let res = local()
         .post(format!("{}/torrents", base_url(config)))
         .json(&body)
         .send()

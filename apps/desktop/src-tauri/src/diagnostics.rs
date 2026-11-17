@@ -141,7 +141,7 @@ pub async fn run_diagnostics(config: tauri::State<'_, AppConfig>) -> Result<Vec<
     let ts_url = format!("http://127.0.0.1:{}/echo", config.torrserve_port.load(std::sync::atomic::Ordering::Relaxed));
 
     let ts = async {
-        match CLIENT.get(&ts_url).timeout(Duration::from_millis(1500)).send().await {
+        match crate::http::local().get(&ts_url).timeout(Duration::from_millis(1500)).send().await {
             Ok(r) if r.status().is_success() => check("torrserve", "TorrServer", Status::Ok, "запущен", None),
             _ => {
                 let problem = crate::torrserve::problem();

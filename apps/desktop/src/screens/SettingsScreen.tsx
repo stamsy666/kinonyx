@@ -38,6 +38,7 @@ import { exportUserData, importUserData, openUserDataDir } from "../data/userdat
 import { getJacredKey, getJacredUrl, setJacred } from "../data/jacred";
 import { lastSpeed, recommendQuality, runSpeedTest } from "../data/speedtest";
 import { SCREENSAVER_OPTIONS, useScreensaver } from "../components/Screensaver";
+import { introEnabled, setIntroEnabled } from "../components/IntroSplash";
 import { listAudioDevices, type AudioDevice } from "../data/audioDevices";
 import { listMonitors, moveToMonitor, readMonitor, readStartFullscreen, writeMonitor, writeStartFullscreen, type MonitorChoice } from "../data/windowPrefs";
 
@@ -164,6 +165,7 @@ export function SettingsScreen() {
   const screensaverSeconds = useScreensaver((s) => s.seconds);
   const setScreensaverSeconds = useScreensaver((s) => s.setSeconds);
   const [startFull, setStartFull] = useState(readStartFullscreen);
+  const [introOn, setIntroOn] = useState(introEnabled);
   const [monitor, setMonitor] = useState(readMonitor);
   const [monitors, setMonitors] = useState<MonitorChoice[]>([]);
   const [devices, setDevices] = useState<AudioDevice[]>([]);
@@ -813,6 +815,25 @@ export function SettingsScreen() {
                   )}
                 </span>
                 Запускать в полном экране
+              </Focusable>
+              <Focusable
+                as="button"
+                className={`checkbox ${introOn ? "is-on" : ""}`}
+                focusKey="settings:introOnStart"
+                onPress={() => {
+                  const on = !introOn;
+                  setIntroOn(on);
+                  setIntroEnabled(on);
+                }}
+              >
+                <span className="checkbox__box">
+                  {introOn && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </span>
+                Заставка KINONYX при запуске
               </Focusable>
               {monitors.length > 2 && (
                 <CycleRow

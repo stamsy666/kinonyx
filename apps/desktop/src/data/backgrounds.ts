@@ -1,4 +1,4 @@
-export type BgKind = "tranquiluxe" | "novatrix" | "velustro" | "plasma" | "ps4" | "ps5" | "bw";
+export type BgKind = "tranquiluxe" | "novatrix" | "velustro" | "plasma" | "ribbon" | "ps4" | "ps5" | "bw";
 
 export interface BgPalette {
   label: string;
@@ -44,6 +44,15 @@ export const BG_PALETTES: Record<BgKind, BgPalette> = {
     accentGlow: "rgba(194, 107, 255, 0.35)",
     // Unused: plasma is CSS blend-mode blobs (see BubbleBackground.tsx), not a uvcanvas shader.
     colorA: hexToRgb("#c26bff"),
+  },
+  ribbon: {
+    // Ribbon Glow (Originkit): cyan and violet ribbons on a near-black ground (RibbonBackground.tsx).
+    label: "Ленты",
+    accent: "#2fd3f2",
+    accentDeep: "#7b61ff",
+    accentGlow: "rgba(47, 211, 242, 0.35)",
+    // Unused: the ribbons have their own two-colour palette.
+    colorA: hexToRgb("#2fd3f2"),
   },
   ps4: {
     label: "PS4",
@@ -98,7 +107,7 @@ const PLAIN_TOKENS: Partial<Record<BgKind, Record<string, string>>> = {
 
 const ALL_PLAIN_TOKEN_NAMES = Array.from(new Set(Object.values(PLAIN_TOKENS).flatMap((t) => Object.keys(t ?? {}))));
 
-export const BG_KINDS: BgKind[] = ["tranquiluxe", "novatrix", "velustro", "plasma", "ps4", "ps5", "bw"];
+export const BG_KINDS: BgKind[] = ["tranquiluxe", "novatrix", "velustro", "plasma", "ribbon", "ps4", "ps5", "bw"];
 
 /** Animated themes first, then plain ones — the order Settings shows them in two groups. */
 /** Exclusive themes: shown in their own group in Settings, apart from the ordinary ones. */

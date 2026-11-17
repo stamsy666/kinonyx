@@ -39,6 +39,8 @@ interface TranslatorState {
   items: TranslatorItem[];
   root: string;
   bundled: boolean;
+  /** omnivoice/tts-server.exe is in this build (voice-over synthesis). */
+  voiceBundled: boolean;
   vramMb: number | null;
   progress: Record<string, Progress>;
 
@@ -82,6 +84,7 @@ export const useTranslator = create<TranslatorState>()(
       items: [],
       root: "",
       bundled: false,
+      voiceBundled: false,
       vramMb: null,
       progress: {},
 
@@ -125,7 +128,7 @@ export const useTranslator = create<TranslatorState>()(
           });
         }
         const st = await translatorStatus().catch(() => null);
-        if (st) set({ items: st.items, root: st.root, bundled: st.bundled, vramMb: st.vramMb });
+        if (st) set({ items: st.items, root: st.root, bundled: st.bundled, voiceBundled: st.voiceBundled, vramMb: st.vramMb });
       },
 
       async download(id) {
@@ -162,7 +165,7 @@ export const useTranslator = create<TranslatorState>()(
 
       voiceReady() {
         const ok = (id: string) => get().items.some((i) => i.id === id && i.installed);
-        return get().voiceEnabled && get().ready() && ok("voice-runtime") && ok("voice-omnivoice");
+        return get().voiceEnabled && get().voiceBundled && get().ready() && ok("voice-runtime") && ok("voice-omnivoice");
       },
     }),
     {

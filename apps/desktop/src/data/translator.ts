@@ -18,6 +18,8 @@ export interface TranslatorStatus {
   root: string;
   items: TranslatorItem[];
   bundled: boolean;
+  /** omnivoice/tts-server.exe (voice-over synthesis) is in this build. */
+  voiceBundled: boolean;
   /** Video memory of the NVIDIA card, MiB. */
   vramMb: number | null;
 }
@@ -78,14 +80,24 @@ async function listen<T>(event: string, fn: (payload: T) => void): Promise<() =>
 export const translatorStatus = () =>
   isTauri
     ? invoke<TranslatorStatus>("translator_status")
-    : Promise.resolve<TranslatorStatus>({ root: "", items: [], bundled: false, vramMb: null });
+    : Promise.resolve<TranslatorStatus>({ root: "", items: [], bundled: false, voiceBundled: false, vramMb: null });
 export const translatorDownload = (id: string) => invoke<void>("translator_download", { id });
 export const translatorCancelDownload = (id: string) => invoke<void>("translator_cancel_download", { id });
 export const translatorDelete = (id: string) => invoke<void>("translator_delete", { id });
 export const translatorStart = (options: StartOptions) => invoke<{ session: number; playUrl: string }>("translator_start", { options });
 /** Translates a film's speech ahead of the viewer (the player plays the film itself). Returns the session id. */
-export const translatorFilmStart = (options: { url: string; asrModel: string; mtModel: string; sourceLang: string | null; start: number }) =>
-  invoke<number>("translator_film_start", { options });
+export const translatorFilmStart = (options: {
+  url: string;
+  asrModel: string;
+  mtModel: string;
+  sourceLang: string | null;
+  start: number;
+  /** What the translator is told about the film (data/filmHints.ts). */
+  title?: string;
+  synopsis?: string;
+  glossary?: [string, string][];
+  cast?: string[];
+}) => invoke<number>("translator_film_start", { options });
 export const translatorStop = (session?: number) => invoke<void>("translator_stop", { session: session ?? null });
 /** "voice" kills just the voice-over server, "all" every helper process, immediately. */
 export const translatorRelease = (what: "voice" | "all") => invoke<void>("translator_release", { what });

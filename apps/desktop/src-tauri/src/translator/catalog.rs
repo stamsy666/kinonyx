@@ -39,8 +39,8 @@ pub struct Item {
     pub marker: &'static [&'static str],
     /// Lives in `engines/<file>` rather than `models/`.
     pub engine_dir: bool,
-    /// After the downloads, set up the embedded Python (pip + PyTorch + OmniVoice); this
-    /// much more is fetched from PyPI / download.pytorch.org along the way.
+    /// After the downloads, set up the embedded Python (pip + numpy + sherpa-onnx for the
+    /// voice-over server); this much more is fetched from PyPI along the way.
     pub pip: Option<u64>,
 }
 
@@ -48,15 +48,22 @@ const fn dl(url: &'static str, size: u64, name: &'static str) -> Download {
     Download { url, size, unzip: false, name: Some(name) }
 }
 
-// Pinned revision of k2-fsa/OmniVoice on Hugging Face (Apache-2.0).
-macro_rules! omnivoice {
+// OmniVoice (k2-fsa) converted to GGUF for omnivoice.cpp, pinned revision. The weights are
+// CC-BY-NC (training data), the GGML port MIT.
+macro_rules! omnivoice_gguf {
     ($f:literal) => {
-        concat!("https://huggingface.co/k2-fsa/OmniVoice/resolve/c5fdb5ccb189668d56333f77ba2629f4cd7535f4/", $f)
+        concat!("https://huggingface.co/Serveurperso/OmniVoice-GGUF/resolve/017094167b5c9ed565a5076ac9b3b93c5ecf5c73/", $f)
     };
 }
 
 /// Voiceprint model that tells speakers apart (sherpa-onnx release, 3D-Speaker CAM++).
 pub const SPEAKER_MODEL: &str = "wespeaker_en_voxceleb_CAM++_LM.onnx";
+/// OmniVoice's language model (Qwen3 0.6B backbone), Q8_0 — the port's recommended default.
+pub const OMNIVOICE_MODEL: &str = "omnivoice-base-Q8_0.gguf";
+/// OmniVoice's audio tokenizer, kept at F32: a voice's codes must come from the same codec precision.
+pub const OMNIVOICE_CODEC: &str = "omnivoice-tokenizer-F32.gguf";
+/// Where the PyTorch build of OmniVoice used to live (≈3.3 GB); removed once the GGUF one is in.
+pub const LEGACY_OMNIVOICE_DIR: &str = "omnivoice";
 
 // The engine is llama.cpp's official Windows CUDA 13 build (pinned release) + its CUDA
 // runtime DLLs. whisper-server — built from whisper.cpp against the same CUDA major version
@@ -151,10 +158,42 @@ pub const ITEMS: &[Item] = &[
         pip: None,
     },
     Item {
+        id: "hymt2-7b-q4",
+        kind: Kind::Mt,
+        title: "Hy-MT2 7B",
+        note: "Старшая модель Tencent: заметно точнее 1.8B (имена, род, идиомы). 4,6 ГБ, около 5,5 ГБ видеопамяти — на 8 ГБ только без озвучки.",
+        file: "Hy-MT2-7B-Q4_K_M.gguf",
+        downloads: &[Download {
+            url: "https://huggingface.co/tencent/Hy-MT2-7B-GGUF/resolve/main/Hy-MT2-7B-Q4_K_M.gguf",
+            size: 4_624_648_896,
+            unzip: false,
+            name: None,
+        }],
+        marker: &["Hy-MT2-7B-Q4_K_M.gguf"],
+        engine_dir: false,
+        pip: None,
+    },
+    Item {
+        id: "hymt2-7b-q6",
+        kind: Kind::Mt,
+        title: "Hy-MT2 7B (точная)",
+        note: "Та же 7B почти без потерь от сжатия. 6,2 ГБ, около 7 ГБ видеопамяти — для карт с 12–16 ГБ.",
+        file: "HY-MT2-7B-Q6_K.gguf",
+        downloads: &[Download {
+            url: "https://huggingface.co/tencent/Hy-MT2-7B-GGUF/resolve/main/HY-MT2-7B-Q6_K.gguf",
+            size: 6_164_482_720,
+            unzip: false,
+            name: None,
+        }],
+        marker: &["HY-MT2-7B-Q6_K.gguf"],
+        engine_dir: false,
+        pip: None,
+    },
+    Item {
         id: "voice-runtime",
         kind: Kind::Voice,
         title: "Среда озвучки",
-        note: "Python и PyTorch с CUDA — на них работает клонирование голоса. Ставится с python.org, pypi.org и pytorch.org.",
+        note: "Python с numpy и sherpa-onnx — узнаёт, кто говорит, и ведёт голоса. Около 60 МБ, ставится с python.org и pypi.org.",
         file: "voice",
         downloads: &[
             Download {
@@ -167,30 +206,24 @@ pub const ITEMS: &[Item] = &[
         ],
         marker: &["python.exe", ".installed"],
         engine_dir: true,
-        pip: Some(3_300_000_000),
+        pip: Some(60_000_000),
     },
     Item {
         id: "voice-omnivoice",
         kind: Kind::Voice,
         title: "OmniVoice",
-        note: "Говорит переводом голосом того, кто сказал фразу. Около 3 ГБ видеопамяти.",
-        file: "omnivoice",
+        note: "Говорит переводом голосом того, кто сказал фразу. 1,4 ГБ, около 2 ГБ видеопамяти.",
+        file: "omnivoice-gguf",
         downloads: &[
-            dl(omnivoice!("config.json"), 2_238, "config.json"),
-            dl(omnivoice!("chat_template.jinja"), 4_168, "chat_template.jinja"),
-            dl(omnivoice!("tokenizer.json"), 11_423_986, "tokenizer.json"),
-            dl(omnivoice!("tokenizer_config.json"), 533, "tokenizer_config.json"),
-            dl(omnivoice!("model.safetensors"), 2_450_344_112, "model.safetensors"),
-            dl(omnivoice!("audio_tokenizer/config.json"), 2_531, "audio_tokenizer/config.json"),
-            dl(omnivoice!("audio_tokenizer/preprocessor_config.json"), 206, "audio_tokenizer/preprocessor_config.json"),
-            dl(omnivoice!("audio_tokenizer/model.safetensors"), 805_665_628, "audio_tokenizer/model.safetensors"),
+            dl(omnivoice_gguf!("omnivoice-base-Q8_0.gguf"), 656_395_008, OMNIVOICE_MODEL),
+            dl(omnivoice_gguf!("omnivoice-tokenizer-F32.gguf"), 734_300_704, OMNIVOICE_CODEC),
             dl(
                 "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/wespeaker_en_voxceleb_CAM++_LM.onnx",
                 29_292_687,
                 SPEAKER_MODEL,
             ),
         ],
-        marker: &["config.json", "model.safetensors", "audio_tokenizer/model.safetensors", SPEAKER_MODEL],
+        marker: &[OMNIVOICE_MODEL, OMNIVOICE_CODEC, SPEAKER_MODEL],
         engine_dir: false,
         pip: None,
     },

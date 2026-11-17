@@ -31,6 +31,7 @@ use super::engines::Engines;
 use super::hls;
 use super::mpv::{self, Mpv};
 use super::mt;
+use super::pitch;
 use super::relay::Relay;
 
 mod film;
@@ -53,6 +54,28 @@ const VOICE_MAX_GROUP_S: f64 = 9.0;
 const VOICE_MAX_CHARS: usize = 180;
 /// Longest voice reference sent to OmniVoice.
 const VOICE_MAX_REF_S: f64 = 15.0;
+/// Previous lines (and their translations) given to the translator as context. A film is one
+/// continuous conversation, a broadcast jumps between stories.
+const CONTEXT_BROADCAST: usize = 3;
+const CONTEXT_FILM: usize = 6;
+
+/// What the translator knows about a session besides the words: what is being watched, the
+/// characters' Russian names, fixed renderings. Set once at the start (see `mt::Hints`).
+#[derive(Default)]
+pub(super) struct Background {
+    pub scene: mt::Scene,
+    pub glossary: Vec<(String, String)>,
+    pub cast: Vec<String>,
+}
+
+impl Background {
+    fn context_len(&self) -> usize {
+        match self.scene {
+            mt::Scene::Film { .. } => CONTEXT_FILM,
+            mt::Scene::Broadcast => CONTEXT_BROADCAST,
+        }
+    }
+}
 
 #[derive(Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -275,7 +298,17 @@ impl Session {
             stop.subscribe(),
         ));
         let (voice_tx, voice_rx) = mpsc::unbounded_channel();
-        tokio::spawn(translate(app.clone(), id, ports, seg_rx, voice_tx, voice.clone(), visible_pos.clone(), stop.subscribe()));
+        tokio::spawn(translate(
+            app.clone(),
+            id,
+            ports,
+            Arc::new(Background::default()),
+            seg_rx,
+            voice_tx,
+            voice.clone(),
+            visible_pos.clone(),
+            stop.subscribe(),
+        ));
         tokio::spawn(speak(app.clone(), id, voice_rx, voice.clone(), visible_pos.clone(), stop.subscribe()));
 
         let session = Session {
@@ -324,7 +357,7 @@ impl Session {
             match r {
                 Ok(port) => {
                     // A new channel: forget the previous one's speakers.
-                    let _ = reqwest::Client::new().post(format!("http://127.0.0.1:{port}/reset")).send().await;
+                    let _ = crate::http::local().post(format!("http://127.0.0.1:{port}/reset")).send().await;
                     voice.port.store(port as u64, Ordering::SeqCst);
                     emit_status(&app, id, "voice-ready", None);
                 }
@@ -537,6 +570,8 @@ struct Seg {
     lang: Option<&'static str>,
     /// The segment's own audio — the voice reference — while voice-over is on.
     audio: Option<Vec<f32>>,
+    /// Who is likely speaking, by the pitch of the voice (Russian verb and adjective endings).
+    gender: Option<mt::Gender>,
 }
 
 /// Pins the broadcast language once detection agrees on it (skipping per-window detection
@@ -581,7 +616,7 @@ async fn recognize(
     voice: Arc<Voice>,
     mut stop: watch::Receiver<bool>,
 ) {
-    let client = reqwest::Client::new();
+    let client = crate::http::local();
     let fixed_lang: Option<&'static str> = source_lang.as_deref().and_then(asr::lang_code);
     let mut lock = LangLock::default();
     let mut committed = 0usize; // sample offset into blocks[0]
@@ -671,12 +706,11 @@ async fn recognize(
             committed_any = true;
             // Raw text, leading space included: whisper sometimes splits segments inside a
             // word, and only that space tells a continuation ("avahee") from a new word.
-            let audio = voice.on.load(Ordering::SeqCst).then(|| {
-                let from = ((s.start * SR) as usize).min(window.len());
-                let to = ((s.end * SR) as usize).clamp(from, window.len());
-                window[from..to].to_vec()
-            });
-            let _ = out.send(Seg { start, end: end.max(start + 0.3), text: s.text.clone(), lang, audio });
+            let from = ((s.start * SR) as usize).min(window.len());
+            let to = ((s.end * SR) as usize).clamp(from, window.len());
+            let gender = pitch::speaker_gender(&window[from..to], SAMPLE_RATE);
+            let audio = voice.on.load(Ordering::SeqCst).then(|| window[from..to].to_vec());
+            let _ = out.send(Seg { start, end: end.max(start + 0.3), text: s.text.clone(), lang, audio, gender });
         }
         if segs.is_empty() && (len_s >= 6.0 || finalize) {
             // Only music/silence here (VAD found no speech): let it go, keep a second so a
@@ -725,13 +759,14 @@ async fn translate(
     app: AppHandle,
     session: u64,
     ports: Arc<Ports>,
+    background: Arc<Background>,
     mut rx: mpsc::UnboundedReceiver<Seg>,
     voice_tx: mpsc::UnboundedSender<VoiceJob>,
     voice: Arc<Voice>,
     visible_pos: Arc<AtomicU64>,
     mut stop: watch::Receiver<bool>,
 ) {
-    let client = reqwest::Client::new();
+    let client = crate::http::local();
     let mut pending: Vec<Seg> = Vec::new();
     let mut last_arrival = Instant::now();
     let mut context: VecDeque<(String, String)> = VecDeque::new();
@@ -747,7 +782,7 @@ async fn translate(
             // Don't glue lines across a long pause — they're separate utterances. (A shorter
             // pause is usually a speaker catching breath mid-sentence.)
             if pending.last().map(|p| seg.start - p.end > 2.5 || seg.start < p.end - 1.0 || p.lang != seg.lang).unwrap_or(false) {
-                emit_group(&app, session, &client, &ports, std::mem::take(&mut pending), &mut context, &voice_tx, &voice, &mut stop).await;
+                emit_group(&app, session, &client, &ports, &background, std::mem::take(&mut pending), &mut context, &voice_tx, &voice, &mut stop).await;
             }
             last_arrival = Instant::now();
             let ends = ends_sentence(&seg.text);
@@ -772,7 +807,7 @@ async fn translate(
             };
         }
         if flush && !pending.is_empty() {
-            emit_group(&app, session, &client, &ports, std::mem::take(&mut pending), &mut context, &voice_tx, &voice, &mut stop).await;
+            emit_group(&app, session, &client, &ports, &background, std::mem::take(&mut pending), &mut context, &voice_tx, &voice, &mut stop).await;
         }
     }
 }
@@ -783,6 +818,7 @@ async fn emit_group(
     session: u64,
     client: &reqwest::Client,
     ports: &Ports,
+    background: &Background,
     group: Vec<Seg>,
     context: &mut VecDeque<(String, String)>,
     voice_tx: &mpsc::UnboundedSender<VoiceJob>,
@@ -811,8 +847,15 @@ async fn emit_group(
             }
         };
         let ctx: Vec<(String, String)> = context.iter().cloned().collect();
+        let hints = mt::Hints {
+            scene: background.scene.clone(),
+            glossary: background.glossary.clone(),
+            cast: background.cast.clone(),
+            speaker: pitch::majority(group.iter().map(|s| s.gender)),
+            voice: voice.on.load(Ordering::SeqCst),
+        };
         let t0 = Instant::now();
-        match mt::translate(client, port, &orig, &ctx).await {
+        match mt::translate(client, port, &orig, &ctx, &hints).await {
             Ok(t) if !t.is_empty() => {
                 crate::elog!("[translator] mt {} ms: {orig}\n    -> {t}", t0.elapsed().as_millis());
                 t
@@ -825,7 +868,7 @@ async fn emit_group(
         }
     };
     context.push_back((orig.clone(), text.clone()));
-    while context.len() > 3 {
+    while context.len() > background.context_len() {
         context.pop_front();
     }
     if voice.on.load(Ordering::SeqCst) && !russian && group.iter().all(|s| s.audio.is_some()) {
@@ -898,7 +941,7 @@ async fn speak(
     visible_pos: Arc<AtomicU64>,
     mut stop: watch::Receiver<bool>,
 ) {
-    let client = reqwest::Client::new();
+    let client = crate::http::local();
     let b64 = base64::engine::general_purpose::STANDARD;
     // Jobs already received but not spoken yet: the next one's start bounds this one's slot.
     let mut queue: VecDeque<VoiceJob> = VecDeque::new();
@@ -1081,6 +1124,7 @@ mod tests {
             text: text.into(),
             lang: Some("en"),
             audio: Some(vec![0.0; ((end - start) * SR) as usize]),
+            gender: None,
         };
         let group = vec![seg(0.0, 6.0, " First part of it."), seg(6.0, 12.0, " Second part here.")];
         let ru = format!("{} {}", "А".repeat(120) + ".", "Б".repeat(120) + ".");

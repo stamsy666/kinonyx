@@ -198,7 +198,11 @@ export function PlayerScreen({
   const [filmTr, setFilmTr] = useState(false);
   const [trHint, setTrHint] = useState<string | null>(null);
   const canTranslate = isTauri && !!hash && translationEnabled;
-  const filmSubs = useFilmTranslation(canTranslate ? curUrl : null, filmTr, state.position);
+  const filmInfo = useMemo(
+    () => ({ id: filmId, title, nameRu: film?.nameRu, nameOriginal: film?.nameOriginal }),
+    [filmId, title, film?.nameRu, film?.nameOriginal],
+  );
+  const filmSubs = useFilmTranslation(canTranslate ? curUrl : null, filmTr, state.position, filmInfo);
   useEffect(() => {
     if (filmSubs.state !== "error") return;
     setTrHint(`Перевод выключен: ${filmSubs.error ?? "ошибка"}`);

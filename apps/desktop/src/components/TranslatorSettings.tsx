@@ -152,11 +152,16 @@ export function TranslatorSettings() {
           Перевод звучит голосом поверх приглушённого оригинала. Включается в плеере. Нужны распознавание и перевод.
           {!t.voiceEnabled && " Сейчас выключен — в плеере его не будет."}
         </div>
+        {!t.voiceBundled && (
+          <div className="settings__hint settings__hint--error">
+            В этой сборке нет движка озвучки (omnivoice/tts-server.exe) — озвучка недоступна.
+          </div>
+        )}
         {t.vramMb != null && t.vramMb < 10000 && (
           <div className="settings__hint">
             На видеокарте {Math.round(t.vramMb / 1024)} ГБ памяти впритык для
-            трёх моделей сразу — для голоса выберите сжатые модели распознавания
-            и перевода.
+            трёх моделей сразу — для голоса выберите сжатый Whisper и перевод Hy-MT2 1.8B
+            (7B вместе с озвучкой не поместится).
           </div>
         )}
         <div className={`tr-list ${t.voiceEnabled ? "" : "tr-list--off"}`}>

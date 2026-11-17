@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { isPlayerRoute, useApp } from "./store/app";
 import { onBack } from "@kinonyx/ui";
 import { TopBar } from "./components/TopBar";
@@ -36,6 +36,7 @@ import { TvPlaylistsScreen } from "./screens/tv/TvPlaylistsScreen";
 import { TvCategoriesScreen } from "./screens/tv/TvCategoriesScreen";
 import { TvChannelsScreen } from "./screens/tv/TvChannelsScreen";
 import { PlayerHost } from "./components/PlayerHost";
+import { IntroSplash, introEnabled } from "./components/IntroSplash";
 
 function CurrentScreen() {
   const screen = useApp((s) => s.screen);
@@ -107,6 +108,9 @@ function CurrentScreen() {
 }
 
 export function App() {
+  // The launch intro (5.6 s, any key skips it), once per start; off in Settings → Оформление.
+  const [intro, setIntro] = useState(() => introEnabled());
+  const sfxVolume = useApp((s) => s.sfxVolume);
   const back = useApp((s) => s.back);
   const backgroundKind = useApp((s) => s.backgroundKind);
   const clickSparkEnabled = useApp((s) => s.clickSparkEnabled);
@@ -267,6 +271,7 @@ export function App() {
       {shell}
       <PlayerHost />
       <RemoteBridge />
+      {intro && <IntroSplash volume={sfxVolume} onDone={() => setIntro(false)} />}
     </>
   );
 }

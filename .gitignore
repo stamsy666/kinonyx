@@ -25,6 +25,8 @@ third_party/
 
 # Local translator: whisper-server.exe is built from third_party/whisper.cpp (see CLAUDE.md), not committed.
 apps/desktop/src-tauri/translator/*.exe
+# omnivoice.cpp's tts-server.exe + ggml DLLs, built by scripts/build-omnivoice.ps1, not committed.
+apps/desktop/src-tauri/translator/omnivoice/
 
 # Updater signing keys — NEVER commit.
 *.key

@@ -104,6 +104,8 @@ export interface KpStaffPerson {
   posterUrl?: string;
   professionText?: string;
   professionKey?: string;
+  /** Kinopoisk: for an actor, the character played, in Russian («Уолтер Уайт»). */
+  description?: string;
 }
 
 export interface KpPersonFilm {

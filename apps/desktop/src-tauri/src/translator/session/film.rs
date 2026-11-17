@@ -24,7 +24,8 @@ use super::super::asr::SAMPLE_RATE;
 use super::super::catalog;
 use super::super::engines::Engines;
 use super::super::mpv::Mpv;
-use super::{emit_status, read_pcm, recognize, spawn_event_loop, translate, Audio, Ports, Throttle, Voice};
+use super::super::mt;
+use super::{emit_status, read_pcm, recognize, spawn_event_loop, translate, Audio, Background, Ports, Throttle, Voice};
 
 /// How far ahead of the viewer the decoder may run, in seconds of film.
 const AHEAD_S: f64 = 150.0;
@@ -43,6 +44,27 @@ pub struct FileOptions {
     pub source_lang: Option<String>,
     /// Where the viewer is now, seconds.
     pub start: f64,
+    /// What the translator is told about the film (all optional: an old front end sends none).
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub synopsis: Option<String>,
+    /// Fixed renderings, e.g. the original title → the Russian one.
+    #[serde(default)]
+    pub glossary: Vec<(String, String)>,
+    /// Characters' names as Kinopoisk spells them in Russian.
+    #[serde(default)]
+    pub cast: Vec<String>,
+}
+
+impl FileOptions {
+    fn background(&self) -> Background {
+        let scene = match self.title.as_deref().map(str::trim).filter(|t| !t.is_empty()) {
+            Some(title) => mt::Scene::Film { title: title.to_string(), synopsis: self.synopsis.clone().unwrap_or_default() },
+            None => mt::Scene::Broadcast,
+        };
+        Background { scene, glossary: self.glossary.clone(), cast: self.cast.clone() }
+    }
 }
 
 pub struct FileSession {
@@ -148,7 +170,8 @@ impl FileSession {
         ));
         // No voice-over for films: the jobs channel has nobody on the other end.
         let (voice_tx, _voice_rx) = mpsc::unbounded_channel();
-        tokio::spawn(translate(app.clone(), id, ports, seg_rx, voice_tx, voice, visible_pos.clone(), stop.subscribe()));
+        let background = Arc::new(opts.background());
+        tokio::spawn(translate(app.clone(), id, ports, background, seg_rx, voice_tx, voice, visible_pos.clone(), stop.subscribe()));
 
         Ok(FileSession {
             id,

@@ -9,6 +9,7 @@ mod engines;
 mod hls;
 mod mpv;
 mod mt;
+mod pitch;
 mod pysetup;
 mod relay;
 mod session;
@@ -59,6 +60,8 @@ pub struct StatusReply {
     items: Vec<ItemStatus>,
     /// whisper-server.exe ships with the app; false only in a broken/dev install.
     bundled: bool,
+    /// omnivoice.cpp's tts-server.exe (voice-over synthesis) ships with the app.
+    voice_bundled: bool,
     /// Total video memory of the NVIDIA card, MiB (None if nvidia-smi isn't available).
     vram_mb: Option<u64>,
 }
@@ -108,6 +111,7 @@ pub fn translator_status(app: AppHandle, state: State<'_, Translator>) -> Status
             })
             .collect(),
         bundled: engines::bundled(&app, "whisper-server.exe").is_some(),
+        voice_bundled: engines::bundled(&app, "omnivoice/tts-server.exe").is_some(),
         vram_mb: vram_mb(),
     }
 }
@@ -255,7 +259,7 @@ pub async fn translator_transcribe(app: AppHandle, state: State<'_, Translator>,
     }
 
     let port = state.engines.asr(&app, item).await?;
-    let client = reqwest::Client::new();
+    let client = crate::http::local();
     let reply = asr::transcribe(&client, port, asr::Request { audio: &samples, language: Some("ru"), prompt: None }).await;
 
     // Give the model back after a minute of quiet, unless a translation session is using it.
