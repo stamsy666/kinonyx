@@ -15,6 +15,7 @@ import { clearPresence, setPresence } from "./data/discord";
 import { UpdateModal } from "./components/UpdateModal";
 import { installSoundEngine } from "./data/sounds";
 import { installMusicEngine } from "./data/music";
+import { installPlaybackAudioDevice } from "./data/audioDevices";
 import { applyUiZoom } from "./data/uiZoom";
 import { installInputModeTracker } from "./data/inputMode";
 import { HomeScreen } from "./screens/HomeScreen";
@@ -26,6 +27,7 @@ import { SettingsScreen } from "./screens/SettingsScreen";
 import { SetupScreen } from "./screens/SetupScreen";
 import { DiagnosticsScreen } from "./screens/DiagnosticsScreen";
 import { SearchScreen } from "./screens/SearchScreen";
+import { YoutubeScreen } from "./screens/YoutubeScreen";
 import { FavoritesScreen } from "./screens/FavoritesScreen";
 import { DownloadsScreen } from "./screens/DownloadsScreen";
 import { CatalogScreen } from "./screens/CatalogScreen";
@@ -86,6 +88,9 @@ function CurrentScreen() {
       );
     case "search":
       return <SearchScreen />;
+    case "youtube":
+      return <YoutubeScreen key={screen.watchHistory ? "history" : screen.channel?.id ?? "home"}
+        channel={screen.channel} watchHistory={screen.watchHistory} />;
     case "favorites":
       return <FavoritesScreen />;
     case "downloads":
@@ -110,6 +115,7 @@ function CurrentScreen() {
 export function App() {
   // The launch intro (5.6 s, any key skips it), once per start; off in Settings → Оформление.
   const [intro, setIntro] = useState(() => introEnabled());
+  const [screensaverVisible, setScreensaverVisible] = useState(false);
   const sfxVolume = useApp((s) => s.sfxVolume);
   const back = useApp((s) => s.back);
   const backgroundKind = useApp((s) => s.backgroundKind);
@@ -126,7 +132,7 @@ export function App() {
   );
   // PortoTV's screens (and, styled the same way, the genre category screens) are
   // full-window with their own header and scrolling — no app-shell top bar.
-  const isHome = useApp((s) => s.screen.name === "home" || s.screen.name === "catalog" || s.screen.name === "categories-hub" || s.screen.name === "adult" || s.screen.name === "favorites" || s.screen.name === "downloads" || s.screen.name === "genre" || s.screen.name === "search" || s.screen.name === "settings" || s.screen.name === "setup" || s.screen.name === "diagnostics" || s.screen.name === "movie" || s.screen.name === "person" || s.screen.name === "tv" || s.screen.name === "tv-categories" || s.screen.name === "tv-channels");
+  const isHome = useApp((s) => s.screen.name === "home" || s.screen.name === "catalog" || s.screen.name === "categories-hub" || s.screen.name === "adult" || s.screen.name === "favorites" || s.screen.name === "downloads" || s.screen.name === "genre" || s.screen.name === "search" || s.screen.name === "youtube" || s.screen.name === "settings" || s.screen.name === "setup" || s.screen.name === "diagnostics" || s.screen.name === "movie" || s.screen.name === "person" || s.screen.name === "tv" || s.screen.name === "tv-categories" || s.screen.name === "tv-channels");
   // Per the sketches, these pages carry their own header instead of the app top bar.
   const ownHeader = useApp(
     (s) =>
@@ -144,7 +150,8 @@ export function App() {
       s.screen.name === "adult" ||
       s.screen.name === "favorites" || s.screen.name === "downloads" ||
       s.screen.name === "genre" ||
-      s.screen.name === "search",
+      s.screen.name === "search" ||
+      s.screen.name === "youtube",
   );
 
   useEffect(() => onBack(() => back()), [back]);
@@ -210,6 +217,7 @@ export function App() {
 
   useEffect(() => installSoundEngine(), []);
   useEffect(() => installMusicEngine(), []);
+  useEffect(() => installPlaybackAudioDevice(), []);
   const uiZoom = useApp((s) => s.uiZoom);
   useEffect(() => {
     void applyUiZoom(uiZoom);
@@ -247,7 +255,7 @@ export function App() {
     shell = (
       <>
         {!stillBackdrop && <AppBackground key={backgroundKind} kind={backgroundKind} />}
-        <div className="app-shell">
+        <div className="app-shell" inert={screensaverVisible}>
           {!ownHeader && <TopBar />}
           <div
             className="app-body"
@@ -259,7 +267,7 @@ export function App() {
         </div>
         <ClickSpark enabled={clickSparkEnabled} />
         {updateModal}
-        <Screensaver />
+        <Screensaver theme={backgroundKind} onVisibilityChange={setScreensaverVisible} />
       </>
     );
   }

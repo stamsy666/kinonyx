@@ -1,15 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { create } from "zustand";
-import { useFavorites } from "../store/favorites";
-import { useContinueWatching } from "../store/continueWatching";
-import { img } from "../data/images";
-import { KP_COLLECTIONS, kpCollection, kpImages, type MetadataSource } from "../data/api";
-import { useApp } from "../store/app";
+import { ANIMATED_KINDS, BG_PALETTES, type BgKind } from "../data/backgrounds";
 import logoMark from "../assets/logo-mark.png";
+import { AnimatedBackground } from "./backgrounds/AppBackground";
 
 // Seconds, under a new key: the old one held minutes.
 const KEY = "kinonyx.screensaverAfter";
-const DEFAULT_SECONDS = 300;
+const DEFAULT_SECONDS = 30;
 /** Seconds of rest before it comes; 0 = never. */
 export const SCREENSAVER_OPTIONS = [0, 30, 60, 300];
 
@@ -35,262 +32,143 @@ export const useScreensaver = create<{ seconds: number; setSeconds: (s: number) 
   },
 }));
 
-const SLIDE_MS = 12_000;
-/** How long the new picture takes to come over the old one — the old stays under it, so there is no dip between them. */
-const FADE_MS = 2400;
 const CLOSE_MS = 600;
+const motionQuery = "(prefers-reduced-motion: reduce)";
+const clockFormat = new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" });
+const dateFormat = new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long" });
+const backgrounds = ANIMATED_KINDS.filter((kind) => kind !== "bw");
+type Background = Exclude<BgKind, "bw">;
 
-interface Slide {
-  id: number;
-  title: string;
-  year?: string | number;
-  poster?: string;
-}
-
-/** The films that go round: the home page's own top lists (the same requests — nearly always from the cache), not more than 30. */
-async function loadTop(source: MetadataSource): Promise<Slide[]> {
-  const kinds = source === "tmdb" ? ["TMDB_MOVIE_POPULAR", "TMDB_TRENDING_MOVIE"] : [KP_COLLECTIONS.popular, KP_COLLECTIONS.top250];
-  const lists = await Promise.all(kinds.map((k) => kpCollection(k).then((r) => r.items ?? []).catch(() => [])));
-  const seen = new Set<number>();
-  const out: Slide[] = [];
-  for (const item of lists.flat()) {
-    const title = item.nameRu || item.nameOriginal || "";
-    const poster = item.posterUrl ?? item.posterUrlPreview;
-    if (!poster || !title || seen.has(item.kinopoiskId)) continue;
-    seen.add(item.kinopoiskId);
-    out.push({ id: item.kinopoiskId, title, year: item.year, poster });
-  }
-  return out;
-}
-
-/** A frame of the film for the blurred background (one request per film, kept for the session; the disk cache does the rest). */
-const stillCache = new Map<number, Promise<string | null>>();
-function stillFor(id: number): Promise<string | null> {
-  let p = stillCache.get(id);
-  if (!p) {
-    p = kpImages(id, "STILL", 1)
-      .then((r) => {
-        const items = r.items ?? [];
-        const one = items[Math.min(2, items.length - 1)];
-        return one ? one.previewUrl || one.imageUrl : null;
-      })
-      .catch(() => null);
-    stillCache.set(id, p);
-  }
-  return p;
-}
-
-/** Loads a picture into the cache; never fails or hangs — a picture that does not come in 5 s is shown when it does. */
-function preload(url: string | undefined): Promise<void> {
-  return new Promise((resolve) => {
-    if (!url) return resolve();
-    const im = new Image();
-    im.onload = () => resolve();
-    im.onerror = () => resolve();
-    im.src = url;
-    window.setTimeout(resolve, 5000);
-  });
-}
-
-/**
- * After a while with no key, mouse or touch, the screen is taken by the films from the tops (the popular ones and the best of all time):
- * their posters over a blurred frame of the film, with the name of the programme and the time. It comes up slowly, the pictures
- * change by melting into one another, and it also keeps the television from showing one picture for hours. The first thing the
- * viewer does wakes it — and does nothing else (the first key press is swallowed).
- */
-export function Screensaver() {
-  const seconds = useScreensaver((s) => s.seconds);
-  const favorites = useFavorites((s) => s.items);
-  const watching = useContinueWatching((s) => s.items);
-  const source = useApp((s) => s.metadataSource) ?? "kinopoisk";
-  const [top, setTop] = useState<Slide[]>([]);
-  const [on, setOn] = useState(false);
-  const [closing, setClosing] = useState(false);
-  const onRef = useRef(false);
-  onRef.current = on;
-  const closingRef = useRef(false);
-  const shownAt = useRef(0);
+function IdleDisplay({ kind, closing }: { kind: Background; closing: boolean }) {
+  const [now, setNow] = useState(() => new Date());
+  const [reduceMotion, setReduceMotion] = useState(() => window.matchMedia(motionQuery).matches);
 
   useEffect(() => {
-    if (!seconds) {
-      setOn(false);
-      return;
-    }
     let timer = 0;
-    const arm = () => {
+    const update = () => {
+      const next = new Date();
+      setNow(next);
       window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        if (closingRef.current) return;
-        shownAt.current = Date.now();
-        setOn(true);
+      timer = window.setTimeout(update, 60_000 - (next.getTime() % 60_000));
+    };
+    update();
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia(motionQuery);
+    const sync = () => setReduceMotion(media.matches);
+    media.addEventListener("change", sync);
+    sync();
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
+  const palette = BG_PALETTES[kind];
+  const colors = {
+    "--ss-accent": palette.accent,
+    "--ss-deep": palette.accentDeep,
+  } as CSSProperties;
+
+  return (
+    <div className={`ss${closing ? " ss--closing" : ""}`} data-background={kind} style={colors}>
+      {!reduceMotion && (
+        <div className="ss__art" aria-hidden="true">
+          <AnimatedBackground kind={kind} />
+        </div>
+      )}
+      <div className="ss__brand">
+        <img src={logoMark} alt="" />
+        <span>KINON<em>YX</em></span>
+      </div>
+      <div className="ss__clock">
+        <time className="ss__time" dateTime={now.toISOString()}>{clockFormat.format(now)}</time>
+        <span className="ss__date">{dateFormat.format(now)}</span>
+      </div>
+    </div>
+  );
+}
+
+export function Screensaver({
+  theme,
+  onVisibilityChange,
+}: {
+  theme: BgKind;
+  onVisibilityChange: (visible: boolean) => void;
+}) {
+  const seconds = useScreensaver((s) => s.seconds);
+  const lastRandomBackground = useRef<Background | null>(null);
+  const [display, setDisplay] = useState<{ kind: Background; closing: boolean } | null>(null);
+
+  useEffect(() => {
+    setDisplay(null);
+    if (!seconds) return;
+
+    let idleTimer = 0;
+    let closeTimer = 0;
+    let visible = false;
+    let shownAt = 0;
+    let lastX = -1;
+    let lastY = -1;
+
+    const arm = () => {
+      window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(() => {
+        let kind: Background;
+        if (theme === "bw") {
+          const next = backgrounds.filter((candidate) => candidate !== lastRandomBackground.current);
+          kind = next[Math.floor(Math.random() * next.length)];
+          lastRandomBackground.current = kind;
+        } else {
+          kind = theme;
+        }
+        shownAt = Date.now();
+        visible = true;
+        setDisplay({ kind, closing: false });
+        onVisibilityChange(true);
       }, seconds * 1000);
     };
-    // It goes away as slowly as a blink, not at once.
     const dismiss = () => {
-      if (closingRef.current) return;
-      closingRef.current = true;
-      setClosing(true);
-      window.setTimeout(() => {
-        closingRef.current = false;
-        setClosing(false);
-        setOn(false);
-      }, CLOSE_MS);
+      if (closeTimer) return;
+      setDisplay((current) => current && { ...current, closing: true });
+      closeTimer = window.setTimeout(() => {
+        closeTimer = 0;
+        visible = false;
+        setDisplay(null);
+        onVisibilityChange(false);
+      }, window.matchMedia(motionQuery).matches ? 0 : CLOSE_MS);
     };
     const wake = (e: Event) => {
-      if (onRef.current) {
-        // What woke the screen does not reach the page under it.
+      if (visible) {
         e.preventDefault();
-        e.stopPropagation();
+        e.stopImmediatePropagation();
         dismiss();
       }
       arm();
     };
-    let lastX = -1;
-    let lastY = -1;
     const move = (e: MouseEvent) => {
-      // The mouse jitters on its own sometimes: only a real movement counts, and not at the moment the screen came.
       const moved = Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY) > 8;
       lastX = e.clientX;
       lastY = e.clientY;
-      if (!moved || Date.now() - shownAt.current < 1500) return;
-      if (onRef.current) dismiss();
+      if (!moved || (visible && Date.now() - shownAt < 1500)) return;
+      if (visible) dismiss();
       arm();
     };
-    const hard = ["keydown", "mousedown", "wheel", "touchstart"] as const;
-    for (const t of hard) window.addEventListener(t, wake, true);
+    const inputEvents = ["keydown", "mousedown", "wheel", "touchstart"] as const;
+    for (const type of inputEvents) window.addEventListener(type, wake, { capture: true, passive: false });
     window.addEventListener("mousemove", move, true);
     arm();
     return () => {
-      window.clearTimeout(timer);
-      for (const t of hard) window.removeEventListener(t, wake, true);
+      window.clearTimeout(idleTimer);
+      window.clearTimeout(closeTimer);
+      for (const type of inputEvents) window.removeEventListener(type, wake, true);
       window.removeEventListener("mousemove", move, true);
+      if (visible) onVisibilityChange(false);
     };
-  }, [seconds]);
+  }, [seconds, theme, onVisibilityChange]);
 
-  // Asked for a few seconds after the start (and when the source changes), so it is there when the screen comes.
-  useEffect(() => {
-    if (!seconds) return;
-    let dead = false;
-    const t = window.setTimeout(() => {
-      void loadTop(source).then((list) => {
-        if (!dead) setTop(list);
-      });
-    }, 5000);
-    return () => {
-      dead = true;
-      window.clearTimeout(t);
-    };
-  }, [seconds, source]);
-
-  const slides: Slide[] = useMemo(() => {
-    // The tops; the viewer's own films only if the tops did not come (no connection, no key).
-    if (top.length > 0) return [...top].sort(() => Math.random() - 0.5).slice(0, 30);
-    const out: Slide[] = [
-      ...favorites.map((f) => ({ id: f.kinopoiskId, title: f.nameRu || f.nameOriginal || "", year: f.year, poster: f.posterUrl ?? f.posterUrlPreview })),
-      ...watching.map((w) => ({ id: w.filmId, title: w.title, year: w.film?.year, poster: w.poster })),
-    ].filter((s) => s.poster && s.title);
-    const seen = new Set<number>();
-    const unique = out.filter((s) => (seen.has(s.id) ? false : (seen.add(s.id), true)));
-    // A different order each time it comes.
-    return unique.sort(() => Math.random() - 0.5);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [on, top]);
-
-  const [index, setIndex] = useState(0);
-  const [previous, setPrevious] = useState<number | null>(null);
-  const [stills, setStills] = useState<Record<number, string>>({});
-
-  // The next picture is got ready (its frame asked for, both pictures loaded) while the present one is on, and put on only when
-  // it is ready — so it never comes up half drawn.
-  useEffect(() => {
-    if (!on) return;
-    setIndex(0);
-    setPrevious(null);
-    let dead = false;
-    let timer = 0;
-    const wait = (ms: number) =>
-      new Promise<void>((resolve) => {
-        timer = window.setTimeout(resolve, ms);
-      });
-    const prepare = (i: number): Promise<void> => {
-      const s = slides[i];
-      if (!s) return Promise.resolve();
-      const poster = preload(img(s.poster));
-      const frame = stillFor(s.id).then((url) => {
-        if (!url) return;
-        if (!dead) setStills((m) => (m[s.id] === url ? m : { ...m, [s.id]: url }));
-        return preload(img(url));
-      });
-      return Promise.all([poster, frame]).then(() => undefined);
-    };
-    void (async () => {
-      void prepare(0);
-      if (slides.length < 2) return;
-      let at = 0;
-      while (!dead) {
-        const next = (at + 1) % slides.length;
-        const ready = prepare(next);
-        await wait(SLIDE_MS);
-        await ready;
-        if (dead) return;
-        setPrevious(at);
-        setIndex(next);
-        at = next;
-      }
-    })();
-    return () => {
-      dead = true;
-      window.clearTimeout(timer);
-    };
-  }, [on, slides]);
-
-  // The old picture stays under the new one until the new one has come all the way.
-  useEffect(() => {
-    if (previous === null) return;
-    const t = window.setTimeout(() => setPrevious(null), FADE_MS + 200);
-    return () => window.clearTimeout(t);
-  }, [previous]);
-
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    if (!on) return;
-    setNow(new Date());
-    const t = window.setInterval(() => setNow(new Date()), 15_000);
-    return () => window.clearInterval(t);
-  }, [on]);
-
-  if (!on) return null;
-  const draw = (i: number | null, cls: string) => {
-    const s = i === null ? undefined : slides[i];
-    if (!s) return null;
-    const still = stills[s.id];
-    return (
-      <div className={`ss__slide ${cls}`} key={s.id}>
-        <div className="ss__backdrop" style={{ backgroundImage: `url(${img(s.poster)})` }} />
-        {still && <img className="ss__still" src={img(still)} alt="" onLoad={(e) => e.currentTarget.classList.add("is-in")} />}
-        <div className="ss__card">
-          <img src={img(s.poster)} alt="" />
-          <div className="ss__title">{s.title}</div>
-          {s.year ? <div className="ss__year">{s.year}</div> : null}
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div className={`ss ${closing ? "ss--closing" : ""}`} role="presentation">
-      {draw(previous, "ss__slide--under")}
-      {draw(index, previous === null ? "" : "ss__slide--in")}
-      <div className="ss__top topbar__logo" aria-hidden="true">
-        <img className="topbar__logo-mark" src={logoMark} alt="" />
-        <span>
-          KINON<em>YX</em>
-        </span>
-      </div>
-      <div className="ss__clock">
-        <b>{now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</b>
-        <span>{now.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" })}</span>
-      </div>
-    </div>
-  );
+  return display && <IdleDisplay {...display} />;
 }

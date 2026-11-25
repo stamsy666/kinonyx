@@ -1,21 +1,17 @@
-import { useEffect, useState, type MutableRefObject } from "react";
-import { Focusable } from "@kinonyx/ui";
-import type { PlayerAdapter } from "@kinonyx/player-core";
-import { ASPECT_LABELS, ASPECT_MODES, useApp, type PlayerPrefs } from "../store/app";
-import { liveMpvOptions } from "../data/playerOptions";
-import { Modal } from "./Modal";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
+import type { FrameGeneration, PlayerAdapter } from "@kinonyx/player-core";
+import { ASPECT_LABELS, ASPECT_MODES, DEFAULT_PLAYER_PREFS, useApp, type PlayerPrefs } from "../store/app";
+import { DLSS_OPTIONS, liveMpvOptions } from "../data/playerOptions";
+import { isTauri } from "../data/io";
+import { KxSegmentRow, KxSheet, KxSheetButton } from "./player/PlayerSheet";
+import { KxPicture } from "./player/PlayerIcons";
 
-/**
- * The "Картинка" window of the mpv players (films and channels): picture shape, HDR, sharpness, banding. A change
- * goes to mpv at once and is kept in the settings (Настройки → Плеер), so the next video starts the same way.
- */
-export function PicturePanel({ adapterRef, onClose }: { adapterRef: MutableRefObject<PlayerAdapter | null>; onClose: () => void }) {
-  const prefs = useApp((s) => s.playerPrefs);
-  const setPlayerPrefs = useApp((s) => s.setPlayerPrefs);
-  const [info, setInfo] = useState("");
+type AdapterRef = MutableRefObject<PlayerAdapter | null>;
 
-  // What the video really is and what is being sent to the display (HDR or SDR).
-  const refreshInfo = async () => {
+/** What the video really is and what is being sent to the display (HDR or SDR), read from mpv. */
+function usePictureInfo(adapterRef: AdapterRef) {
+  const [info, setInfo] = useState<{ video: string; out: string } | null>(null);
+  const refresh = async () => {
     const a = adapterRef.current;
     if (!a?.getProp) return;
     const [gamma, prim, outGamma] = await Promise.all([
@@ -24,86 +20,176 @@ export function PicturePanel({ adapterRef, onClose }: { adapterRef: MutableRefOb
       a.getProp("video-target-params/gamma"),
     ]);
     const src = gamma === "pq" ? "HDR10" : gamma === "hlg" ? "HLG (HDR)" : "SDR";
-    const out = outGamma === "pq" || outGamma === "hlg" ? "HDR" : "SDR";
-    setInfo(`Видео: ${src}${prim ? ` · ${prim}` : ""}. На экран идёт: ${out}.`);
+    setInfo({ video: prim ? `${src} · ${prim.toUpperCase()}` : src, out: outGamma === "pq" || outGamma === "hlg" ? "HDR" : "SDR" });
   };
   useEffect(() => {
-    void refreshInfo();
+    void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  return { info, refresh };
+}
 
+/** «Видео → На экран»: the strip over the picture settings. */
+export function PictureInfo({ info }: { info: { video: string; out: string } | null }) {
+  if (!info) return null;
+  return (
+    <div className="kx-info">
+      <span className="kx-info__part">
+        <small>Видео</small>
+        <b>{info.video}</b>
+      </span>
+      <span className="kx-info__arrow" aria-hidden="true">
+        →
+      </span>
+      <span className="kx-info__part">
+        <small>На экран</small>
+        <b className={info.out === "HDR" ? "" : "kx-info__dim"}>{info.out}</b>
+      </span>
+    </div>
+  );
+}
+
+const TONE = [
+  { value: "auto", label: "Авто" },
+  { value: "soft", label: "Мягкий" },
+  { value: "contrast", label: "Контраст" },
+] as const;
+const SHARP = [
+  { value: "default", label: "Обычная" },
+  { value: "sharp", label: "Повышенная" },
+  { value: "max", label: "Максимум" },
+] as const;
+const ON_OFF = [
+  { value: false, label: "Выкл" },
+  { value: true, label: "Вкл" },
+];
+
+/**
+ * One way to change the picture: the new values go to the settings (kept for the next video) and to mpv at once.
+ * `reset` puts back the defaults of «Картинка» only — subtitles, sound and the rest of the settings stay as they are.
+ */
+export function usePictureChange(adapterRef: AdapterRef, onInfo?: () => void) {
+  const prefs = useApp((s) => s.playerPrefs);
+  const setPlayerPrefs = useApp((s) => s.setPlayerPrefs);
   const change = (patch: Partial<PlayerPrefs>) => {
     const next = { ...prefs, ...patch };
     setPlayerPrefs(patch);
     const a = adapterRef.current;
     if (a?.setProp) for (const [k, v] of Object.entries(liveMpvOptions(next))) void a.setProp(k, v);
-    window.setTimeout(() => void refreshInfo(), 600);
+    if (onInfo) window.setTimeout(onInfo, 600);
+  };
+  const reset = () => {
+    const { aspect, hdrOutput, toneMapping, upscale, deband, smooth } = DEFAULT_PLAYER_PREFS;
+    change({ aspect, hdrOutput, toneMapping, upscale, deband, smooth, frameGeneration: 0 });
+    void adapterRef.current?.setFrameGeneration?.(0).catch(() => {});
+  };
+  return { prefs, change, reset };
+}
+
+/** The foot of «Картинка»: «Сбросить» (the picture's defaults) and «Закрыть». */
+export function PictureFooter({ adapterRef, onInfo, onClose, prefix }: { adapterRef: AdapterRef; onInfo?: () => void; onClose: () => void; prefix: string }) {
+  const { reset } = usePictureChange(adapterRef, onInfo);
+  return (
+    <>
+      <KxSheetButton focusKey={`${prefix}:reset`} onPress={reset}>
+        Сбросить
+      </KxSheetButton>
+      <KxSheetButton focusKey={`${prefix}:close`} back onPress={onClose}>
+        Закрыть
+      </KxSheetButton>
+    </>
+  );
+}
+
+/**
+ * The picture settings of the mpv players (films and channels): shape, HDR, sharpness, banding, smoothness. Every
+ * value is in sight; ← / → change it, the change goes to mpv at once and is kept in the settings (Настройки →
+ * Плеер), so the next video starts the same way.
+ */
+export function PictureSettings({ adapterRef, onInfo, autoFocus }: { adapterRef: AdapterRef; onInfo?: () => void; autoFocus?: boolean }) {
+  const { prefs, change } = usePictureChange(adapterRef, onInfo);
+  const save = useApp((s) => s.setPlayerPrefs);
+  const [dlssNote, setDlssNote] = useState("");
+  const changing = useRef(false);
+  const changeDlss = async (factor: FrameGeneration) => {
+    if (changing.current || !adapterRef.current?.setFrameGeneration) return;
+    changing.current = true;
+    setDlssNote("Переключение…");
+    try {
+      await adapterRef.current.setFrameGeneration(factor);
+      save({ frameGeneration: factor });
+      setDlssNote("");
+    } catch (error) {
+      setDlssNote(typeof error === "string" ? error : "Не удалось переключить DLSS");
+    } finally {
+      changing.current = false;
+    }
   };
 
   return (
-    <Modal focusKey="player:picture" preferredChildFocusKey="pic:aspect" className="links-tv" onClose={onClose}>
-      <h3 className="links-tv__title">Картинка</h3>
-      {info && <p className="links-tv__text">{info}</p>}
-      <div className="links-tv__list links-tv__scroll">
-        <Row
-          focusKey="pic:aspect"
-          label="Соотношение сторон"
-          hint={ASPECT_LABELS[prefs.aspect]}
-          active={prefs.aspect !== "auto"}
-          autoFocus
-          onPress={() => change({ aspect: ASPECT_MODES[(ASPECT_MODES.indexOf(prefs.aspect) + 1) % ASPECT_MODES.length] })}
+    <>
+      <KxSegmentRow
+        focusKey="pic:aspect"
+        label="Соотношение сторон"
+        options={ASPECT_MODES.map((m) => ({ value: m, label: m === "fill" ? "Заполнить" : ASPECT_LABELS[m] }))}
+        value={prefs.aspect}
+        onChange={(aspect) => change({ aspect })}
+        autoFocus={autoFocus}
+      />
+      <KxSegmentRow
+        focusKey="pic:hdr"
+        label="HDR-вывод на экран"
+        note="нужен HDR в Windows"
+        options={ON_OFF}
+        value={prefs.hdrOutput}
+        onChange={(hdrOutput) => change({ hdrOutput })}
+      />
+      <KxSegmentRow
+        focusKey="pic:tone"
+        label="HDR на обычном экране"
+        options={TONE.map((o) => ({ ...o }))}
+        value={prefs.toneMapping}
+        onChange={(toneMapping) => change({ toneMapping })}
+      />
+      <KxSegmentRow
+        focusKey="pic:sharp"
+        label="Чёткость"
+        options={SHARP.map((o) => ({ ...o }))}
+        value={prefs.upscale}
+        onChange={(upscale) => change({ upscale })}
+      />
+      <KxSegmentRow focusKey="pic:deband" label="Сглаживать полосы" options={ON_OFF} value={prefs.deband} onChange={(deband) => change({ deband })} />
+      <KxSegmentRow focusKey="pic:smooth" label="Плавность движения" options={ON_OFF} value={prefs.smooth} onChange={(smooth) => change({ smooth })} />
+      {isTauri && (
+        <KxSegmentRow
+          focusKey="pic:dlss"
+          label="DLSS Frame Generation"
+          note={dlssNote || "SDR до 1080p"}
+          options={DLSS_OPTIONS}
+          value={prefs.frameGeneration}
+          onChange={(factor) => void changeDlss(factor)}
         />
-        <Row
-          focusKey="pic:hdr"
-          label="HDR-вывод на экран"
-          hint={prefs.hdrOutput ? "Включён" : "Выключен"}
-          active={prefs.hdrOutput}
-          onPress={() => change({ hdrOutput: !prefs.hdrOutput })}
-        />
-        <Row
-          focusKey="pic:tone"
-          label="HDR на обычном экране"
-          hint={prefs.toneMapping === "auto" ? "Авто" : prefs.toneMapping === "soft" ? "Мягкий" : "Контрастный"}
-          active={prefs.toneMapping !== "auto"}
-          onPress={() => change({ toneMapping: prefs.toneMapping === "auto" ? "soft" : prefs.toneMapping === "soft" ? "contrast" : "auto" })}
-        />
-        <Row
-          focusKey="pic:sharp"
-          label="Чёткость"
-          hint={prefs.upscale === "default" ? "Обычная" : prefs.upscale === "sharp" ? "Повышенная" : "Максимум"}
-          active={prefs.upscale !== "default"}
-          onPress={() => change({ upscale: prefs.upscale === "default" ? "sharp" : prefs.upscale === "sharp" ? "max" : "default" })}
-        />
-        <Row
-          focusKey="pic:deband"
-          label="Сглаживать полосы"
-          hint={prefs.deband ? "Включено" : "Выключено"}
-          active={prefs.deband}
-          onPress={() => change({ deband: !prefs.deband })}
-        />
-        <Row
-          focusKey="pic:smooth"
-          label="Плавность движения"
-          hint={prefs.smooth ? "Включена" : "Выключена"}
-          active={prefs.smooth}
-          onPress={() => change({ smooth: !prefs.smooth })}
-        />
-      </div>
-      <p className="links-tv__text links-tv__text--small">
-        Нажатие листает значения. HDR-вывод работает, если в Windows включён HDR для этого экрана; если картинка стала странной, выключите.
-      </p>
-      <Focusable as="button" back focusKey="pic:close" className="links-tv__row links-tv__row--close links-tv__foot" scroll={false} onPress={onClose}>
-        <span className="links-tv__name">Закрыть</span>
-      </Focusable>
-    </Modal>
+      )}
+    </>
   );
 }
 
-function Row({ focusKey, label, hint, active, autoFocus, onPress }: { focusKey: string; label: string; hint: string; active: boolean; autoFocus?: boolean; onPress: () => void }) {
+/** «Картинка» on its own (the players open it as a tab of their settings window). */
+export function PicturePanel({ adapterRef, onClose }: { adapterRef: AdapterRef; onClose: () => void }) {
+  const { info, refresh } = usePictureInfo(adapterRef);
   return (
-    <Focusable as="button" className={`links-tv__row ${active ? "is-active" : ""}`} focusKey={focusKey} onPress={onPress} autoFocus={autoFocus} scroll={false}>
-      <span className="links-tv__name">{label}</span>
-      <span className="links-tv__hint">{hint}</span>
-    </Focusable>
+    <KxSheet
+      focusKey="player:picture"
+      preferredChildFocusKey="pic:aspect"
+      title="Картинка"
+      icon={<KxPicture />}
+      top={<PictureInfo info={info} />}
+      footer={<PictureFooter adapterRef={adapterRef} onInfo={() => void refresh()} onClose={onClose} prefix="player:picture" />}
+      onClose={onClose}
+    >
+      <PictureSettings adapterRef={adapterRef} onInfo={() => void refresh()} autoFocus />
+    </KxSheet>
   );
 }
+
+export { usePictureInfo };

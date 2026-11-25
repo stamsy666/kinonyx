@@ -54,6 +54,9 @@ const releases = (title: string) => ({
 
 // `?setup` in the preview URL shows the first-run wizard (fresh install: no key, not done).
 const previewFreshInstall = typeof location !== "undefined" && location.search.includes("setup");
+/** `/?slowts`: TorrServer takes 8 s to answer, so the waits of the release window ("Открываю сохранённую раздачу…")
+ *  can be looked at in the preview. */
+const previewSlowTorrent = typeof location !== "undefined" && location.search.includes("slowts");
 let mockKey: string | null = previewFreshInstall ? null : "a1b2…d4e5";
 let mockTmdbKey: string | null = null;
 let mockSource: "kinopoisk" | "tmdb" = "kinopoisk";
@@ -256,6 +259,7 @@ export const MOCK = {
       case "ts_add_magnet":
         return { hash: String(args?.magnet ?? "").toLowerCase() } as T;
       case "ts_get_torrent":
+        if (previewSlowTorrent) await new Promise((done) => setTimeout(done, 8000));
         return {
           file_stats: [
             { id: 1, path: "Release/sample.mkv", length: 50_000_000 },

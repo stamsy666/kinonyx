@@ -144,6 +144,7 @@ export class Html5Adapter implements PlayerAdapter {
         enableWorker: true,
         lowLatencyMode: false,
         backBufferLength: 90,
+        ...(source.startPosition == null ? {} : { startPosition: source.startPosition }),
       });
       this.hls = hls;
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -169,6 +170,7 @@ export class Html5Adapter implements PlayerAdapter {
 
     v.src = source.url;
     v.load();
+    if (source.startPosition != null) v.currentTime = source.startPosition;
     await this.tryPlay();
   }
 

@@ -1,6 +1,8 @@
 import { useApp } from "../store/app";
 import { PlayerScreen } from "../screens/PlayerScreen";
 import { TvPlayerScreen } from "../screens/tv/TvPlayerScreen";
+// The players' look («Кромка»): loaded with the players, after the app's own sheets, so it wins on equal terms.
+import "../styles/player-kromka.css";
 
 /**
  * Renders the active player. It lives here, outside the router, so a minimised player keeps
@@ -21,6 +23,8 @@ export function PlayerHost() {
         url={route.url}
         qualities={route.qualities}
         qualityIndex={route.qualityIndex}
+        provider={route.provider}
+        youtube={route.youtube}
         hash={route.hash}
         filmId={route.filmId}
         poster={route.poster}

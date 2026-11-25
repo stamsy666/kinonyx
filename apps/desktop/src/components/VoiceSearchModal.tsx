@@ -41,8 +41,8 @@ export function VoiceSearchModal({
     if (!isTauri) return fail("Голосовой поиск работает в приложении для ПК.");
     await useTranslator.getState().refresh();
     const tr = useTranslator.getState();
-    if (!tr.asrEnabled) return fail("Распознавание речи выключено — включите его в Настройки → Каналы → Локальный перевод.");
-    if (!tr.asrReady()) return fail("Нужна модель распознавания речи — скачайте её в Настройки → Каналы → Локальный перевод.");
+    if (!tr.asrEnabled) return fail("Включите распознавание речи в разделе «Настройки → Перевод и озвучка».");
+    if (!tr.asrReady()) return fail("Скачайте модель распознавания речи в разделе «Настройки → Перевод и озвучка».");
     try {
       // Stops by itself once the speaker goes quiet; pressing the orb ends it earlier.
       const rec = await recordUntilSilence((rms) => (level.current = Math.min(1, rms * 12)));

@@ -26,6 +26,15 @@ interface Item {
   soon?: boolean;
 }
 
+function YoutubeIcon({ size = 24 }: { size?: number | string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="2.5" y="5" width="19" height="14" rx="4" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M10 9v6l5-3-5-3Z" fill="currentColor" />
+    </svg>
+  );
+}
+
 const ITEMS: Item[] = [
   { label: "Поиск", icon: SearchIcon, section: "search", screen: { name: "search" } },
   { label: "Главная", icon: HomeIcon, section: "home", screen: { name: "home" } },
@@ -36,6 +45,7 @@ const ITEMS: Item[] = [
   { label: "Избранное", icon: FavoriteIcon, section: "favorites", screen: { name: "favorites" } },
   { label: "Загрузки", icon: DownloadIcon, section: "downloads", screen: { name: "downloads" } },
   { label: "Каналы", icon: ChannelsIcon, section: "tv", screen: { name: "tv" } },
+  { label: "YouTube", icon: YoutubeIcon, section: "youtube", screen: { name: "youtube" } },
   { label: "Настройки", icon: GearIcon, section: "settings", screen: { name: "settings" } },
 ];
 
@@ -55,6 +65,8 @@ function sectionOf(s: Screen): string | undefined {
       return "favorites";
     case "downloads":
       return "downloads";
+    case "youtube":
+      return "youtube";
     case "settings":
       return "settings";
     case "tv":
@@ -139,7 +151,7 @@ export function Sidebar() {
                 as="button"
                 focusKey={`sidebar:${i}`}
                 className={`sidebar__item ${item.section === current ? "is-active" : ""}`}
-                scroll={false}
+                scrollBlock="nearest"
                 soundGroup="menu"
                 autoFocus={i === activeIndex}
                 onPress={() => {

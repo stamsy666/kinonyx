@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { logEvent } from "../data/log";
 import { getTrackPrefs, matchTrack, rememberTrack } from "../store/trackPrefs";
@@ -11,54 +12,58 @@ import {
   MpvAdapter,
   type PlayerAdapter,
   type PlayerState,
-  type PlayerStats,
   type PlaySource,
-  type TrackKind,
+  type Track,
   type ExtraTrack,
 } from "@kinonyx/player-core";
-import {
-  BackIcon,
-  EpisodesIcon,
-  Focusable,
-  FocusGroup,
-  ForwardIcon,
-  MiniPlayerIcon,
-  PlayerSettingsIcon,
-  MuteIcon,
-  NextEpisodeIcon,
-  OfflineIcon,
-  PauseIcon,
-  PlayIcon,
-  RewindIcon,
-  Spinner,
-  SubtitlesIcon,
-  TracksIcon,
-  VolumeIcon,
-  onBack,
-} from "@kinonyx/ui";
-import { useApp } from "../store/app";
-import { PicturePanel } from "../components/PicturePanel";
+import { DownloadIcon, FocusGroup, Focusable, onBack, Spinner } from "@kinonyx/ui";
+import { useApp, type SubtitleBackground } from "../store/app";
+import { PictureFooter, PictureInfo, PictureSettings, usePictureInfo } from "../components/PicturePanel";
+import { EpisodesSheet } from "../components/player/EpisodesSheet";
+import { applySubtitleBackground, PLAYER_VOLUME_STEP, readFrameGeneration, useMpvLoadOptions } from "../data/playerOptions";
 import { useTranslator } from "../store/translator";
 import { translatorRelease } from "../data/translator";
 import { LiveSubtitles, useFilmTranslation } from "../components/LiveSubtitles";
 import { useContinueWatching } from "../store/continueWatching";
 import { isTauri } from "../data/io";
 import { episodeKey, episodeLabel } from "../data/episodes";
-import { buildMpvOptions } from "../data/playerOptions";
+import type { YoutubeAuthor, YoutubePlayback } from "../data/youtube";
+import { trackYoutubeProgress, youtubeResumePosition } from "../data/youtubeProgress";
+import { preferredMpvAudioDevice } from "../data/audioDevices";
 import { trackLabel } from "../data/trackLabel";
 import { useWatchTracker } from "../components/useWatchTracker";
 import { usePresence } from "../components/usePresence";
 import { useEpisodeProgress } from "../store/episodeProgress";
+import { enqueueYoutubeDownload } from "../store/downloads";
 import { streamUrlFor, torrentSwarmStats, type SwarmStats, type TorrentFile, type TrailerQuality } from "../data/api";
-import { SeekBar } from "../components/SeekBar";
 import { PlayFlash } from "../components/PlayFlash";
 import { useMpvReveal } from "../components/useMpvReveal";
-import { Modal } from "../components/Modal";
 import { VolumeSlider } from "../components/VolumeSlider";
 import { FullscreenButton } from "../components/FullscreenButton";
 import { MiniPlayerChrome, useCloseOnOutsidePress } from "../components/MiniPlayer";
+import { KxSeekBar } from "../components/player/KxSeekBar";
+import { KxButton, KxChannelLogo, KxError, KxLockup, KxPill, KxStreamStats, KxWait } from "../components/player/PlayerChrome";
+import { KxRow, KxSegmentRow, KxSheet, KxSheetLabel, KxSheetText, KxTabs, type KxTab } from "../components/player/PlayerSheet";
+import {
+  KxAudio,
+  KxBack,
+  KxEpisodes,
+  KxForward,
+  KxHd,
+  KxMini,
+  KxMute,
+  KxNext,
+  KxPause,
+  KxPicture,
+  KxPlay,
+  KxRewind,
+  KxSkip,
+  KxSubtitles,
+  KxVolume,
+} from "../components/player/PlayerIcons";
 
 const SEEK_STEP = 15;
+const OPENING_CREDITS_END = 30;
 
 function fmt(sec: number) {
   if (!Number.isFinite(sec)) return "--:--";
@@ -77,18 +82,26 @@ interface EpisodeQueue {
   all?: TorrentFile[];
 }
 
-/** "HD" in a rounded frame — the quality button, drawn like the other line icons (22 px, 1.8 stroke). */
-function HdIcon({ size = 22 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="2.5" y="5" width="19" height="14" rx="3.5" />
-      <path d="M7 9.2v5.6M7 12h3.2M10.2 9.2v5.6" />
-      <path d="M13.4 9.2v5.6h1.4a2.8 2.8 0 0 0 0-5.6z" />
-    </svg>
-  );
-}
-
 /** Hosts that check the request's Referer usually check the User-Agent too. */
+/** The windows of the player: the settings (three tabs), the episodes, the trailer's quality. */
+type Sheet = "audio" | "subtitle" | "picture" | "episodes" | "quality" | "download";
+
+type YoutubeSave = { status: "busy" | "saved" | "failed"; message: string };
+
+/** Sizes of the subtitles offered in the settings window (mpv's sub-scale; the local translation follows it). */
+const SUB_SIZES = [
+  { value: 0.8, label: "S" },
+  { value: 1, label: "M" },
+  { value: 1.25, label: "L" },
+  { value: 1.5, label: "XL" },
+];
+/** The plate behind the subtitle text (Settings → Плеер keeps it for films, series and channels alike). */
+const SUB_BACKGROUNDS: { value: SubtitleBackground; label: string }[] = [
+  { value: "default", label: "Обычный" },
+  { value: "none", label: "Без фона" },
+  { value: "dark", label: "Плашка" },
+];
+
 const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
 export function PlayerScreen({
@@ -96,6 +109,8 @@ export function PlayerScreen({
   url,
   qualities,
   qualityIndex,
+  provider,
+  youtube,
   hash,
   filmId,
   film,
@@ -113,6 +128,8 @@ export function PlayerScreen({
   url: string;
   qualities?: TrailerQuality[];
   qualityIndex?: number;
+  provider?: "youtube";
+  youtube?: YoutubePlayback;
   hash?: string;
   filmId?: number;
   film?: { nameRu?: string; nameOriginal?: string; year?: string | number; genres?: string[] };
@@ -122,6 +139,7 @@ export function PlayerScreen({
   extras?: ExtraTrack[];
 }) {
   const back = useApp((s) => s.back);
+  const navigate = useApp((s) => s.navigate);
   const replace = useApp((s) => s.replace);
   const minimize = useApp((s) => s.minimize);
   const expandPlayer = useApp((s) => s.expandPlayer);
@@ -129,6 +147,17 @@ export function PlayerScreen({
   const showStreamStats = useApp((s) => s.showStreamStats);
   const playerDim = useApp((s) => s.playerDim);
   const prefs = useApp((s) => s.playerPrefs);
+  const [authorDetails, setAuthorDetails] = useState<YoutubeAuthor | null>(null);
+  const authorId = youtube?.author.id;
+  const hasAuthorAvatar = !!youtube?.author.avatar;
+  useEffect(() => {
+    if (!isTauri || !authorId || hasAuthorAvatar) return;
+    let current = true;
+    void invoke<YoutubeAuthor>("youtube_author", { id: authorId }).then((details) => {
+      if (current) setAuthorDetails(details);
+    }, () => {});
+    return () => { current = false; };
+  }, [authorId, hasAuthorAvatar]);
   const [swarm, setSwarm] = useState<SwarmStats | null>(null);
 
   // Download speed vs. bitrate is THE number that explains buffering on a torrent
@@ -151,41 +180,52 @@ export function PlayerScreen({
   const adapterRef = useRef<PlayerAdapter | null>(null);
   const [state, setState] = useState<PlayerState>(INITIAL_STATE);
   const [osd, setOsd] = useState(true);
-  const [menu, setMenu] = useState<TrackKind | null>(null);
+  const [sheet, setSheet] = useState<Sheet | null>(null);
+  const [youtubeSave, setYoutubeSave] = useState<YoutubeSave | null>(null);
+  const savePending = useRef(false);
+  // Rows take the focus when a window opens — not when the remote moves along its tabs.
+  const [sheetAutoFocus, setSheetAutoFocus] = useState(true);
   const [volumeOpen, setVolumeOpen] = useState(false);
   // The level comes up when the mouse is on the volume button (and goes when it leaves); the remote opens it with OK
   // and then holds the focus in it. Only the second takes the focus.
   const [volumeByMouse, setVolumeByMouse] = useState(false);
   const volumeLeave = useRef(0);
   const nudgeVolumeRef = useRef<(d: number) => void>(() => {});
-  const [episodesOpen, setEpisodesOpen] = useState(false);
-  const [qualityOpen, setQualityOpen] = useState(false);
-  const [pictureOpen, setPictureOpen] = useState(false);
 
   const hideTimer = useRef<number>(0);
 
   // Trailers come with a list of qualities; switching one reloads the stream and resumes
   // from where it was (mpv's per-title `start` option).
   const [qIdx, setQIdx] = useState(qualityIndex ?? 0);
-  const [resumeAt, setResumeAt] = useState(0);
+  const youtubeProgressId = youtube?.live ? undefined : youtube?.videoId;
+  const [resumeAt, setResumeAt] = useState(() => youtubeProgressId ? youtubeResumePosition(youtubeProgressId) : 0);
   const quality = qualities?.[qIdx];
   const curUrl = quality?.url ?? url;
   const curAudio = quality?.audioUrl ?? undefined;
+  const pictureOptions = useMpvLoadOptions();
   const source: PlaySource = useMemo(() => {
     const mpvOptions: Record<string, string> = {};
     if (curAudio) mpvOptions["audio-files"] = curAudio;
-    if (resumeAt > 1) mpvOptions.start = String(Math.floor(resumeAt));
+    if (quality?.hlsBitrate) mpvOptions["hls-bitrate"] = String(quality.hlsBitrate);
+    if (provider === "youtube") {
+      mpvOptions.alang = "ru";
+      mpvOptions["cache-pause-initial"] = "no";
+      mpvOptions["cache-pause-wait"] = "1";
+      // Inline manifests lack a .m3u8 extension for FFmpeg's format probe.
+      if (curUrl.startsWith("memory://#EXTM3U\n")) mpvOptions["demuxer-lavf-format"] = "hls";
+    }
     // The player settings (subtitles, night mode, scaling, HDR…) are mpv options set before each load.
-    Object.assign(mpvOptions, buildMpvOptions(prefs));
+    Object.assign(mpvOptions, pictureOptions);
     return {
       url: curUrl,
       title,
-      live: false,
+      live: youtube?.live ?? false,
+      startPosition: !youtube?.live && resumeAt >= 1 ? Math.floor(resumeAt) : undefined,
       mpvOptions,
       extraTracks: extras,
       ...(referer ? { headers: { Referer: referer }, userAgent: BROWSER_UA } : {}),
     };
-  }, [curUrl, curAudio, title, resumeAt, prefs, extras, referer]);
+  }, [curUrl, curAudio, quality?.hlsBitrate, provider, youtube?.live, title, resumeAt, pictureOptions, extras, referer]);
 
   // Local translation of the film's speech into Russian subtitles (torrent films only; same
   // engine as the channels' translator). Off for every new film.
@@ -240,12 +280,19 @@ export function PlayerScreen({
     if (prefs.autoHideSec <= 0) return;
     hideTimer.current = window.setTimeout(() => {
       setOsd(false);
-      setMenu(null);
+      setSheet(null);
       setVolumeOpen(false);
     }, prefs.autoHideSec * 1000);
   };
 
   const revealed = useMpvReveal(state.status, source);
+  // Subtitles drawn by mpv itself step up over the panel while it is shown (their bottom near y 740 of 1080) and
+  // go back to the edge when it hides, as the local translation does (sub-margin-y is in mpv's 720-line units).
+  useEffect(() => {
+    if (!isTauri || mini) return;
+    void adapterRef.current?.setProp?.("sub-margin-y", osd ? "228" : "22");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [osd, mini, source]);
   // The log: a player that stops on an error, and what it was playing (the host only — links carry tokens).
   useEffect(() => {
     if (state.status !== "error") return;
@@ -258,25 +305,21 @@ export function PlayerScreen({
     logEvent("error", "player", `${state.error ?? "error"} (${host || "no url"})`);
   }, [state.status, state.error, source.url]);
 
-  // The sound track and subtitles picked earlier for this film or series come back by themselves: the tracks of
-  // a new file (the next episode, another release) are matched by language and name, once per loaded file.
-  const tracksAppliedFor = useRef("");
+  // External tracks can arrive after the first track list, especially on a new episode.
   useEffect(() => {
-    if (!filmId || state.tracks.length === 0 || tracksAppliedFor.current === source.url) return;
+    if (!filmId || state.tracks.length === 0) return;
     const saved = getTrackPrefs(filmId);
-    tracksAppliedFor.current = source.url;
-    if (!saved) return;
     const a = adapterRef.current;
     if (!a) return;
-    const audio = saved.audio && matchTrack(state.tracks.filter((t) => t.kind === "audio"), saved.audio);
+    const audio = saved?.audio && matchTrack(state.tracks.filter((t) => t.kind === "audio"), saved.audio);
     if (audio && !audio.selected) void a.selectTrack("audio", audio.id);
-    if (saved.subtitle === "off") {
+    if (filmTr || saved?.subtitle === "off") {
       if (state.tracks.some((t) => t.kind === "subtitle" && t.selected)) void a.selectTrack("subtitle", null);
-    } else if (saved.subtitle) {
+    } else if (saved?.subtitle) {
       const sub = matchTrack(state.tracks.filter((t) => t.kind === "subtitle"), saved.subtitle);
       if (sub && !sub.selected) void a.selectTrack("subtitle", sub.id);
     }
-  }, [filmId, source.url, state.tracks]);
+  }, [filmId, filmTr, source.url, state.tracks]);
   // A press on the picture (anywhere outside the volume control) closes the volume slider.
   useCloseOnOutsidePress(volumeOpen, () => setVolumeOpen(false));
 
@@ -287,10 +330,14 @@ export function PlayerScreen({
   // earlier episode (learned from their own seeking, nothing to mark by hand).
   const learnedIntro = useMemo(() => (filmId && episodes ? getLearnedIntro(filmId) : undefined), [filmId, episodes, source.url]);
   const hasNextEpisode = !!episodes && episodes.index < episodes.files.length - 1;
+  const canSkip = !!filmId && state.status !== "error" && state.status !== "ended" && prefs.skipMode !== "off";
   const rawSkip =
-    !filmId || state.status === "error" || prefs.skipMode === "off"
+    !canSkip
       ? null
       : findSkip({ chapters: state.chapters, learned: learnedIntro, position: state.position, duration: state.duration, series: !!episodes, hasNext: hasNextEpisode });
+  const [openingCreditsSkipped, setOpeningCreditsSkipped] = useState(false);
+  const showOpeningCredits = !mini && canSkip && !openingCreditsSkipped && state.duration > OPENING_CREDITS_END
+    && state.position >= 0 && state.position < OPENING_CREDITS_END;
   // Before the stretch it is only announced; the button is pressable inside it.
   const skipTarget = rawSkip && rawSkip.phase === "inside" && prefs.skipMode === "button" ? rawSkip : null;
   const skipAnnounce = rawSkip && (rawSkip.phase === "preview" || prefs.skipMode === "auto") ? rawSkip : null;
@@ -316,7 +363,17 @@ export function PlayerScreen({
     skippedByButton.current = true;
     // The credits at the end of an episode of a series go to the next episode; everything else is a seek.
     if (target.toNext) goToNextEpisode();
-    else void adapterRef.current?.seek(target.to);
+    else void adapterRef.current?.seek(target.to, true);
+  };
+  const skipCreditsRef = useRef<() => void>(() => {});
+  skipCreditsRef.current = () => {
+    const adapter = adapterRef.current;
+    if (!showOpeningCredits || !adapter) return;
+    setOpeningCreditsSkipped(true);
+    skippedByButton.current = true;
+    void adapter.seek(OPENING_CREDITS_END, true);
+    bump();
+    setFocus("pl:play");
   };
   // "Сам": the stretch is jumped over the moment it begins (once for each).
   const autoSkipped = useRef("");
@@ -328,21 +385,18 @@ export function PlayerScreen({
     skipNow(rawSkip);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawSkip?.phase, rawSkip?.kind, rawSkip?.from, prefs.skipMode]);
-  const skipShown = useRef(false);
+  const skipFocus = skipTarget && state.position >= OPENING_CREDITS_END ? "player:skip" : null;
   useEffect(() => {
-    // Appears under the viewer's thumb: focus goes to it so that OK skips (as in the streaming apps).
-    if (skipTarget && !skipShown.current && !menu) {
-      skipShown.current = true;
-      window.setTimeout(() => setFocus("player:skip"), 50);
-    }
-    if (!skipTarget) skipShown.current = false;
-  }, [skipTarget, menu]);
+    if (!skipFocus || sheet || mini) return;
+    const timer = window.setTimeout(() => setFocus(skipFocus), 50);
+    return () => window.clearTimeout(timer);
+  }, [skipFocus, sheet, mini]);
 
   // Discord status: the film (and episode) being watched. Trailers show as such.
   usePresence(
     {
       details: film?.nameRu || film?.nameOriginal || title,
-      state: filmId ? (epKey ? episodeLabel(epKey, "сериал") : "фильм") : "трейлер",
+      state: provider === "youtube" ? "YouTube" : filmId ? (epKey ? episodeLabel(epKey, "сериал") : "фильм") : "трейлер",
     },
     state.status === "playing",
     state.position,
@@ -413,7 +467,7 @@ export function PlayerScreen({
     if (!episodes) return;
     const file = episodes.files[index];
     if (!file) return;
-    setEpisodesOpen(false);
+    setSheet(null);
     const nextUrl = await streamUrlFor(episodes.hash, file);
     const nextExtras = episodes.all?.length ? await buildExtraTracks(episodes.hash, episodes.all, file, episodes.files) : [];
     replace({
@@ -457,16 +511,25 @@ export function PlayerScreen({
   }, [autoNext]);
 
   useEffect(() => {
-    const adapter = isTauri ? new MpvAdapter() : videoRef.current ? new Html5Adapter(videoRef.current) : null;
+    const adapter = isTauri ? new MpvAdapter(preferredMpvAudioDevice, readFrameGeneration) : videoRef.current ? new Html5Adapter(videoRef.current) : null;
     if (!adapter) return;
     adapterRef.current = adapter;
-    const unsub = adapter.subscribe(setState);
+    const progress = youtubeProgressId ? trackYoutubeProgress(youtubeProgressId) : null;
+    const unsub = adapter.subscribe((next) => {
+      progress?.update(next);
+      setState(next);
+    });
+    if (progress) window.addEventListener("pagehide", progress.flush);
     return () => {
       unsub();
+      if (progress) {
+        window.removeEventListener("pagehide", progress.flush);
+        progress.flush();
+      }
       adapter.destroy();
       adapterRef.current = null;
     };
-  }, []);
+  }, [youtubeProgressId]);
 
   useEffect(() => {
     if (!adapterRef.current) return;
@@ -483,23 +546,8 @@ export function PlayerScreen({
         bump();
         return true;
       }
-      if (menu) {
-        setMenu(null);
-        bump();
-        return true;
-      }
-      if (episodesOpen) {
-        setEpisodesOpen(false);
-        bump();
-        return true;
-      }
-      if (pictureOpen) {
-        setPictureOpen(false);
-        bump();
-        return true;
-      }
-      if (qualityOpen) {
-        setQualityOpen(false);
+      if (sheet) {
+        setSheet(null);
         bump();
         return true;
       }
@@ -510,18 +558,19 @@ export function PlayerScreen({
       back();
       return true;
     });
-  }, [volumeOpen, menu, episodesOpen, qualityOpen, pictureOpen, osd, back, mini]);
+  }, [volumeOpen, sheet, osd, back, mini]);
 
   useEffect(() => {
     if (mini) return; // …and does not swallow the keys of the screen the viewer is on
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === "Backspace") return;
       const a = adapterRef.current;
-      if (e.key === "AudioVolumeUp") nudgeVolumeRef.current(0.1);
-      else if (e.key === "AudioVolumeDown") nudgeVolumeRef.current(-0.1);
+      if (e.key === "AudioVolumeUp") nudgeVolumeRef.current(PLAYER_VOLUME_STEP);
+      else if (e.key === "AudioVolumeDown") nudgeVolumeRef.current(-PLAYER_VOLUME_STEP);
       else if (e.key === "MediaRewind") void a?.seekBy(-SEEK_STEP);
       else if (e.key === "MediaFastForward") void a?.seekBy(SEEK_STEP);
-      else if (e.key === "m") setMenu((m) => (m ? null : "audio"));
+      else if ((e.key === "s" || e.key === "S") && filmId) skipCreditsRef.current();
+      else if (e.key === "m") openSheet("audio");
       else if (e.key === "p" || e.key === "MediaPlayPause") void togglePlay();
       else if (!osd) {
         e.stopImmediatePropagation();
@@ -568,176 +617,241 @@ export function PlayerScreen({
     else await a.play();
   };
 
-  const openMenu = (kind: TrackKind) => {
+  /** Opens a window (a second press of its button closes it); the volume level goes. */
+  const openSheet = (kind: Sheet) => {
     setVolumeOpen(false);
-    setEpisodesOpen(false);
-    setQualityOpen(false);
-    setMenu((m) => (m === kind ? null : kind));
+    setSheetAutoFocus(true);
+    setSheet((cur) => (cur === kind ? null : kind));
+  };
+  const closeSheet = () => {
+    setSheet(null);
+    bump();
   };
 
   const toggleVolume = () => {
-    setMenu(null);
-    setEpisodesOpen(false);
-    setQualityOpen(false);
+    setSheet(null);
     setVolumeByMouse(false);
     setVolumeOpen((v) => !v);
   };
 
-  const toggleEpisodes = () => {
-    setMenu(null);
-    setVolumeOpen(false);
-    setQualityOpen(false);
-    setEpisodesOpen((v) => !v);
-  };
-
-  const toggleQuality = () => {
-    setMenu(null);
-    setVolumeOpen(false);
-    setEpisodesOpen(false);
-    setQualityOpen((v) => !v);
-  };
-
   const pickQuality = (index: number) => {
-    setQualityOpen(false);
+    setSheet(null);
     if (index === qIdx) return;
-    setResumeAt(state.position);
+    setResumeAt(youtube?.live ? 0 : state.position);
     setQIdx(index);
   };
 
-  const tracks = state.tracks.filter((t) => t.kind === menu);
-  const progress = Number.isFinite(state.duration) && state.duration > 0 ? state.position / state.duration : 0;
+  const downloadVideo = async (height?: number) => {
+    if (!youtube || youtube.live || savePending.current) return;
+    savePending.current = true;
+    setYoutubeSave({ status: "busy", message: "Прогресс можно отслеживать в разделе «Загрузки»." });
+    requestAnimationFrame(() => void setFocus("player:download:close", { skipScroll: true }));
+    try {
+      const saved = await enqueueYoutubeDownload({ videoId: youtube.videoId, title, quality: height });
+      if (!saved) {
+        setYoutubeSave(null);
+        return;
+      }
+      const resolution = saved.height ? ` · ${saved.height}p` : "";
+      setYoutubeSave({ status: "saved", message: `${saved.fileName}${resolution}` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setYoutubeSave({ status: "failed", message });
+    } finally {
+      savePending.current = false;
+    }
+  };
+
   const isPlaying = state.status === "playing";
+  const waiting = state.status === "loading" || state.status === "buffering";
+  const hasDuration = Number.isFinite(state.duration) && state.duration > 0;
+  const progress = hasDuration ? state.position / state.duration : 0;
+  const buffered = hasDuration ? (state.position + state.bufferedAhead) / state.duration : 0;
+  const marks = hasDuration ? (state.chapters ?? []).map((c) => c.start / state.duration) : [];
+  // A trailer (no film id): a simpler panel — no tracks, picture or mini window, the quality in words.
+  const isTrailer = !filmId && !provider;
+  const downloadHeights = [...new Set(qualities?.map((item) => item.height))].sort((a, b) => b - a);
+  const downloadChoices = downloadHeights.length ? downloadHeights : [undefined];
+  const preferredDownloadHeight = quality?.height ?? downloadChoices[0];
+  const shownTitle = film?.nameRu || film?.nameOriginal || title;
+  const author = authorDetails?.name || youtube?.author.name;
+  const avatar = authorDetails?.avatar || youtube?.author.avatar;
+  const canSeek = !youtube?.live || hasDuration;
+  const eyebrow = provider === "youtube" ? undefined : isTrailer
+    ? "Трейлер"
+    : epKey
+      ? episodeLabel(epKey, title)
+      : [film?.year, film?.genres?.slice(0, 2).join(", ")].filter(Boolean).join(" · ");
 
   if (mini) {
     return <MiniPlayerChrome title={title} playing={isPlaying} onToggle={() => void togglePlay()} onExpand={expandPlayer} onClose={closePlayer} />;
   }
 
+  const settingsTabs: KxTab[] = [
+    { key: "audio", label: "Аудио" },
+    { key: "subtitle", label: "Субтитры" },
+    ...(isTauri ? [{ key: "picture", label: "Картинка" }] : []),
+  ];
+  const settingsOpen = sheet === "audio" || sheet === "subtitle" || sheet === "picture";
+  const sheetTracks = sheet === "audio" || sheet === "subtitle" ? state.tracks.filter((t) => t.kind === sheet) : [];
+  const selectedTrack = sheetTracks.findIndex((t) => t.selected);
+  const subtitleOff = !filmTr && !sheetTracks.some((t) => t.selected);
+
   return (
-    <FocusGroup focusKey="screen:player" className={`player player--tvos ${isTauri ? "player--mpv" : ""} ${revealed ? "player--revealed" : ""} ${osd ? "" : "player--idle"}`} isFocusBoundary>
+    <FocusGroup
+      focusKey="screen:player"
+      className={`player kx-player ${provider === "youtube" ? "kx-player--youtube" : ""} ${isTauri ? "player--mpv" : ""} ${revealed ? "player--revealed" : ""} ${osd ? "" : "player--idle"}`}
+      style={{ "--osd-dim": playerDim * 2, "--osd-scale": prefs.uiScale } as React.CSSProperties}
+      isFocusBoundary
+    >
       {isTauri ? <div className="player__video-hole" /> : <video ref={videoRef} playsInline autoPlay />}
 
       <LiveSubtitles cues={filmSubs.cues} position={state.position} active={filmTr} note={trHint} raised={osd} />
 
-      {showStreamStats && <StreamStats stats={state.stats} bufferedAhead={state.bufferedAhead} swarm={swarm} />}
+      {showStreamStats && (
+        <KxStreamStats
+          stats={state.stats}
+          bufferedAhead={state.bufferedAhead}
+          extra={
+            swarm
+              ? [
+                  ["Загрузка", `${((swarm.downloadSpeed * 8) / 1e6).toFixed(1)} Мбит/с`],
+                  ["Пиры", `${swarm.activePeers} из ${swarm.totalPeers}`],
+                  ["Сиды", String(swarm.seeders)],
+                ]
+              : undefined
+          }
+        />
+      )}
 
       <PlayFlash status={state.status} />
 
-      {(state.status === "loading" || state.status === "buffering") && (
-        <div className="player__center">
-          <div className="player__center-card">
-            <Spinner />
-            <p className="player__center-label">{state.status === "loading" ? "Подключение…" : "Буферизация…"}</p>
-          </div>
-        </div>
-      )}
+      {waiting && <KxWait text={state.status === "loading" ? "Подключение…" : "Буферизация…"} />}
 
       {state.status === "error" && (
-        <div className="player__center">
-          <div className="player__center-card player__center-card--error">
-            <OfflineIcon className="player__center-icon" />
-            <p className="player__center-label">Не удалось воспроизвести</p>
-            <p className="player__center-hint">{state.error ?? "Попробуйте другую раздачу."}</p>
-          </div>
-        </div>
+        <KxError title="Не удалось воспроизвести" hint={state.error ?? "Попробуйте ещё раз или выберите другую раздачу."}>
+          <KxPill focusKey="pl:retry" variant="solid" autoFocus onPress={() => void adapterRef.current?.load(source)}>
+            Повторить
+          </KxPill>
+          <KxPill focusKey="pl:error-back" variant="solid" onPress={() => back()}>
+            Назад
+          </KxPill>
+        </KxError>
       )}
 
-      <div className={`player__osd ${osd ? "" : "is-hidden"}`} style={{ "--osd-dim": playerDim * 2, "--osd-scale": prefs.uiScale } as React.CSSProperties}>
-        <div className="player__top">
-          <Focusable back as="button" className="icon-btn" focusKey="pl:back" onPress={() => back()} scroll={false}>
-            <BackIcon />
-          </Focusable>
+      <div className={`kx-osd ${osd ? "" : "is-hidden"}`}>
+        <div className="kx-scrim kx-scrim--top" />
+        <div className="kx-scrim kx-scrim--bottom" />
+
+        <div className="kx-top">
+          <KxButton focusKey="pl:back" label="Назад" plate back onPress={() => back()}>
+            <KxBack />
+          </KxButton>
         </div>
 
-        <div className="player__bottom">
-          <div className="player__now-row">
-            <p className="player__now player__now--movie">
-              <b>{title}</b>
-            </p>
-            <span className="player__time">
-              {fmt(state.position)} / {fmt(state.duration)}
-            </span>
-          </div>
-          <SeekBar
-            focusKey="pl:seek"
-            progress={progress}
-            duration={state.duration}
-            seekStep={SEEK_STEP}
-            onActivity={bump}
-            onSeekBy={(delta) => void adapterRef.current?.seekBy(delta)}
-            onSeekTo={(pos) => void adapterRef.current?.seek(pos)}
-          />
-          <div className="player__controls">
-            <div className="player__controls-side player__controls-side--left">
+        <div className="kx-bottom">
+          <KxLockup eyebrow={eyebrow || undefined} title={shownTitle} aboveTitle={youtube && (
+            <div className="kx-youtube-byline">
+              {authorId ? (
+                <KxPill focusKey="pl:author" variant="solid" icon={<KxChannelLogo src={avatar} name={author || "Канал"} />}
+                  onPress={() => {
+                    closePlayer();
+                    navigate({ name: "youtube", channel: { id: authorId, name: author || "", avatar } });
+                  }}>
+                  {author || "Открыть канал"}
+                </KxPill>
+              ) : author && <p className="kx-eyebrow">{author}</p>}
+              {youtube.live && <span className="kx-chip kx-chip--live"><i />В эфире</span>}
+            </div>
+          )} />
+          {canSeek && <div className="kx-seekrow">
+            <span className="kx-time">{fmt(state.position)}</span>
+            <KxSeekBar
+              focusKey="pl:seek"
+              progress={progress}
+              buffered={buffered}
+              marks={marks}
+              duration={state.duration}
+              label={fmt(state.position)}
+              seekStep={SEEK_STEP}
+              onActivity={bump}
+              onSeekBy={(delta) => void adapterRef.current?.seekBy(delta)}
+              onSeekTo={(pos) => void adapterRef.current?.seek(pos)}
+            />
+            <span className="kx-time kx-time--dim">{youtube?.live ? "Эфир" : fmt(state.duration)}</span>
+          </div>}
+
+          <div className="kx-controls">
+            <div className="kx-controls__side">
+              {!isTrailer && (
+                <>
+                  <KxButton focusKey="pl:audio" label="Аудиодорожка" active={sheet === "audio"} onPress={() => openSheet("audio")}>
+                    <KxAudio />
+                  </KxButton>
+                  <KxButton focusKey="pl:subs" label="Субтитры" active={sheet === "subtitle"} onPress={() => openSheet("subtitle")}>
+                    <KxSubtitles />
+                  </KxButton>
+                  {isTauri && (
+                    <KxButton focusKey="pl:picture" label="Картинка" active={sheet === "picture"} onPress={() => openSheet("picture")}>
+                      <KxPicture />
+                    </KxButton>
+                  )}
+                </>
+              )}
               {episodes && episodes.files.length > 1 && (
-                <Focusable
-                  as="button"
-                  className={`icon-btn ${episodesOpen ? "icon-btn--active" : ""}`}
-                  focusKey="pl:episodes"
-                  onPress={toggleEpisodes}
-                  scroll={false}
-                >
-                  <EpisodesIcon />
-                </Focusable>
+                <KxButton focusKey="pl:episodes" label="Серии" active={sheet === "episodes"} onPress={() => openSheet("episodes")}>
+                  <KxEpisodes />
+                </KxButton>
               )}
-              <Focusable as="button" className="icon-btn" focusKey="pl:audio" onPress={() => openMenu("audio")} scroll={false}>
-                <TracksIcon />
-              </Focusable>
-              <Focusable as="button" className="icon-btn" focusKey="pl:subs" onPress={() => openMenu("subtitle")} scroll={false}>
-                <SubtitlesIcon />
-              </Focusable>
-              {isTauri && (
-                <Focusable
-                  as="button"
-                  className={`icon-btn ${pictureOpen ? "icon-btn--active" : ""}`}
-                  focusKey="pl:picture"
-                  onPress={() => setPictureOpen((o) => !o)}
-                  scroll={false}
-                >
-                  <PlayerSettingsIcon />
-                </Focusable>
+              {isTauri && youtube && !youtube.live && (
+                <KxButton focusKey="pl:download" label="Скачать видео" active={sheet === "download" || youtubeSave?.status === "busy"}
+                  onPress={() => {
+                    if (!savePending.current) setYoutubeSave(null);
+                    openSheet("download");
+                  }}>
+                  <DownloadIcon size={26} />
+                </KxButton>
               )}
             </div>
 
-            <div className="player__controls-center">
-              <Focusable as="button" className="icon-btn" focusKey="pl:rew" onPress={() => void adapterRef.current?.seekBy(-SEEK_STEP)} scroll={false}>
-                <RewindIcon />
-              </Focusable>
-              <Focusable as="button" className="icon-btn icon-btn--lg" focusKey="pl:play" autoFocus onPress={() => void togglePlay()} scroll={false}>
-                {isPlaying ? <PauseIcon /> : <PlayIcon />}
-              </Focusable>
-              <Focusable as="button" className="icon-btn" focusKey="pl:fwd" onPress={() => void adapterRef.current?.seekBy(SEEK_STEP)} scroll={false}>
-                <ForwardIcon />
-              </Focusable>
+            <div className="kx-controls__center">
+              {canSeek && <KxButton focusKey="pl:rew" label={`Назад на ${SEEK_STEP} с`} onPress={() => void adapterRef.current?.seekBy(-SEEK_STEP)}>
+                <KxRewind step={SEEK_STEP} />
+              </KxButton>}
+              <KxButton focusKey="pl:play" label={isPlaying ? "Пауза" : "Смотреть"} large autoFocus onPress={() => void togglePlay()}>
+                {isPlaying || state.status === "buffering" || state.status === "loading" ? <KxPause size={44} /> : <KxPlay size={44} />}
+              </KxButton>
+              {canSeek && <KxButton focusKey="pl:fwd" label={`Вперёд на ${SEEK_STEP} с`} onPress={() => void adapterRef.current?.seekBy(SEEK_STEP)}>
+                <KxForward step={SEEK_STEP} />
+              </KxButton>}
               {nextEpisode && (
-                <Focusable as="button" className="icon-btn" focusKey="pl:next-episode" onPress={goToNextEpisode} scroll={false}>
-                  <NextEpisodeIcon />
-                </Focusable>
+                <KxButton focusKey="pl:next-episode" label="Следующая серия" onPress={goToNextEpisode}>
+                  <KxNext />
+                </KxButton>
               )}
             </div>
 
-            <div className="player__controls-side player__controls-side--right">
-              {qualities && qualities.length > 1 && (
-                <Focusable
-                  as="button"
-                  className={`icon-btn ${qualityOpen ? "icon-btn--active" : ""}`}
-                  focusKey="pl:quality"
-                  aria-label="Качество"
-                  onPress={toggleQuality}
-                  scroll={false}
-                >
-                  <HdIcon />
-                </Focusable>
+            <div className="kx-controls__side kx-controls__side--right">
+              {showOpeningCredits && (
+                <KxPill focusKey="pl:credits" icon={<KxSkip />} onPress={() => skipCreditsRef.current()}>
+                  Пропустить титры
+                </KxPill>
               )}
-              {isTauri && (
-                <Focusable as="button" className="icon-btn" focusKey="pl:mini" onPress={minimize} scroll={false}>
-                  <MiniPlayerIcon />
-                </Focusable>
+              {qualities && (provider === "youtube" || qualities.length > 1) && (
+                <KxPill focusKey="pl:quality" icon={<KxHd />} onPress={() => openSheet("quality")}>
+                  {quality ? `${quality.height}p` : "Качество"}
+                </KxPill>
+              )}
+              {isTauri && !isTrailer && (
+                <KxButton focusKey="pl:mini" label="Мини-плеер" onPress={minimize}>
+                  <KxMini />
+                </KxButton>
               )}
               <div
                 className="volume-control"
                 onMouseEnter={() => {
                   window.clearTimeout(volumeLeave.current);
-                  if (osd && !volumeOpen && !menu && !episodesOpen && !qualityOpen && !pictureOpen) {
+                  if (osd && !volumeOpen && !sheet) {
                     setVolumeByMouse(true);
                     setVolumeOpen(true);
                   }
@@ -752,16 +866,15 @@ export function PlayerScreen({
                   }, 280);
                 }}
               >
-                <Focusable
-                  as="button"
-                  className={`icon-btn ${volumeOpen ? "icon-btn--active" : ""}`}
+                <KxButton
                   focusKey="pl:vol"
+                  label={state.muted ? "Включить звук" : "Громкость"}
+                  active={volumeOpen}
                   // The level is already up under the mouse: a click on the button silences or restores the sound.
                   onPress={() => (volumeOpen && volumeByMouse ? void adapterRef.current?.setMuted(!state.muted) : toggleVolume())}
-                  scroll={false}
                 >
-                  {state.muted || state.volume === 0 ? <MuteIcon /> : <VolumeIcon />}
-                </Focusable>
+                  {state.muted || state.volume === 0 ? <KxMute /> : <KxVolume />}
+                </KxButton>
                 {volumeOpen && osd && (
                   <FocusGroup focusKey="player:volume" className="volume-popup" preferredChildFocusKey="vol:slider" isFocusBoundary>
                     <VolumeSlider
@@ -779,318 +892,266 @@ export function PlayerScreen({
                         void setFocus("pl:vol");
                       }}
                     />
-                    <Focusable
-                      as="button"
-                      className="volume-popup__mute"
-                      focusKey="vol:mute"
-                      onPress={() => void adapterRef.current?.setMuted(!state.muted)}
-                      scroll={false}
-                    >
-                      {state.muted ? <MuteIcon /> : <VolumeIcon />}
+                    <Focusable as="button" className="volume-popup__mute" focusKey="vol:mute" onPress={() => void adapterRef.current?.setMuted(!state.muted)} scroll={false}>
+                      {state.muted ? <KxMute size={26} /> : <KxVolume size={26} />}
                     </Focusable>
                   </FocusGroup>
                 )}
               </div>
-              <FullscreenButton focusKey="pl:fullscreen" />
+              <FullscreenButton focusKey="pl:fullscreen" className="kx-btn" />
             </div>
           </div>
         </div>
       </div>
 
-      {menu && osd && (
-        <Modal
-          focusKey="player:menu"
-          preferredChildFocusKey="menu:0"
-          className="links-tv"
-          onClose={() => {
-            setMenu(null);
-            bump();
+      {settingsOpen && osd && (
+        <FilmSettingsSheet
+          tab={sheet}
+          tabs={settingsTabs}
+          autoFocusRows={sheetAutoFocus}
+          onTab={(key) => {
+            setSheetAutoFocus(false);
+            setSheet(key as Sheet);
           }}
-        >
-          <h3 className="links-tv__title">{menu === "audio" ? "Аудиодорожка" : "Субтитры"}</h3>
-          <div className="links-tv__list links-tv__scroll">
-            {menu === "subtitle" && (
-              <TrackItem
-                focusKey="menu:off"
-                label="Выключены"
-                active={!filmTr && !tracks.some((t) => t.selected)}
-                onPress={() => {
-                  turnTranslationOff();
-                  void adapterRef.current?.selectTrack("subtitle", null);
-                  if (filmId) rememberTrack(filmId, "subtitle", null);
-                }}
-                autoFocus
-              />
-            )}
-            {menu === "subtitle" && canTranslate && (
-              <TrackItem
-                focusKey="menu:translate"
-                label="Локальный перевод на русский"
-                hint={translatorReady ? undefined : "скачайте в настройках"}
-                active={filmTr}
-                onPress={() => {
-                  if (filmTr) {
-                    turnTranslationOff();
-                  } else if (!translatorReady) {
-                    setTrHint("Для перевода скачайте движок и модели: Настройки → Локальный перевод.");
-                  } else {
-                    // Embedded subtitles never show on top of the translation.
-                    void adapterRef.current?.selectTrack("subtitle", null);
-                    setTrHint("Перевод запускается: первые строки появятся через полминуты.");
-                    setFilmTr(true);
-                  }
-                  setMenu(null);
-                  bump();
-                }}
-              />
-            )}
-            {tracks.length === 0 && menu === "audio" && <p className="links-tv__text">Только одна дорожка</p>}
-            {tracks.map((t, i) => (
-              <TrackItem
-                key={t.id}
-                focusKey={`menu:${i}`}
-                label={trackLabel(t, tracks, i)}
-                active={t.selected && !(menu === "subtitle" && filmTr)}
-                onPress={() => {
-                  // An embedded track replaces the translation — never both on screen.
-                  if (menu === "subtitle") turnTranslationOff();
-                  void adapterRef.current?.selectTrack(menu, t.id);
-                  if (filmId) rememberTrack(filmId, menu, t);
-                }}
-                autoFocus={menu === "audio" && i === 0}
-              />
-            ))}
-          </div>
-          <CloseRow
-            focusKey="menu:close"
-            onPress={() => {
-              setMenu(null);
-              bump();
-            }}
-          />
-        </Modal>
-      )}
-
-      {pictureOpen && osd && (
-        <PicturePanel
+          onClose={closeSheet}
           adapterRef={adapterRef}
-          onClose={() => {
-            setPictureOpen(false);
-            bump();
+          tracks={sheetTracks}
+          selectedTrack={selectedTrack}
+          subtitleOff={subtitleOff}
+          canTranslate={canTranslate}
+          translatorReady={translatorReady}
+          filmTr={filmTr}
+          onTrack={(t) => {
+            const kind = sheet === "subtitle" ? "subtitle" : "audio";
+            // An embedded track replaces the translation — never both on screen.
+            if (kind === "subtitle") turnTranslationOff();
+            void adapterRef.current?.selectTrack(kind, t.id);
+            if (filmId) rememberTrack(filmId, kind, t);
+          }}
+          onSubtitlesOff={() => {
+            turnTranslationOff();
+            void adapterRef.current?.selectTrack("subtitle", null);
+            if (filmId) rememberTrack(filmId, "subtitle", null);
+          }}
+          onTranslate={() => {
+            if (filmTr) {
+              turnTranslationOff();
+            } else if (!translatorReady) {
+              setTrHint("Для перевода скачайте движок и модели: Настройки → Локальный перевод.");
+            } else {
+              // Embedded subtitles never show on top of the translation.
+              void adapterRef.current?.selectTrack("subtitle", null);
+              setTrHint("Перевод запускается: первые строки появятся через полминуты.");
+              setFilmTr(true);
+            }
+            closeSheet();
           }}
         />
       )}
 
-      {qualityOpen && osd && qualities && (
-        <Modal
-          focusKey="player:quality"
-          preferredChildFocusKey={`q:${qIdx}`}
-          className="links-tv"
-          onClose={() => {
-            setQualityOpen(false);
-            bump();
-          }}
-        >
-          <h3 className="links-tv__title">Качество</h3>
-          <div className="links-tv__list links-tv__scroll">
-            {[...qualities.keys()].reverse().map((i) => (
-              <TrackItem
-                key={qualities[i].height}
-                focusKey={`q:${i}`}
-                label={`${qualities[i].height}p`}
-                active={i === qIdx}
-                onPress={() => pickQuality(i)}
-                autoFocus={i === qIdx}
-              />
-            ))}
-          </div>
-          <CloseRow
-            focusKey="q:close"
-            onPress={() => {
-              setQualityOpen(false);
-              bump();
-            }}
-          />
-        </Modal>
+      {sheet === "quality" && osd && qualities && (
+        <KxSheet focusKey="player:quality" preferredChildFocusKey={`q:${qIdx}`} title="Качество" icon={<KxHd />} fit onClose={closeSheet}>
+          {[...qualities.keys()].reverse().map((i) => (
+            <KxRow
+              key={qualities[i].height}
+              focusKey={`q:${i}`}
+              label={`${qualities[i].height}p`}
+              hint={qualities[i].height >= 2160 ? "4K" : qualities[i].height >= 1080 ? "HD" : undefined}
+              selected={i === qIdx}
+              onPress={() => pickQuality(i)}
+              autoFocus={i === qIdx}
+            />
+          ))}
+        </KxSheet>
+      )}
+
+      {sheet === "download" && osd && (
+        <KxSheet focusKey="player:download" preferredChildFocusKey={youtubeSave ? "player:download:close" : "dlq:" + preferredDownloadHeight}
+          title={youtubeSave?.status === "saved" ? "Видео скачано" : youtubeSave?.status === "failed" ? "Ошибка загрузки" : youtubeSave?.status === "busy" ? "Загрузка видео" : "Качество загрузки"}
+          icon={youtubeSave?.status === "busy" ? <Spinner /> : <DownloadIcon />} fit onClose={closeSheet}>
+          {youtubeSave ? <KxSheetText>{youtubeSave.message}</KxSheetText> : downloadChoices.map((height) => (
+            <KxRow key={height ?? "auto"} focusKey={"dlq:" + height} label={height ? `${height}p` : "Авто (до 1080p)"}
+              selected={height === preferredDownloadHeight} autoFocus={height === preferredDownloadHeight}
+              onPress={() => void downloadVideo(height)} />
+          ))}
+        </KxSheet>
+      )}
+
+      {sheet === "episodes" && osd && episodes && (
+        <EpisodesSheet
+          files={episodes.files}
+          current={episodes.index}
+          filmId={filmId}
+          poster={poster}
+          onPick={(index) => void goToEpisode(index)}
+          onClose={closeSheet}
+        />
       )}
 
       {skipTarget && autoNext === null && (
-        <Focusable as="button" className="skip-btn" focusKey="player:skip" scroll={false} onPress={() => skipNow()}>
-          <span className="skip-btn__text">{skipTarget.label}</span>
-          <i className="skip-btn__bar" style={{ transform: `scaleX(${Math.max(0, Math.min(1, (skipTarget.end - state.position) / Math.max(1, skipTarget.end - skipTarget.from)))})` }} />
+        <Focusable as="button" className="kx-skip" focusKey="player:skip" scroll={false} onPress={() => skipNow()}>
+          <i
+            className="kx-skip__left"
+            style={{ transform: `scaleX(${Math.max(0, Math.min(1, (skipTarget.end - state.position) / Math.max(1, skipTarget.end - skipTarget.from)))})` }}
+          />
+          <KxSkip size={26} />
+          <span>{skipTarget.label}</span>
         </Focusable>
       )}
       {skipAnnounce && !skipTarget && autoNext === null && (
-        <div className="skip-btn skip-btn--note" role="status">
-          <span className="skip-btn__text">{skipAnnounce.phase === "inside" ? (skipAnnounce.toNext ? "Следующая серия…" : "Пропускаю…") : skipAnnounce.label}</span>
+        <div className="kx-skip kx-skip--note" role="status">
+          <span>{skipAnnounce.phase === "inside" ? (skipAnnounce.toNext ? "Следующая серия…" : "Пропускаю…") : skipAnnounce.label}</span>
         </div>
       )}
 
       {autoNext !== null && nextEpisode && (
-        <div className="autonext" role="status">
-          <div className="autonext__card">
-            <div className="autonext__title">Следующая серия через {autoNext} с</div>
-            <div className="autonext__name">{episodeLabel(episodeKey(nextEpisode), nextEpisode.name)}</div>
-            <div className="autonext__actions">
-              <Focusable
-                as="button"
-                className="btn"
-                focusKey="autonext:cancel"
-                scroll={false}
-                onPress={() => {
-                  autoNextCancelled.current = true;
-                  setAutoNext(null);
-                }}
-              >
-                Отмена
-              </Focusable>
-              <Focusable
-                as="button"
-                className="btn btn--primary"
-                focusKey="autonext:now"
-                autoFocus
-                scroll={false}
-                onPress={() => {
-                  setAutoNext(null);
-                  goToNextEpisode();
-                }}
-              >
-                Смотреть сейчас
-              </Focusable>
-            </div>
+        <div className="kx-autonext" role="status">
+          <p className="kx-eyebrow">Следующая серия через {autoNext} с</p>
+          <p className="kx-autonext__name">{episodeLabel(episodeKey(nextEpisode), nextEpisode.name)}</p>
+          <div className="kx-autonext__bar">
+            <i style={{ transform: `scaleX(${1 - autoNext / AUTO_NEXT_SECS})` }} />
+          </div>
+          <div className="kx-autonext__actions">
+            <KxPill
+              focusKey="autonext:now"
+              variant="solid"
+              icon={<KxPlay size={24} />}
+              autoFocus
+              onPress={() => {
+                setAutoNext(null);
+                goToNextEpisode();
+              }}
+            >
+              Смотреть сейчас
+            </KxPill>
+            <KxPill
+              focusKey="autonext:cancel"
+              variant="solid"
+              onPress={() => {
+                autoNextCancelled.current = true;
+                setAutoNext(null);
+              }}
+            >
+              Отмена
+            </KxPill>
           </div>
         </div>
-      )}
-
-      {episodesOpen && osd && episodes && (
-        <Modal
-          focusKey="player:episodes"
-          preferredChildFocusKey={`ep:${episodes.index}`}
-          className="links-tv"
-          onClose={() => {
-            setEpisodesOpen(false);
-            bump();
-          }}
-        >
-          <h3 className="links-tv__title">Серии</h3>
-          <div className="links-tv__list links-tv__scroll">
-            {episodes.files.map((f, i) => (
-              <TrackItem
-                key={f.id}
-                focusKey={`ep:${i}`}
-                label={f.name}
-                hint={episodeHint(episodes.hash, filmId, f)}
-                active={i === episodes.index}
-                onPress={() => void goToEpisode(i)}
-                autoFocus={i === episodes.index}
-                toClose="ep:close"
-              />
-            ))}
-          </div>
-          <CloseRow
-            focusKey="ep:close"
-            onPress={() => {
-              setEpisodesOpen(false);
-              bump();
-            }}
-          />
-        </Modal>
       )}
     </FocusGroup>
   );
 }
 
-/** "✓ просмотрено" / "37%" for the episode list — progress is kept per episode, across releases. */
-function episodeHint(_hash: string, filmId: number | undefined, f: TorrentFile): string | undefined {
-  if (!filmId) return undefined;
-  const e = useEpisodeProgress.getState().entry(filmId, episodeKey(f));
-  if (!e) return undefined;
-  if (e.watched) return "✓ просмотрено";
-  const pct = Math.round((e.position / e.duration) * 100);
-  return pct >= 2 ? `${pct}%` : undefined;
-}
-
-function StreamStats({ stats, bufferedAhead, swarm }: { stats: PlayerStats; bufferedAhead: number; swarm: SwarmStats | null }) {
-  const codec = [stats.videoCodec, stats.audioCodec].filter(Boolean).join(" / ");
-  const rows: [string, string][] = [
-    ["Разрешение", stats.width && stats.height ? `${stats.width}×${stats.height}` : "—"],
-    ["FPS", stats.fps != null ? String(stats.fps) : "—"],
-    ["Битрейт", stats.bitrateKbps ? `${(stats.bitrateKbps / 1000).toFixed(1)} Мбит/с` : "—"],
-    ["Кодек", codec || "—"],
-    ["Буфер", `${bufferedAhead.toFixed(1)} с`],
-    ["Потеряно кадров", stats.droppedFrames != null ? String(stats.droppedFrames) : "—"],
-  ];
-  if (swarm) {
-    rows.push(
-      ["Загрузка", `${((swarm.downloadSpeed * 8) / 1e6).toFixed(1)} Мбит/с`],
-      ["Пиры", `${swarm.activePeers} из ${swarm.totalPeers}`],
-      ["Сиды", String(swarm.seeders)],
-    );
-  }
-  return (
-    <div className="player__stats">
-      <p className="player__stats-title">Статистика потока</p>
-      {rows.map(([label, value]) => (
-        <div className="player__stats-row" key={label}>
-          <span>{label}</span>
-          <b>{value}</b>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function CheckMark() {
-  return (
-    <svg className="links-tv__check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-function CloseRow({ focusKey, onPress }: { focusKey: string; onPress: () => void }) {
-  return (
-    <Focusable as="button" back focusKey={focusKey} className="links-tv__row links-tv__row--close links-tv__foot" scroll={false} onPress={onPress}>
-      <span className="links-tv__name">Закрыть</span>
-    </Focusable>
-  );
-}
-
-function TrackItem({
-  focusKey,
-  label,
-  hint,
-  active,
-  onPress,
-  autoFocus,
-  toClose,
+/** The film player's settings window: Аудио · Субтитры · Картинка as tabs of one panel. */
+function FilmSettingsSheet({
+  tab,
+  tabs,
+  autoFocusRows,
+  onTab,
+  onClose,
+  adapterRef,
+  tracks,
+  selectedTrack,
+  subtitleOff,
+  canTranslate,
+  translatorReady,
+  filmTr,
+  onTrack,
+  onSubtitlesOff,
+  onTranslate,
 }: {
-  focusKey: string;
-  label: string;
-  hint?: string;
-  active: boolean;
-  onPress: () => void;
-  autoFocus?: boolean;
-  /** A long list: → jumps to the close row instead of going down through every row. */
-  toClose?: string;
+  tab: Sheet;
+  tabs: KxTab[];
+  autoFocusRows: boolean;
+  onTab: (key: string) => void;
+  onClose: () => void;
+  adapterRef: React.MutableRefObject<PlayerAdapter | null>;
+  tracks: Track[];
+  selectedTrack: number;
+  subtitleOff: boolean;
+  canTranslate: boolean;
+  translatorReady: boolean;
+  filmTr: boolean;
+  onTrack: (t: Track) => void;
+  onSubtitlesOff: () => void;
+  onTranslate: () => void;
 }) {
+  const prefs = useApp((s) => s.playerPrefs);
+  const setPlayerPrefs = useApp((s) => s.setPlayerPrefs);
+  const { info, refresh } = usePictureInfo(adapterRef);
+  const head =
+    tab === "audio"
+      ? { title: "Аудиодорожка", icon: <KxAudio /> }
+      : tab === "subtitle"
+        ? { title: "Субтитры", icon: <KxSubtitles /> }
+        : { title: "Картинка", icon: <KxPicture /> };
+  const preferred = tab === "picture" ? "pic:aspect" : tab === "subtitle" ? "menu:off" : `menu:${Math.max(0, selectedTrack)}`;
+  const count = tab !== "picture" && tracks.length > 1 ? `${tracks.length} дорожек` : undefined;
+  const subSize = SUB_SIZES.reduce((best, o) => (Math.abs(o.value - prefs.subtitleScale) < Math.abs(best.value - prefs.subtitleScale) ? o : best), SUB_SIZES[1]);
+
   return (
-    <Focusable
-      as="button"
-      className={`links-tv__row ${active ? "is-active" : ""}`}
-      focusKey={focusKey}
-      onPress={onPress}
-      autoFocus={autoFocus}
-      scroll={false}
-      onArrowPress={(direction) => {
-        if (!toClose || direction !== "right") return true;
-        void setFocus(toClose);
-        return false;
-      }}
+    <KxSheet
+      focusKey="player:settings"
+      preferredChildFocusKey={preferred}
+      title={head.title}
+      icon={head.icon}
+      count={count}
+      tabs={<KxTabs tabs={tabs} current={tab} onSelect={onTab} prefix="tab" />}
+      top={tab === "picture" ? <PictureInfo info={info} /> : undefined}
+      footer={tab === "picture" ? <PictureFooter adapterRef={adapterRef} onInfo={() => void refresh()} onClose={onClose} prefix="player:settings" /> : undefined}
+      onClose={onClose}
     >
-      <span className="links-tv__name">{label}</span>
-      {hint && hint.trim().toLowerCase() !== label.trim().toLowerCase() && <span className="links-tv__hint">{hint}</span>}
-      {active && <CheckMark />}
-    </Focusable>
+      {tab === "picture" && <PictureSettings adapterRef={adapterRef} onInfo={() => void refresh()} autoFocus={autoFocusRows} />}
+
+      {tab === "audio" && tracks.length === 0 && <KxSheetText>Только одна дорожка</KxSheetText>}
+
+      {tab === "subtitle" && (
+        <KxRow focusKey="menu:off" label="Выключены" selected={subtitleOff} onPress={onSubtitlesOff} autoFocus={autoFocusRows} />
+      )}
+      {tab === "subtitle" && canTranslate && (
+        <KxRow
+          focusKey="menu:translate"
+          label="Локальный перевод на русский"
+          hint={translatorReady ? undefined : "скачайте в настройках"}
+          selected={filmTr}
+          onPress={onTranslate}
+        />
+      )}
+      {(tab === "audio" || tab === "subtitle") &&
+        tracks.map((t, i) => (
+          <KxRow
+            key={t.id}
+            focusKey={`menu:${i}`}
+            label={trackLabel(t, tracks, i)}
+            selected={t.selected && !(tab === "subtitle" && filmTr)}
+            onPress={() => onTrack(t)}
+            autoFocus={autoFocusRows && tab === "audio" && i === Math.max(0, selectedTrack)}
+          />
+        ))}
+      {tab === "subtitle" && (
+        <>
+          <KxSheetLabel>Вид субтитров</KxSheetLabel>
+          <KxSegmentRow
+            focusKey="menu:sub-size"
+            label="Размер"
+            options={SUB_SIZES}
+            value={subSize.value}
+            onChange={(v) => {
+              setPlayerPrefs({ subtitleScale: v });
+              void adapterRef.current?.setProp?.("sub-scale", String(v));
+            }}
+          />
+          <KxSegmentRow
+            focusKey="menu:sub-bg"
+            label="Фон"
+            options={SUB_BACKGROUNDS}
+            value={prefs.subtitleBackground}
+            onChange={(v) => {
+              setPlayerPrefs({ subtitleBackground: v });
+              void applySubtitleBackground(adapterRef.current, v);
+            }}
+          />
+        </>
+      )}
+    </KxSheet>
   );
 }

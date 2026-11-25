@@ -1,6 +1,6 @@
 [package]
 name = "kinonyx"
-version = "1.4.0"
+version = "1.5.0"
 description = "KINONYX — фильмы и сериалы через торренты, с метаданными Kinopoisk"
 authors = ["KINONYX"]
 edition = "2021"
@@ -36,13 +36,17 @@ quick-xml = "0.42"
 regex = "1"
 encoding_rs = "0.8"
 chrono = "0.4"
+cookie = "0.18"
 tauri-plugin-updater = "2.13.1"
 discord-rich-presence = "1.1.0"
 if-addrs = { version = "0.15.0", default-features = false }
 qrcode = { version = "0.14.1", default-features = false }
+tempfile = "3"
+ring = "0.17"
 
 [target.'cfg(windows)'.dependencies]
 win32job = "2"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

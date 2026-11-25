@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { FocusContext, setFocus, useFocusable } from "@noriginmedia/norigin-spatial-navigation";
-import { Focusable, FocusGroup, GlobeIcon, MicIcon, OfflineIcon, SearchIcon, Spinner } from "@kinonyx/ui";
+import { Focusable, FocusGroup, MicIcon, OfflineIcon, SearchIcon, Spinner } from "@kinonyx/ui";
 import { EmptyState } from "../components/EmptyState";
 import { useApp } from "../store/app";
 import { kpSearch, type KpCollectionItem } from "../data/api";
@@ -11,22 +11,14 @@ import { HomeChrome } from "../components/HomeChrome";
 import { CategoryGroups } from "../components/CategoryBrowse";
 import { useHomeFeel } from "../components/useHomeFeel";
 import { returnedToSavedFocus } from "../data/focusRestore";
+import { SearchKeys, type SearchKeyMode } from "../components/SearchKeys";
 import { VoiceSearchModal } from "../components/VoiceSearchModal";
 
 const DEBOUNCE_MS = 450;
 
 /** What was typed, kept while a film is open: coming back with "Назад" finds the same results (and the focus
  *  and the scroll put back on the film left from), a fresh opening starts empty. */
-const kept = { query: "", mode: "ru" as "ru" | "en" | "sym" };
-
-/** The on-screen keyboard (six keys a row, like the tvOS one). */
-type Mode = "ru" | "en" | "sym";
-const KEYS: Record<Mode, string[]> = {
-  ru: "абвгдеёжзийклмнопрстуфхцчшщъыьэюя".split(""),
-  en: "abcdefghijklmnopqrstuvwxyz".split(""),
-  sym: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "`", "'", '"', ";", ":", "~", "=", "*", "+", "-", "_", ",", ".", "?", "!", "@", "#", "₽", "%", "^", "&", "|", "/", "\\", "(", ")", "[", "]", "{", "}", "<", ">"],
-};
-const MODE_LABEL: Record<Mode, string> = { ru: "абв", en: "abc", sym: "123" };
+const kept = { query: "", mode: "ru" as SearchKeyMode };
 
 /** Поиск, after the tvOS search page: the keyboard on the left, what to look at (the genres, or the results)
  *  on the right. Moving right off the keyboard slides it away and gives the whole width to the right side. */
@@ -35,7 +27,7 @@ export function SearchScreen() {
   // Reached by "Назад" from a film: the search is as it was left.
   const comingBack = useRef(returnedToSavedFocus()).current;
   const [query, setQuery] = useState(() => (comingBack ? kept.query : ""));
-  const [mode, setMode] = useState<Mode>(() => (comingBack ? kept.mode : "ru"));
+  const [mode, setMode] = useState<SearchKeyMode>(() => (comingBack ? kept.mode : "ru"));
   kept.query = query;
   kept.mode = mode;
   const [results, setResults] = useState<KpCollectionItem[] | null>(null);
@@ -212,53 +204,14 @@ export function SearchScreen() {
         <div className="sx__cols">
           <FocusContext.Provider value={kbd.focusKey}>
           <div ref={kbd.ref} className="sx__kbd">
-            <div className="sx__modes">
-              <Focusable
-                as="button"
-                className="sx__mode sx__mode--globe"
-                focusKey="search:lang" scroll={false}
-                autoFocus={!comingBack}
-                onPress={() => setMode((m) => (m === "ru" ? "en" : "ru"))}
-              >
-                <GlobeIcon size={26} />
-              </Focusable>
-              <Focusable as="button" className={`sx__mode ${mode !== "sym" ? "is-active" : ""}`} focusKey="search:letters" scroll={false} onPress={() => setMode((m) => (m === "sym" ? "ru" : m))}>
-                {MODE_LABEL[mode === "sym" ? "ru" : mode]}
-              </Focusable>
-              <Focusable as="button" className={`sx__mode ${mode === "sym" ? "is-active" : ""}`} focusKey="search:symbols" scroll={false} onPress={() => setMode("sym")}>
-                123
-              </Focusable>
-            </div>
-            <div className="sx__keys">
-              {KEYS[mode].map((k, i) => (
-                <Focusable key={`${mode}:${k}`} as="button" className="sx__key" focusKey={`search:key:${i}`} scroll={false} mute onPress={() => type(k)}>
-                  {k}
-                </Focusable>
-              ))}
-            </div>
-            <div className="sx__actions">
-              <Focusable as="button" className="sx__action" focusKey="search:space" scroll={false} mute onPress={() => type(" ")}>
-                ПРОБЕЛ
-              </Focusable>
-              <Focusable
-                as="button"
-                className="sx__action sx__action--icon"
-                focusKey="search:erase" scroll={false}
-                mute
-                onPress={() => {
-                  playCategorySound("typing");
-                  setQuery((q) => q.slice(0, -1));
-                }}
-              >
-                <svg width="30" height="24" viewBox="0 0 30 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M10 2h16a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H10L2 12z" />
-                  <path d="M16 8l8 8M24 8l-8 8" />
-                </svg>
-              </Focusable>
-              <Focusable as="button" className="sx__action" focusKey="search:clear" scroll={false} onPress={() => setQuery("")}>
-                ОЧИСТИТЬ
-              </Focusable>
-            </div>
+            <SearchKeys prefix="search" mode={mode} onModeChange={setMode} autoFocus={!comingBack}
+              onType={type}
+              onErase={() => {
+                playCategorySound("typing");
+                setQuery((q) => q.slice(0, -1));
+              }}
+              onClear={() => setQuery("")}
+            />
           </div>
           </FocusContext.Provider>
 

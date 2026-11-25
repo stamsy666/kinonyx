@@ -31,6 +31,8 @@ use super::{emit_status, read_pcm, recognize, spawn_event_loop, translate, Audio
 const AHEAD_S: f64 = 150.0;
 /// The viewer needs at least this much already translated (or being translated) in front of them.
 const NEED_S: f64 = 20.0;
+/// After a seek, don't make the viewer wait for audio far ahead of the decoder.
+const CATCH_UP_S: f64 = 5.0;
 /// After pointing the decoder somewhere, give it this long before judging that it did not arrive.
 const SEEK_GRACE: Duration = Duration::from_secs(20);
 
@@ -86,9 +88,10 @@ fn point(m: &Mpv, url: &str, t: f64) -> Result<(), String> {
 }
 
 /// Decides whether the viewer at `p` needs the decoder moved, given what it has done so far.
-fn needs_seek(regions: &[(f64, f64)], p: f64) -> bool {
+fn needs_seek(regions: &[(f64, f64)], p: f64, jumped: bool) -> bool {
     let covered = regions.iter().any(|(a, b)| *a <= p + 0.5 && *b >= p + NEED_S);
-    let on_the_way = regions.last().is_some_and(|(a, b)| *a <= p + 0.5 && p <= *b + AHEAD_S + 10.0);
+    let runway = if jumped { CATCH_UP_S } else { AHEAD_S + 10.0 };
+    let on_the_way = regions.last().is_some_and(|(a, b)| *a <= p + 0.5 && p <= *b + runway);
     !covered && !on_the_way
 }
 
@@ -191,12 +194,14 @@ impl FileSession {
         if !p.is_finite() {
             return;
         }
-        self.visible_pos.store(p.to_bits(), Ordering::SeqCst);
-        if !needs_seek(&self.regions.lock().unwrap(), p) {
+        let previous = f64::from_bits(self.visible_pos.swap(p.to_bits(), Ordering::SeqCst));
+        let jumped = (p - previous).abs() >= 10.0;
+        if !needs_seek(&self.regions.lock().unwrap(), p, jumped) {
             return;
         }
         let mut last = self.last_seek.lock().unwrap();
-        if last.is_some_and(|(at, to)| at.elapsed() < SEEK_GRACE && (p - to).abs() < 40.0) {
+        let same_destination = if jumped { 8.0 } else { 40.0 };
+        if last.is_some_and(|(at, to)| at.elapsed() < SEEK_GRACE && (p - to).abs() < same_destination) {
             return; // already on its way there
         }
         crate::elog!("[translator] film: decoder moves to {:.1}s", p - 3.0);
@@ -259,24 +264,31 @@ mod tests {
     #[test]
     fn nothing_to_do_while_the_decoder_is_going_the_viewers_way() {
         // Decoded 100 s .. 400 s so far, viewer at 150 s: covered.
-        assert!(!needs_seek(&[(100.0, 400.0)], 150.0));
+        assert!(!needs_seek(&[(100.0, 400.0)], 150.0, false));
         // Viewer reaches the head: the decoder is still coming along, no move.
-        assert!(!needs_seek(&[(100.0, 400.0)], 395.0));
+        assert!(!needs_seek(&[(100.0, 400.0)], 395.0, false));
     }
 
     #[test]
     fn a_jump_forward_past_the_decoders_reach_moves_it() {
-        assert!(needs_seek(&[(100.0, 400.0)], 1500.0));
+        assert!(needs_seek(&[(100.0, 400.0)], 1500.0, true));
     }
 
     #[test]
     fn a_jump_back_to_a_translated_stretch_does_not() {
         // An old stretch 0..300 and the current one 1000..1100; viewer back at 120 s.
-        assert!(!needs_seek(&[(0.0, 300.0), (1000.0, 1100.0)], 120.0));
+        assert!(!needs_seek(&[(0.0, 300.0), (1000.0, 1100.0)], 120.0, true));
     }
 
     #[test]
     fn a_jump_back_before_everything_moves_it() {
-        assert!(needs_seek(&[(1000.0, 1200.0)], 300.0));
+        assert!(needs_seek(&[(1000.0, 1200.0)], 300.0, true));
+    }
+
+    #[test]
+    fn a_credits_skip_repositions_a_decoder_that_is_still_behind() {
+        assert!(needs_seek(&[(100.0, 104.0)], 130.0, true));
+        assert!(!needs_seek(&[(100.0, 128.0)], 130.0, true));
+        assert!(!needs_seek(&[(100.0, 160.0)], 130.0, true));
     }
 }

@@ -214,7 +214,14 @@ export function LiveSubtitles({
   return (
     <div
       className={`live-subs ${raised ? "live-subs--raised" : ""}`}
-      style={{ "--sub-scale": prefs.subtitleScale, "--sub-color": prefs.subtitleColor } as React.CSSProperties}
+      style={
+        {
+          "--sub-scale": prefs.subtitleScale,
+          "--sub-color": prefs.subtitleColor,
+          // Settings → the plate: "none" leaves the text on the picture (its shadow keeps it readable).
+          "--sub-bg": prefs.subtitleBackground === "none" ? "transparent" : "rgba(0, 0, 0, 0.62)",
+        } as React.CSSProperties
+      }
       aria-live="polite"
     >
       {cue ? <p className="live-subs__text">{cue.text}</p> : <p className="live-subs__note">{note}</p>}

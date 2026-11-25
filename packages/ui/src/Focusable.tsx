@@ -27,6 +27,8 @@ if (typeof window !== "undefined") {
 const HOVER_WINDOW_MS = 160;
 
 interface FocusableProps extends Omit<UseFocusableConfig, "extraProps"> {
+  "aria-label"?: string;
+  title?: string;
   className?: string;
   style?: CSSProperties;
   as?: "div" | "button";
@@ -63,6 +65,8 @@ export function Focusable({
   back,
   onEnterPress,
   onFocus,
+  "aria-label": ariaLabel,
+  title,
   ...config
 }: FocusableProps) {
   // A click on a not-yet-focused element (fast mouse movement/scroll landing on it without
@@ -81,7 +85,7 @@ export function Focusable({
     },
     onFocus: (layout, props, details) => {
       onFocus?.(layout, props, details);
-      const { byMouse, restore } = (details ?? {}) as { byMouse?: boolean; restore?: boolean };
+      const { byMouse, restore, skipScroll } = (details ?? {}) as { byMouse?: boolean; restore?: boolean; skipScroll?: boolean };
       // `restore`: focus put back by the app itself (returning from a screen) — not a move
       // the viewer made, so no sound, and no smooth scroll animating in from the top.
       if (suppressNextMoveSound.current) {
@@ -93,7 +97,7 @@ export function Focusable({
       // to them just makes the page jump around as the cursor moves. Only
       // keyboard/gamepad navigation (which can land on off-screen items) scrolls;
       // both get the navigation sound.
-      if (!byMouse && scroll) {
+      if (!byMouse && scroll && !skipScroll) {
         const el = ref.current;
         if (restore && el) {
           // A restored focus keeps the page exactly where "Назад" put it. Even "nearest" nudged
@@ -123,6 +127,8 @@ export function Focusable({
   return (
     <Tag
       ref={ref as never}
+      aria-label={ariaLabel}
+      title={title}
       data-fk={focusKey}
       className={`focusable ${focused ? "is-focused" : ""} ${className}`}
       style={style}

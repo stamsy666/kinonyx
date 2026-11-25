@@ -8,6 +8,7 @@ import "./styles/theme.css";
 import "./styles/tv.css";
 import "./styles/beam.css";
 import "./styles/schemes.css";
+import "./styles/notice-kromka.css";
 import { initSpatialNavigation, installBackKeyListener, startGamepadBridge } from "@kinonyx/ui";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isTauri } from "./data/io";

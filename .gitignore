@@ -28,6 +28,10 @@ apps/desktop/src-tauri/translator/*.exe
 # omnivoice.cpp's tts-server.exe + ggml DLLs, built by scripts/build-omnivoice.ps1, not committed.
 apps/desktop/src-tauri/translator/omnivoice/
 
+# Portable frame generation runtime assembled by scripts/build-framegen.ps1.
+apps/desktop/src-tauri/framegen/runtime/
+apps/desktop/src-tauri/framegen/.stage-*/
+
 # Updater signing keys — NEVER commit.
 *.key
 *.key.pub

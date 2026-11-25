@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { doesFocusableExist, setFocus } from "@noriginmedia/norigin-spatial-navigation";
-import { BackIcon, Focusable, FocusGroup, NextIcon, onBack } from "@kinonyx/ui";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { doesFocusableExist, getCurrentFocusKey, setFocus } from "@noriginmedia/norigin-spatial-navigation";
+import { BackIcon, cancelGlides, Focusable, FocusGroup, NextIcon, onBack } from "@kinonyx/ui";
 import { HomeChrome } from "../components/HomeChrome";
 import { CycleRow } from "../components/CycleRow";
+import { DLSS_OPTIONS } from "../data/playerOptions";
 import { ASPECT_LABELS, ASPECT_MODES, useApp } from "../store/app";
 import {
   configStatus,
@@ -19,27 +21,27 @@ import {
 import { TextField } from "../components/TextField";
 import { LinksModal } from "../components/LinksModal";
 import { ANIMATED_KINDS, BG_PALETTES, EXCLUSIVE_KINDS, PLAIN_KINDS } from "../data/backgrounds";
-import { applyThemeKit, SOUND_CATEGORIES, SOUND_CATEGORY_LABELS } from "../data/sounds";
-import { SoundCategoryRow } from "../components/SoundCategoryRow";
+import { applyThemeKit } from "../data/sounds";
 import { SoundKitRow } from "../components/SoundKitRow";
 import { MUSIC_CREDITS } from "../data/music";
 import { VolumeRow } from "../components/VolumeRow";
 import { TranslatorSettings } from "../components/TranslatorSettings";
 import type { EpgRefreshInterval } from "../store/app";
 import { rematchAll } from "../data/rematch";
-import { AboutIcon, ChannelsIcon, FolderIcon, GearIcon, PhoneIcon, PlayerSettingsIcon, SourcesIcon, StatsIcon, ThemeIcon, VolumeIcon } from "@kinonyx/ui";
+import { AboutIcon, ChannelsIcon, FolderIcon, GearIcon, PhoneIcon, PlayerSettingsIcon, SourcesIcon, StatsIcon, SubtitlesIcon, ThemeIcon, VolumeIcon } from "@kinonyx/ui";
 import { refreshRemoteInfo, useRemote } from "../store/remote";
 import { StatsPanel } from "../components/StatsPanel";
 import { StoragePanel } from "../components/StoragePanel";
-import { resetScroll } from "../data/focusRestore";
+import { resetScroll, RESTORE_DETAILS } from "../data/focusRestore";
 import { useUpdater } from "../store/updater";
 import { isTauri, openExternal } from "../data/io";
+import { importYoutubeCookies } from "../data/youtube";
 import { exportUserData, importUserData, openUserDataDir } from "../data/userdata";
 import { getJacredKey, getJacredUrl, setJacred } from "../data/jacred";
 import { lastSpeed, recommendQuality, runSpeedTest } from "../data/speedtest";
 import { SCREENSAVER_OPTIONS, useScreensaver } from "../components/Screensaver";
 import { introEnabled, setIntroEnabled } from "../components/IntroSplash";
-import { listAudioDevices, type AudioDevice } from "../data/audioDevices";
+import { listAudioDevices, resolveAudioDevice, type AudioDevice } from "../data/audioDevices";
 import { listMonitors, moveToMonitor, readMonitor, readStartFullscreen, writeMonitor, writeStartFullscreen, type MonitorChoice } from "../data/windowPrefs";
 
 /** Whole-program zoom steps; 100% is the design size (a Full HD screen — 4K screens are brought to it by themselves) and the default. */
@@ -126,23 +128,24 @@ const SOURCE_OPTIONS: { key: MetadataSource; label: string }[] = [
 const KP_KEY_URL = "https://kinopoiskapiunofficial.tech/profile";
 const TMDB_KEY_URL = "https://www.themoviedb.org/settings/api";
 
-type TabKey = "sources" | "player" | "channels" | "look" | "sound" | "remote" | "storage" | "stats" | "about";
+type TabKey = "sources" | "player" | "channels" | "translation" | "look" | "sound" | "remote" | "storage" | "stats" | "about";
 
 const BIG = { size: 300, strokeWidth: 1 } as const;
-const TABS: { key: TabKey; label: string; desc: string; icon: ReactNode; bigIcon: ReactNode }[] = [
-  { key: "sources", label: "Источники", desc: "Ключи Кинопоиска и TMDB, адрес TorAPI и откуда брать каталог.", icon: <SourcesIcon size={22} />, bigIcon: <SourcesIcon {...BIG} /> },
-  { key: "player", label: "Плеер", desc: "Затемнение, кнопки, субтитры, звук и картинка при просмотре.", icon: <PlayerSettingsIcon size={22} />, bigIcon: <PlayerSettingsIcon {...BIG} /> },
-  { key: "channels", label: "Каналы", desc: "Программа передач и локальный перевод эфира.", icon: <ChannelsIcon size={22} />, bigIcon: <ChannelsIcon {...BIG} /> },
-  { key: "look", label: "Оформление", desc: "Тема, масштаб программы и эффекты.", icon: <ThemeIcon size={22} />, bigIcon: <ThemeIcon {...BIG} /> },
-  { key: "sound", label: "Звук", desc: "Звуки интерфейса, их громкость и фоновая музыка.", icon: <VolumeIcon size={22} />, bigIcon: <VolumeIcon {...BIG} /> },
-  { key: "remote", label: "Пульт", desc: "Управление приложением с телефона по QR-коду.", icon: <PhoneIcon size={22} />, bigIcon: <PhoneIcon {...BIG} /> },
-  { key: "storage", label: "Хранилище", desc: "Что программа хранит на диске и что можно очистить.", icon: <FolderIcon size={22} />, bigIcon: <FolderIcon {...BIG} /> },
-  { key: "stats", label: "Статистика", desc: "Сколько и что вы смотрели.", icon: <StatsIcon size={22} />, bigIcon: <StatsIcon {...BIG} /> },
-  { key: "about", label: "О программе", desc: "Обновления, диагностика, Discord и авторы.", icon: <AboutIcon size={22} />, bigIcon: <AboutIcon {...BIG} /> },
+const TABS: { key: TabKey; label: string; icon: ReactNode; bigIcon: ReactNode }[] = [
+  { key: "sources", label: "Источники", icon: <SourcesIcon size={22} />, bigIcon: <SourcesIcon {...BIG} /> },
+  { key: "player", label: "Плеер", icon: <PlayerSettingsIcon size={22} />, bigIcon: <PlayerSettingsIcon {...BIG} /> },
+  { key: "channels", label: "Каналы", icon: <ChannelsIcon size={22} />, bigIcon: <ChannelsIcon {...BIG} /> },
+  { key: "translation", label: "Перевод и озвучка", icon: <SubtitlesIcon size={22} />, bigIcon: <SubtitlesIcon {...BIG} /> },
+  { key: "look", label: "Оформление", icon: <ThemeIcon size={22} />, bigIcon: <ThemeIcon {...BIG} /> },
+  { key: "sound", label: "Звук", icon: <VolumeIcon size={22} />, bigIcon: <VolumeIcon {...BIG} /> },
+  { key: "remote", label: "Пульт", icon: <PhoneIcon size={22} />, bigIcon: <PhoneIcon {...BIG} /> },
+  { key: "storage", label: "Хранилище", icon: <FolderIcon size={22} />, bigIcon: <FolderIcon {...BIG} /> },
+  { key: "stats", label: "Статистика", icon: <StatsIcon size={22} />, bigIcon: <StatsIcon {...BIG} /> },
+  { key: "about", label: "О программе", icon: <AboutIcon size={22} />, bigIcon: <AboutIcon {...BIG} /> },
 ];
 
 const GROUPS: { title: string; keys: TabKey[] }[] = [
-  { title: "ОСНОВНЫЕ", keys: ["sources", "player", "channels"] },
+  { title: "ОСНОВНЫЕ", keys: ["sources", "player", "channels", "translation"] },
   { title: "ВНЕШНИЙ ВИД И ЗВУК", keys: ["look", "sound"] },
   { title: "ПРИЛОЖЕНИЕ", keys: ["remote", "storage", "stats", "about"] },
 ];
@@ -188,6 +191,8 @@ export function SettingsScreen() {
   const playerDim = useApp((s) => s.playerDim);
   const setPlayerDim = useApp((s) => s.setPlayerDim);
   const playerPrefs = useApp((s) => s.playerPrefs);
+  const audioDevice = useApp((s) => s.audioDevice);
+  const setAudioDevice = useApp((s) => s.setAudioDevice);
   const setPlayerPrefs = useApp((s) => s.setPlayerPrefs);
   const setMusicVolume = useApp((s) => s.setMusicVolume);
   const soundPinned = useApp((s) => s.soundPinned);
@@ -214,30 +219,61 @@ export function SettingsScreen() {
   const stageTab = tab ?? hovered;
   const stageKey = stageTab ?? "gear";
   const lastTab = useRef<TabKey>("sources");
+  const pane = useRef<HTMLDivElement>(null);
+  const panePositions = useRef<Partial<Record<TabKey, { key: string; top: number }>>>({});
+
   const selectTab = (key: TabKey) => {
     lastTab.current = key;
-    setTab(key);
-    // A new section starts at its top, whatever the previous one's scroll position was.
     resetScroll();
+    setTab(key);
   };
 
-  // Back from an open section returns to the list of sections (and to the row it was opened from).
-  useEffect(() => {
-    if (tab === null) {
-      requestAnimationFrame(() => {
-        if (doesFocusableExist(`settings:tab:${lastTab.current}`)) setFocus(`settings:tab:${lastTab.current}`);
-      });
-      return;
+  const closeTab = useCallback(() => {
+    if (!tab) return;
+    const key = getCurrentFocusKey();
+    const current = pane.current?.querySelector("[data-fk].is-focused");
+    if (key && current?.getAttribute("data-fk") === key && key !== "settings:pane-back") {
+      panePositions.current[tab] = { key, top: pane.current?.closest(".app-body")?.scrollTop ?? 0 };
     }
-    requestAnimationFrame(() => {
-      const first = document.querySelectorAll<HTMLElement>(".settings-pane [data-fk]")[1] ?? document.querySelector<HTMLElement>(".settings-pane [data-fk]");
-      if (first?.dataset.fk) setFocus(first.dataset.fk);
+    if (importArmed) {
+      setImportArmed(false);
+      setDataNote("");
+    }
+    resetScroll();
+    setTab(null);
+  }, [tab, importArmed]);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      if (!tab) {
+        const key = `settings:tab:${lastTab.current}`;
+        if (doesFocusableExist(key)) setFocus(key, RESTORE_DETAILS);
+        return;
+      }
+
+      const rows = Array.from(pane.current?.querySelectorAll<HTMLElement>("[data-fk]") ?? []);
+      const position = panePositions.current[tab];
+      if (position && rows.some((row) => row.dataset.fk === position.key) && doesFocusableExist(position.key)) {
+        const scroll = pane.current?.closest(".app-body");
+        cancelGlides();
+        if (scroll) scroll.scrollTop = position.top;
+        setFocus(position.key, RESTORE_DETAILS);
+        return;
+      }
+
+      const first = rows.find((row) => row.dataset.fk !== "settings:pane-back") ?? rows[0];
+      if (first?.dataset.fk) setFocus(first.dataset.fk, { ...RESTORE_DETAILS, skipScroll: true });
     });
+    return () => cancelAnimationFrame(frame);
+  }, [tab]);
+
+  useEffect(() => {
+    if (!tab) return;
     return onBack(() => {
-      setTab(null);
+      closeTab();
       return true;
     });
-  }, [tab]);
+  }, [tab, closeTab]);
 
   const [status, setStatus] = useState<ConfigStatus | null>(null);
   const [torapi, setTorapi] = useState("");
@@ -246,6 +282,8 @@ export function SettingsScreen() {
   const [torapiNote, setTorapiNote] = useState<Note>(null);
   const [keyNote, setKeyNote] = useState<Note>(null);
   const [tmdbKeyNote, setTmdbKeyNote] = useState<Note>(null);
+  const [youtubeCookieNote, setYoutubeCookieNote] = useState<Note>(null);
+  const [youtubeCookieBusy, setYoutubeCookieBusy] = useState<"browser" | "file" | null>(null);
   const discordEnabled = useApp((s) => s.discordEnabled);
   const setDiscordEnabled = useApp((s) => s.setDiscordEnabled);
   const [creditOpen, setCreditOpen] = useState(false);
@@ -298,6 +336,21 @@ export function SettingsScreen() {
     setStatus(await configStatus());
   };
 
+  const chooseYoutubeCookies = async (source: "browser" | "file") => {
+    if (youtubeCookieBusy) return;
+    setYoutubeCookieBusy(source);
+    setYoutubeCookieNote(null);
+    try {
+      if (await importYoutubeCookies(source)) {
+        setYoutubeCookieNote({ kind: "ok", text: "Сессия YouTube сохранена" });
+      }
+    } catch (e) {
+      setYoutubeCookieNote({ kind: "error", text: String(e) });
+    } finally {
+      setYoutubeCookieBusy(null);
+    }
+  };
+
   const switchSource = async (source: MetadataSource) => {
     if (status?.metadata_source === source) return;
     await setMetadataSource(source);
@@ -315,7 +368,6 @@ export function SettingsScreen() {
           <div className="stx__art" key={stageKey}>
             {stageTab ? TABS.find((t) => t.key === stageTab)!.bigIcon : <GearIcon size={300} strokeWidth={1} />}
           </div>
-          <p className="stx__desc">{stageTab ? TABS.find((t) => t.key === stageTab)!.desc : "Источники, плеер, оформление и звук."}</p>
         </div>
 
         <div className="stx__list">
@@ -331,10 +383,14 @@ export function SettingsScreen() {
                       as="button"
                       key={t.key}
                       focusKey={`settings:tab:${t.key}`}
-                      autoFocus={t.key === TABS[0].key}
                       className="stx__row"
                       onFocus={() => setHovered(t.key)}
                       onPress={() => selectTab(t.key)}
+                      onArrowPress={(direction) => {
+                        if (direction !== "right") return true;
+                        selectTab(t.key);
+                        return false;
+                      }}
                     >
                       <span className="stx__row-icon">{t.icon}</span>
                       <span className="stx__row-label">{t.label}</span>
@@ -346,9 +402,9 @@ export function SettingsScreen() {
             ))}
           </nav>
         )}
-        <div className="settings-pane" key={tab ?? "none"}>
+        <div className="settings-pane" ref={pane} key={tab ?? "none"}>
         {tab !== null && (
-          <Focusable as="button" back focusKey="settings:pane-back" className="stx__row stx__back" onPress={() => setTab(null)}>
+          <Focusable as="button" back focusKey="settings:pane-back" className="stx__row stx__back" onPress={closeTab}>
             <span className="stx__row-icon">
               <BackIcon size={22} />
             </span>
@@ -357,6 +413,80 @@ export function SettingsScreen() {
         )}
         {tab === "sources" && (
           <>
+            <section className="settings__item">
+              <div className="settings__label">Источник метаданных</div>
+              <CycleRow
+                label="Источник"
+                heading="Источник метаданных"
+                focusKey="settings:source:0"
+                options={SOURCE_OPTIONS.map((opt) => ({ value: opt.key, label: opt.label }))}
+                value={status?.metadata_source ?? "kinopoisk"}
+                onChange={switchSource}
+              />
+            </section>
+            <section className="settings__item">
+              <div className="settings__label">API-KEY KINOPOISKUNOFFICIAL</div>
+              <TextField
+                focusKey="settings:kpkey"
+                value={key}
+                onChange={(v) => {
+                  setKey(v);
+                  setKeyNote(null);
+                }}
+                onSubmit={(v) => void saveKey(v)}
+                placeholder={
+                  status?.kinopoisk_key_masked
+                    ? `Сейчас: ${status.kinopoisk_key_masked} — введите новый, чтобы заменить`
+                    : "Вставьте ключ с kinopoiskapiunofficial.tech"
+                }
+              />
+              <SettingStatus note={keyNote} />
+              <Focusable
+                as="button"
+                className="btn settings__site-btn"
+                focusKey="settings:kpkey-site"
+                onPress={() => void openExternal(KP_KEY_URL)}
+              >
+                Получить ключ на сайте
+              </Focusable>
+            </section>
+            <section className="settings__item">
+              <div className="settings__label">API-KEY TMDB</div>
+              <TextField
+                focusKey="settings:tmdbkey"
+                value={tmdbKey}
+                onChange={(v) => {
+                  setTmdbKey(v);
+                  setTmdbKeyNote(null);
+                }}
+                onSubmit={(v) => void saveTmdbKey(v)}
+                placeholder={
+                  status?.tmdb_key_masked
+                    ? `Сейчас: ${status.tmdb_key_masked} — введите новый, чтобы заменить`
+                    : "Вставьте ключ с themoviedb.org/settings/api"
+                }
+              />
+              <SettingStatus note={tmdbKeyNote} />
+              <Focusable
+                as="button"
+                className="btn settings__site-btn"
+                focusKey="settings:tmdbkey-site"
+                onPress={() => void openExternal(TMDB_KEY_URL)}
+              >
+                Получить ключ на сайте
+              </Focusable>
+            </section>
+            <section className="settings__item">
+              <div className="settings__label">Зеркало TMDB API (необязательно)</div>
+              <TextField
+                focusKey="settings:tmdbmirror"
+                value={tmdbMirror}
+                onChange={setTmdbMirror}
+                onSubmit={(v) => void setTmdbApiMirror(v).catch(() => undefined)}
+                placeholder="Адрес зеркала: https://…/3"
+                type="url"
+              />
+            </section>
             <section className="settings__item">
               <div className="settings__label">Ссылка на TorAPI</div>
               <TextField
@@ -370,24 +500,7 @@ export function SettingsScreen() {
                 placeholder="https://…"
                 type="url"
               />
-              <Hint
-                note={torapiNote}
-                fallback="Enter — сохранить. Поиск раздач идёт через этот сервер."
-              />
-            </section>
-            <section className="settings__item">
-              <div className="settings__label">Зеркало TMDB API (необязательно)</div>
-              <TextField
-                focusKey="settings:tmdbmirror"
-                value={tmdbMirror}
-                onChange={setTmdbMirror}
-                onSubmit={(v) => void setTmdbApiMirror(v).catch(() => undefined)}
-                placeholder="Адрес зеркала: https://…/3"
-                type="url"
-              />
-              <div className="settings__hint">
-                Если TMDB у вас закрыт, укажите адрес зеркала, оно будет использоваться, пока прямой доступ не отвечает (Enter — сохранить). Ваш ключ TMDB уходит на этот сервер, поэтому берите только зеркало, которому доверяете. Картинки TMDB переключаются на зеркала сами.
-              </div>
+              <SettingStatus note={torapiNote} />
             </section>
             <section className="settings__item">
               <div className="settings__label">JacRed — ещё один источник раздач (необязательно)</div>
@@ -410,83 +523,6 @@ export function SettingsScreen() {
                 }}
                 placeholder="Ключ (apikey), если сервер его требует"
               />
-              <div className="settings__hint">
-                JacRed собирает раздачи с нескольких трекеров. Если указать адрес, его результаты добавятся к обычному поиску и повторы уберутся. Оставьте пустым, чтобы не использовать.
-              </div>
-            </section>
-            <section className="settings__item">
-              <div className="settings__label">API-KEY KINOPOISKUNOFFICIAL</div>
-              <TextField
-                focusKey="settings:kpkey"
-                value={key}
-                onChange={(v) => {
-                  setKey(v);
-                  setKeyNote(null);
-                }}
-                onSubmit={(v) => void saveKey(v)}
-                placeholder={
-                  status?.kinopoisk_key_masked
-                    ? `Сейчас: ${status.kinopoisk_key_masked} — введите новый, чтобы заменить`
-                    : "Вставьте ключ с kinopoiskapiunofficial.tech"
-                }
-              />
-              <Hint
-                note={keyNote}
-                fallback="Enter — сохранить. Ключ хранится только на этом компьютере."
-              />
-              <Focusable
-                as="button"
-                className="btn settings__site-btn"
-                focusKey="settings:kpkey-site"
-                onPress={() => void openExternal(KP_KEY_URL)}
-              >
-                Получить ключ на сайте
-              </Focusable>
-            </section>
-            <section className="settings__item">
-              <div className="settings__label">Источник метаданных</div>
-              <CycleRow
-                label="Источник"
-                focusKey="settings:source:0"
-                options={SOURCE_OPTIONS.map((opt) => ({ value: opt.key, label: opt.label }))}
-                value={status?.metadata_source ?? "kinopoisk"}
-                onChange={(v) => void switchSource(v)}
-              />
-              <div className="settings__hint">
-                Kinopoisk — основной источник, с русскими названиями и локальным
-                стримингом. TMDB — запасной вариант на случай, если у Kinopoisk
-                кончился суточный лимит или он недоступен; кадров и похожих фильмов
-                там обычно меньше. Для TMDB нужен включённый VPN.
-              </div>
-            </section>
-            <section className="settings__item">
-              <div className="settings__label">API-KEY TMDB</div>
-              <TextField
-                focusKey="settings:tmdbkey"
-                value={tmdbKey}
-                onChange={(v) => {
-                  setTmdbKey(v);
-                  setTmdbKeyNote(null);
-                }}
-                onSubmit={(v) => void saveTmdbKey(v)}
-                placeholder={
-                  status?.tmdb_key_masked
-                    ? `Сейчас: ${status.tmdb_key_masked} — введите новый, чтобы заменить`
-                    : "Вставьте ключ с themoviedb.org/settings/api"
-                }
-              />
-              <Hint
-                note={tmdbKeyNote}
-                fallback="Enter — сохранить. Нужен только если выбран источник TMDB выше."
-              />
-              <Focusable
-                as="button"
-                className="btn settings__site-btn"
-                focusKey="settings:tmdbkey-site"
-                onPress={() => void openExternal(TMDB_KEY_URL)}
-              >
-                Получить ключ на сайте
-              </Focusable>
             </section>
             <section className="settings__item">
               <div className="settings__label">Cookies YouTube для трейлеров</div>
@@ -495,17 +531,31 @@ export function SettingsScreen() {
                 focusKey="settings:cookies:0"
                 options={COOKIES_OPTIONS.map((opt) => ({ value: opt.key, label: opt.label }))}
                 value={(status?.youtube_cookies_browser ?? "")}
-                onChange={(v) => void switchCookies(v)}
+                onChange={switchCookies}
               />
-              <div className="settings__hint">
-                Если YouTube отвечает «подтвердите, что вы не бот», трейлеры можно открыть
-                через вашу сессию YouTube в выбранном браузере — нужно быть в нём
-                залогиненным. Обычно они не нужны: сначала трейлер пробуется без них.
-                Cookies читаются из браузера один раз (в этот момент он должен быть
-                закрыт) и сохраняются на этом компьютере — в файле остаются только
-                cookies YouTube и Google, дальше браузер закрывать не нужно.
-              </div>
             </section>
+            {isTauri && (
+              <section className="settings__item">
+                <div className="settings__label">Cookies для раздела YouTube</div>
+                <Focusable
+                  as="button"
+                  className="btn settings__site-btn"
+                  focusKey="settings:youtube-cookies-browser"
+                  onPress={() => void chooseYoutubeCookies("browser")}
+                >
+                  {youtubeCookieBusy === "browser" ? "Проверяем сессию…" : "Использовать сессию из браузера"}
+                </Focusable>
+                <Focusable
+                  as="button"
+                  className="btn settings__site-btn"
+                  focusKey="settings:youtube-cookies-import"
+                  onPress={() => void chooseYoutubeCookies("file")}
+                >
+                  {youtubeCookieBusy === "file" ? "Проверяем сессию…" : "Импортировать cookies.txt"}
+                </Focusable>
+                <SettingStatus note={youtubeCookieNote} />
+              </section>
+            )}
           </>
         )}
         {tab === "player" && (
@@ -519,37 +569,34 @@ export function SettingsScreen() {
                 step={0.05}
                 format={(v) => (v === 0.5 ? "100% · стандарт" : `${Math.round(v * 200)}%`)}
               />
-              <div className="settings__hint">
-                Насколько темнеет картинка, пока на экране кнопки плеера. Влево — светлее
-                (0% — без затемнения), вправо — темнее.
-              </div>
             </section>
             <section className="settings__item">
               <div className="settings__label">Размер кнопок плеера</div>
               <CycleRow
                 label="Размер"
+                heading="Размер кнопок плеера"
                 focusKey="settings:uiscale:0"
                 options={UI_SCALE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
                 value={playerPrefs.uiScale}
                 onChange={(v) => setPlayerPrefs({ uiScale: v })}
               />
-              <div className="settings__hint">Размер кнопок, названия и времени на экране плеера — для большого экрана или пульта издалека.</div>
             </section>
             <section className="settings__item">
               <div className="settings__label">Скрывать кнопки плеера через</div>
               <CycleRow
                 label="Скрывать через"
+                heading="Скрывать кнопки плеера через"
                 focusKey="settings:autohide:0"
                 options={AUTO_HIDE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
                 value={playerPrefs.autoHideSec}
                 onChange={(v) => setPlayerPrefs({ autoHideSec: v })}
               />
-              <div className="settings__hint">Сколько секунд без нажатий кнопки остаются на экране.</div>
             </section>
             <section className="settings__item">
               <div className="settings__label">Заставка и титры</div>
               <CycleRow
                 label="Пропуск"
+                heading="Пропуск заставки и титров"
                 focusKey="settings:skipmode:0"
                 options={[
                   { value: "button" as const, label: "Кнопкой" },
@@ -559,27 +606,12 @@ export function SettingsScreen() {
                 value={playerPrefs.skipMode}
                 onChange={(v) => setPlayerPrefs({ skipMode: v })}
               />
-              <div className="settings__hint">
-                Если в файле есть главы «Opening» и «Ending» (или вы сами перематывали заставку в прошлых сериях), за пять секунд до неё появится «Заставка через 5 с». «Сам» — перемотка без нажатия.
-              </div>
-            </section>
-            <section className="settings__item">
-              <div className="settings__label">Соотношение сторон</div>
-              <CycleRow
-                label="Картинка"
-                focusKey="settings:aspect:0"
-                options={ASPECT_MODES.map((m) => ({ value: m, label: ASPECT_LABELS[m] }))}
-                value={playerPrefs.aspect}
-                onChange={(v) => setPlayerPrefs({ aspect: v })}
-              />
-              <div className="settings__hint">
-                «Растянуть» заполняет окно, искажая картинку; «Заполнить» обрезает края вместо чёрных полос. В фильме можно сменить и в меню «Картинка».
-              </div>
             </section>
             <section className="settings__item">
               <div className="settings__label">Субтитры</div>
               <CycleRow
                 label="Размер"
+                heading="Размер субтитров"
                 focusKey="settings:subsize:0"
                 options={SUBTITLE_SIZE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
                 value={playerPrefs.subtitleScale}
@@ -587,40 +619,30 @@ export function SettingsScreen() {
               />
               <CycleRow
                 label="Цвет"
+                heading="Цвет субтитров"
                 focusKey="settings:subcolor:0"
                 options={SUBTITLE_COLOR_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
                 value={playerPrefs.subtitleColor}
                 onChange={(v) => setPlayerPrefs({ subtitleColor: v })} swatch={(v) => String(v)}
               />
-              <div className="settings__hint">Размер и цвет текста субтитров применяются со следующего запуска видео.</div>
             </section>
             <section className="settings__item">
-              <div className="settings__label">Звук</div>
-              <Focusable
-                as="button"
-                className={`checkbox ${playerPrefs.nightMode ? "is-on" : ""}`}
-                focusKey="settings:nightmode"
-                onPress={() => setPlayerPrefs({ nightMode: !playerPrefs.nightMode })}
-              >
-                <span className="checkbox__box">
-                  {playerPrefs.nightMode && (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
-                </span>
-                Ночной режим
-              </Focusable>
-              <div className="settings__hint">
-                Выравнивает громкость: взрывы и музыка не оглушают, тихие реплики слышно. Применяется со следующего запуска видео.
-              </div>
+              <div className="settings__label">Соотношение сторон</div>
+              <CycleRow
+                label="Картинка"
+                heading="Соотношение сторон"
+                focusKey="settings:aspect:0"
+                options={ASPECT_MODES.map((m) => ({ value: m, label: ASPECT_LABELS[m] }))}
+                value={playerPrefs.aspect}
+                onChange={(v) => setPlayerPrefs({ aspect: v })}
+              />
             </section>
-
             <section className="settings__item">
               <div className="settings__label">Картинка</div>
               <div className="settings__sublabel">Масштабирование</div>
               <CycleRow
                 label="Режим"
+                heading="Масштабирование видео"
                 focusKey="settings:upscale:0"
                 options={UPSCALE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
                 value={playerPrefs.upscale}
@@ -629,17 +651,18 @@ export function SettingsScreen() {
               <div className="settings__sublabel">HDR на обычном экране</div>
               <CycleRow
                 label="Режим"
+                heading="HDR на обычном экране"
                 focusKey="settings:tone:0"
                 options={TONE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
                 value={playerPrefs.toneMapping}
                 onChange={(v) => setPlayerPrefs({ toneMapping: v })}
               />
+              <div className="settings__sublabel">Обработка видео</div>
               <Focusable
                 as="button"
                 className={`checkbox ${playerPrefs.deband ? "is-on" : ""}`}
                 focusKey="settings:deband"
                 onPress={() => setPlayerPrefs({ deband: !playerPrefs.deband })}
-                style={{ marginTop: 16 }}
               >
                 <span className="checkbox__box">
                   {playerPrefs.deband && (
@@ -655,7 +678,6 @@ export function SettingsScreen() {
                 className={`checkbox ${playerPrefs.smooth ? "is-on" : ""}`}
                 focusKey="settings:smooth"
                 onPress={() => setPlayerPrefs({ smooth: !playerPrefs.smooth })}
-                style={{ marginTop: 16 }}
               >
                 <span className="checkbox__box">
                   {playerPrefs.smooth && (
@@ -666,13 +688,21 @@ export function SettingsScreen() {
                 </span>
                 Плавность движения (смешивание кадров)
               </Focusable>
-              <div className="settings__hint">
-                «Чёткое» и «Максимум» делают картинку резче на видео ниже разрешения экрана, но нагружают видеокарту.
-                «Мягкий» / «Контрастный» меняют, как HDR-фильмы выглядят на обычном экране; «Авто» оставляет решение плееру.
-                «Плавность движения» убирает рывки на панорамах (24 кадра на экране 60 Гц), но новых кадров не рисует и слегка нагружает видеокарту.
-                Применяется со следующего запуска видео.
-              </div>
             </section>
+            {isTauri && (
+              <section className="settings__item">
+                <CycleRow
+                  label="DLSS Frame Generation"
+                  focusKey="settings:frameGeneration:0"
+                  options={DLSS_OPTIONS}
+                  value={playerPrefs.frameGeneration}
+                  onChange={async (multiplier) => {
+                    if (multiplier) await invoke("frame_generation_filter", { multiplier });
+                    setPlayerPrefs({ frameGeneration: multiplier });
+                  }}
+                />
+              </section>
+            )}
 
             <section className="settings__item">
               <div className="settings__label">Подробная статистика</div>
@@ -700,9 +730,6 @@ export function SettingsScreen() {
                 </span>
                 Включить
               </Focusable>
-              <div className="settings__hint">
-                Разрешение, FPS, битрейт, кодеки и буфер поверх видео в плеере.
-              </div>
             </section>
           </>
         )}
@@ -732,10 +759,7 @@ export function SettingsScreen() {
               <span className="cycle-row__label">{speedBusy ? "Измеряю…" : "Проверить скорость"}</span>
               <span className="cycle-row__value">{speed ? `≈ ${Math.round(speed.mbit)} Мбит/с · ${recommendQuality(speed.mbit).text}` : ""}</span>
             </Focusable>
-            <div className="settings__hint">
-              {speedNote ||
-                "Около восьми секунд скачивается тестовый файл. По результату список раздач отметит те, что пойдут без остановок, и не посоветует слишком тяжёлые."}
-            </div>
+            {speedNote && <div className="settings__hint" role="status">{speedNote}</div>}
           </section>
         )}
         {tab === "channels" && (
@@ -744,23 +768,22 @@ export function SettingsScreen() {
               <div className="settings__label">Обновление программы передач</div>
               <CycleRow
                 label="Обновлять"
+                heading="Обновление программы передач"
                 focusKey="settings:epg:0"
                 options={EPG_REFRESH_OPTIONS.map((opt) => ({ value: opt.key, label: opt.label }))}
                 value={epgRefreshInterval}
                 onChange={(v) => setEpgRefreshInterval(v)}
               />
-              <div className="settings__hint">
-                Как часто обновлять программу передач. Между обновлениями она хранится на диске, заходить в «Каналы» быстрее.</div>
             </section>
-            <TranslatorSettings />
           </>
         )}
+        {tab === "translation" && <TranslatorSettings />}
         {tab === "look" && (
           <>
             {[
-              { title: "Тема", kinds: PLAIN_KINDS, hint: "" },
-              { title: "Анимированный фон", kinds: ANIMATED_KINDS, hint: "Цвет интерфейса меняется вместе с фоном." },
-              { title: "Эксклюзивные темы", kinds: EXCLUSIVE_KINDS, hint: "Вместе с темой меняются музыка и звуки (PS4 или PS5)." },
+              { title: "Тема", kinds: PLAIN_KINDS },
+              { title: "Анимированный фон", kinds: ANIMATED_KINDS },
+              { title: "Эксклюзивные темы", kinds: EXCLUSIVE_KINDS },
             ].map((group) => (
               <section className="settings__item" key={group.title}>
                 <div className="settings__label">{group.title}</div>
@@ -792,7 +815,6 @@ export function SettingsScreen() {
                     );
                   })}
                 </div>
-                {group.hint && <div className="settings__hint">{group.hint}</div>}
               </section>
             ))}
             <section className="settings__item">
@@ -855,12 +877,6 @@ export function SettingsScreen() {
                 value={screensaverSeconds}
                 onChange={setScreensaverSeconds}
               />
-              <div className="settings__hint">
-                {monitors.length > 2
-                  ? "Программа откроется на выбранном экране и перенесётся на него сразу. Если экран отключён, окно откроется там, где обычно."
-                  : "Полный экран при каждом запуске. Если подключить второй монитор, здесь появится выбор экрана."}
-                {" "}Заставка включается, когда никто не нажимает кнопки: по экрану плывут постеры популярных и лучших фильмов, любое нажатие её убирает.
-              </div>
             </section>
             <section className="settings__item">
               <div className="settings__label">Интерфейс</div>
@@ -901,9 +917,6 @@ export function SettingsScreen() {
                 </span>
                 Трейлер на фоне страницы фильма
               </Focusable>
-              <div className="settings__hint">
-                100% — как на экране Full HD, на 4K масштаб подбирается сам. Больше — для телевизора и просмотра издалека, меньше — если всё крупно.
-              </div>
             </section>
           </>
         )}
@@ -913,35 +926,35 @@ export function SettingsScreen() {
               <div className="settings__label">Вывод звука</div>
               <CycleRow
                 label="Устройство"
+                heading="Устройство вывода звука"
                 focusKey="settings:audiodevice:0"
-                options={[{ value: "", label: "По умолчанию в Windows" }, ...devices.filter((d) => d.name !== "auto").map((d) => ({ value: d.name, label: d.description }))]}
-                value={playerPrefs.audioDevice}
-                onChange={(v) => setPlayerPrefs({ audioDevice: v })}
+                options={[{ value: "auto", label: "По умолчанию в Windows" }, ...devices.filter((d) => d.name !== "auto").map((d) => ({ value: d.name, label: d.description }))]}
+                value={resolveAudioDevice(audioDevice, devices)}
+                onChange={(v) => setAudioDevice(v === "auto" ? "" : v)}
               />
-              <div className="settings__hint">
-                Куда играет звук фильмов, каналов и трейлеров в плеере; применяется со следующего запуска видео. Звуки меню и музыка идут на устройство Windows по умолчанию.
-              </div>
+            </section>
+            <section className="settings__item">
+              <div className="settings__label">Воспроизведение</div>
+              <Focusable
+                as="button"
+                className={`checkbox ${playerPrefs.nightMode ? "is-on" : ""}`}
+                focusKey="settings:nightmode"
+                onPress={() => setPlayerPrefs({ nightMode: !playerPrefs.nightMode })}
+              >
+                <span className="checkbox__box">
+                  {playerPrefs.nightMode && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </span>
+                Ночной режим
+              </Focusable>
             </section>
             <section className="settings__item">
               <div className="settings__label">Набор звуков</div>
               <SoundKitRow focusPrefix="settings:snd:kit" />
-              <div className="settings__hint">Готовый набор сразу меняет кнопки и навигацию. Ниже можно подобрать отдельно.</div>
             </section>
-            {SOUND_CATEGORIES.map((category) => (
-              <section className="settings__item" key={category}>
-                <div className="settings__label">
-                  {SOUND_CATEGORY_LABELS[category]}
-                </div>
-                <SoundCategoryRow
-                  category={category}
-                  focusPrefix={`settings:snd:${category}`}
-                />
-                <div className="settings__hint">
-                  Навелись — услышали. Enter — выбрать, «Без звука» — выключить
-                  категорию.
-                </div>
-              </section>
-            ))}
             <section className="settings__item">
               <div className="settings__label">Громкость звуков</div>
               <VolumeRow
@@ -949,10 +962,6 @@ export function SettingsScreen() {
                 volume={sfxVolume}
                 onChange={setSfxVolume}
               />
-              <div className="settings__hint">
-                Влево/вправо с пульта, клик или перетаскивание мышью — громкость всех
-                звуковых эффектов.
-              </div>
             </section>
             <section className="settings__item">
               <div className="settings__label">Фоновая музыка</div>
@@ -980,11 +989,9 @@ export function SettingsScreen() {
                 </span>
                 Проигрывать
               </Focusable>
-              <div className="settings__hint">
-                {musicEnabled && currentTrack
-                  ? `Сейчас играет: ${currentTrack.title} — ${currentTrack.artist}`
-                  : "Тихая фоновая музыка во время просмотра каталога — не звучит поверх плеера. Набор звуков PS4 приносит свою музыку."}
-              </div>
+              {musicEnabled && currentTrack && (
+                <div className="settings__hint" role="status">Сейчас играет: {currentTrack.title} — {currentTrack.artist}</div>
+              )}
             </section>
             <section className="settings__item">
               <div className="settings__label">Громкость музыки</div>
@@ -993,10 +1000,6 @@ export function SettingsScreen() {
                 volume={musicVolume}
                 onChange={setMusicVolume}
               />
-              <div className="settings__hint">
-                Влево/вправо с пульта, клик или перетаскивание мышью — громкость
-                фоновой музыки.
-              </div>
             </section>
             <section className="settings__item">
               <Focusable
@@ -1007,11 +1010,6 @@ export function SettingsScreen() {
               >
                 {soundPinned ? "Применено ✓" : "Применить"}
               </Focusable>
-              <div className="settings__hint">
-                {soundPinned
-                  ? "Звуки, музыка и громкость закреплены — смена темы (в т.ч. PS4 и PS5) их не меняет."
-                  : "Закрепляет текущие звуки, музыку и громкость: темы PS4/PS5 больше не подменят их своими."}
-              </div>
               {soundPinned && (
                 <Focusable
                   as="button"
@@ -1026,7 +1024,55 @@ export function SettingsScreen() {
           </>
         )}
         {tab === "remote" && <RemotePane />}
-        {tab === "storage" && <StoragePanel />}
+        {tab === "storage" && (
+          <>
+            <StoragePanel />
+            <section className="settings__item">
+              <div className="settings__label">Мои данные</div>
+              <Focusable
+                as="button"
+                className="cycle-row"
+                focusKey="settings:data-export"
+                onPress={() => {
+                  setImportArmed(false);
+                  exportUserData().then(
+                    (r) => setDataNote(r === "saved" ? "Данные сохранены в файл." : ""),
+                    (e) => setDataNote(`Не удалось сохранить: ${e instanceof Error ? e.message : String(e)}`),
+                  );
+                }}
+              >
+                <span className="cycle-row__label">Сохранить данные в файл</span>
+                <NextIcon size={20} />
+              </Focusable>
+              <Focusable
+                as="button"
+                className="cycle-row"
+                focusKey="settings:data-import"
+                onPress={() => {
+                  if (!importArmed) {
+                    setImportArmed(true);
+                    setDataNote("Загрузка заменит избранное, прогресс и настройки на то, что в файле. Нажмите ещё раз, чтобы выбрать файл.");
+                    return;
+                  }
+                  setImportArmed(false);
+                  importUserData().then(
+                    () => undefined,
+                    (e) => setDataNote(`Не удалось загрузить: ${e instanceof Error ? e.message : String(e)}`),
+                  );
+                }}
+              >
+                <span className="cycle-row__label">Загрузить данные из файла</span>
+                <span className="cycle-row__value">{importArmed ? "Нажмите ещё раз" : ""}</span>
+                <NextIcon size={20} />
+              </Focusable>
+              <Focusable as="button" className="cycle-row" focusKey="settings:data-folder" onPress={() => void openUserDataDir()}>
+                <span className="cycle-row__label">Папка с копией данных</span>
+                <NextIcon size={20} />
+              </Focusable>
+              {dataNote && <div className="settings__hint" role="status">{dataNote}</div>}
+            </section>
+          </>
+        )}
         {tab === "stats" && <StatsPanel />}
         {tab === "about" && (
           <>
@@ -1089,55 +1135,8 @@ export function SettingsScreen() {
                 </span>
                 Показывать, что я смотрю
               </Focusable>
-              <div className="settings__hint">Друзья увидят «Смотрит KINONYX» и название. Нужен запущенный Discord.</div>
             </section>
 
-            <section className="settings__item">
-              <div className="settings__label">Мои данные</div>
-              <Focusable
-                as="button"
-                className="cycle-row"
-                focusKey="settings:data-export"
-                onPress={() => {
-                  setImportArmed(false);
-                  exportUserData().then(
-                    (r) => setDataNote(r === "saved" ? "Данные сохранены в файл." : ""),
-                    (e) => setDataNote(`Не удалось сохранить: ${e instanceof Error ? e.message : String(e)}`),
-                  );
-                }}
-              >
-                <span className="cycle-row__label">Сохранить данные в файл</span>
-                <NextIcon size={20} />
-              </Focusable>
-              <Focusable
-                as="button"
-                className="cycle-row"
-                focusKey="settings:data-import"
-                onPress={() => {
-                  if (!importArmed) {
-                    setImportArmed(true);
-                    setDataNote("Загрузка заменит избранное, прогресс и настройки на то, что в файле. Нажмите ещё раз, чтобы выбрать файл.");
-                    return;
-                  }
-                  setImportArmed(false);
-                  importUserData().then(
-                    () => undefined,
-                    (e) => setDataNote(`Не удалось загрузить: ${e instanceof Error ? e.message : String(e)}`),
-                  );
-                }}
-              >
-                <span className="cycle-row__label">Загрузить данные из файла</span>
-                <span className="cycle-row__value">{importArmed ? "Нажмите ещё раз" : ""}</span>
-                <NextIcon size={20} />
-              </Focusable>
-              <Focusable as="button" className="cycle-row" focusKey="settings:data-folder" onPress={() => void openUserDataDir()}>
-                <span className="cycle-row__label">Папка с копией данных</span>
-                <NextIcon size={20} />
-              </Focusable>
-              <div className="settings__hint">
-                {dataNote || "Избранное, «продолжить», прогресс, статистика, плейлисты и настройки сами копируются в папку .kinonyx\\userdata и вернутся, если данные программы пропадут при обновлении или переустановке. Файл нужен, чтобы перенести данные на другой компьютер."}
-              </div>
-            </section>
             <section className="settings__item">
               <div className="settings__label">Программа</div>
               <Focusable as="button" className="cycle-row" focusKey="settings:diagnostics" onPress={() => navigate({ name: "diagnostics" })}>
@@ -1188,10 +1187,10 @@ export function SettingsScreen() {
   );
 }
 
-function Hint({ note, fallback }: { note: Note; fallback: string }) {
-  if (!note) return <div className="settings__hint">{fallback}</div>;
+function SettingStatus({ note }: { note: Note }) {
+  if (!note) return null;
   return (
-    <div className={`settings__hint settings__hint--${note.kind}`}>
+    <div className={`settings__hint settings__hint--${note.kind}`} role="status">
       {note.text}
     </div>
   );
@@ -1226,9 +1225,6 @@ function RemotePane() {
           </span>
           Включить пульт
         </Focusable>
-        <div className="settings__hint">
-          Телефон и компьютер — в одной сети Wi-Fi. Наведите камеру на код, откроется страница с кнопками.
-        </div>
         {error && <div className="settings__hint settings__hint--error">{error}</div>}
       </section>
 
@@ -1248,12 +1244,6 @@ function RemotePane() {
           <Focusable as="button" className="btn settings__site-btn" focusKey="settings:remote:renew" onPress={() => void renew()}>
             Сменить код
           </Focusable>
-          <div className="settings__hint">
-            Код сохраняется: один раз отсканировали — и в следующие разы пульт откроется сам, когда KINONYX запущен. Откройте адрес в браузере телефона и
-            добавьте его на главный экран («Поделиться» → «На экран Домой» в Safari, меню ⋮ → «Добавить на главный экран» в Chrome) — получится значок.
-            Адрес с «.local» не меняется, даже если роутер выдал компьютеру новый номер.
-          </div>
-          <div className="settings__hint">После смены кода прежние телефоны перестанут работать — отсканируйте новый.</div>
         </section>
       )}
     </>

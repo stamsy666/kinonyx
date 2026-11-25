@@ -20,8 +20,8 @@ import type {
 import type { CatalogKind } from "../data/catalogs";
 import type { Programme } from "@kinonyx/epg";
 import { applyBgPalette, BG_KINDS, type BgKind } from "../data/backgrounds";
-import type { SoundCategory } from "../data/sounds";
 import type { MusicTrack } from "../data/music";
+import type { YoutubeChannel, YoutubePlayback } from "../data/youtube";
 import { enterPip, exitPip } from "../data/pip";
 
 export type Screen =
@@ -45,6 +45,8 @@ export type Screen =
       /** Selectable qualities (YouTube trailers) — `url` is the one at `qualityIndex`. */
       qualities?: TrailerQuality[];
       qualityIndex?: number;
+      provider?: "youtube";
+      youtube?: YoutubePlayback;
       hash?: string;
       /** Set only for a genuine movie/episode watch (never a trailer) — enables
        *  "continue watching" progress tracking, keyed by the film's own id. */
@@ -64,6 +66,7 @@ export type Screen =
    *  yt-dlp can resolve) — shown full-screen in an iframe instead of the mpv player. */
   | { name: "web-trailer"; title: string; url: string }
   | { name: "search" }
+  | { name: "youtube"; channel?: YoutubeChannel; watchHistory?: boolean }
   | { name: "favorites" }
   | { name: "downloads" }
   | { name: "settings" }
@@ -102,6 +105,8 @@ function focusKeyOfScreen(s: Screen): string | undefined {
       return "gallery";
     case "search":
       return "search";
+    case "youtube":
+      return "youtube";
     case "favorites":
       return "favorites";
     case "downloads":
@@ -132,7 +137,9 @@ const snapshots: FocusSnapshot[] = [];
 
 const STATS_KEY = "kinonyx.showStreamStats";
 const BG_KEY = "kinonyx.background";
-const SOUND_KEY = "kinonyx.soundChoice";
+const SOUND_KIT_KEY = "kinonyx.soundKit";
+const LEGACY_SOUND_KEY = "kinonyx.soundChoice";
+export type SoundKitId = "app" | "ps4" | "ps5";
 
 export type PlayerRoute = Extract<Screen, { name: "player" | "tv-player" }>;
 export const isPlayerRoute = (s: Screen): s is PlayerRoute => s.name === "player" || s.name === "tv-player";
@@ -146,6 +153,7 @@ const SOUND_PINNED_KEY = "kinonyx.soundPinned";
 const EPG_REFRESH_KEY = "kinonyx.epgRefreshInterval";
 const PLAYER_DIM_KEY = "kinonyx.playerDim";
 const PLAYER_PREFS_KEY = "kinonyx.playerPrefs";
+const AUDIO_DEVICE_KEY = "kinonyx.audioDevice";
 
 /** Player look & behaviour tweaks from Settings. `autoHideSec` 0 = controls never auto-hide. */
 export interface PlayerPrefs {
@@ -156,6 +164,10 @@ export interface PlayerPrefs {
   subtitleScale: number;
   /** mpv `sub-color`, "#RRGGBB". */
   subtitleColor: string;
+  /** The plate behind subtitle text: "default" keeps each renderer's own look (the local translation on a dark plate,
+   *  mpv's text with an outline), "none" drops the plate, "dark" puts both on a dark plate. Styled ASS and picture
+   *  subtitles keep their author's style. */
+  subtitleBackground: SubtitleBackground;
   /** Evens out loud and quiet parts (mpv `dynaudnorm`) — for watching at night. */
   nightMode: boolean;
   /** Video scaling quality (mpv `scale`/`cscale`): sharper costs GPU. */
@@ -164,6 +176,8 @@ export interface PlayerPrefs {
   deband: boolean;
   /** Smooth motion: frames are blended to the screen's rate (mpv `interpolation`, `video-sync=display-resample`) — no jerks in pans. */
   smooth: boolean;
+  /** Motion-compensated frame generation for the desktop players. */
+  frameGeneration: 0 | 2 | 3;
   /** HDR → SDR mapping for ordinary screens (mpv `tone-mapping`). */
   toneMapping: "auto" | "soft" | "contrast";
   /** Passes HDR through to an HDR display (mpv `target-colorspace-hint`) instead of squeezing it to SDR. */
@@ -172,11 +186,11 @@ export interface PlayerPrefs {
   aspect: AspectMode;
   /** Intro and credits: the viewer presses a button, the player jumps by itself, or nothing is offered. */
   skipMode: SkipMode;
-  /** The mpv sound output ("" = the system's default one). */
-  audioDevice: string;
 }
 
 export type SkipMode = "button" | "auto" | "off";
+
+export type SubtitleBackground = "default" | "none" | "dark";
 
 export type AspectMode = "auto" | "16:9" | "4:3" | "21:9" | "stretch" | "fill";
 export const ASPECT_MODES: AspectMode[] = ["auto", "16:9", "4:3", "21:9", "stretch", "fill"];
@@ -194,15 +208,16 @@ export const DEFAULT_PLAYER_PREFS: PlayerPrefs = {
   autoHideSec: 4,
   subtitleScale: 1,
   subtitleColor: "#FFFFFF",
+  subtitleBackground: "default",
   nightMode: false,
   upscale: "default",
   deband: false,
   smooth: false,
+  frameGeneration: 0,
   toneMapping: "auto",
   hdrOutput: false,
   aspect: "auto",
   skipMode: "button",
-  audioDevice: "",
 };
 
 function readPlayerPrefs(): PlayerPrefs {
@@ -220,15 +235,17 @@ function readPlayerPrefs(): PlayerPrefs {
           typeof p.subtitleColor === "string" && /^#[0-9a-fA-F]{6}$/.test(p.subtitleColor)
             ? p.subtitleColor
             : DEFAULT_PLAYER_PREFS.subtitleColor,
+        // Profiles saved before the setting existed (or holding something unknown) keep the old look.
+        subtitleBackground: p.subtitleBackground === "none" || p.subtitleBackground === "dark" ? p.subtitleBackground : "default",
         nightMode: p.nightMode === true,
         upscale: p.upscale === "sharp" || p.upscale === "max" ? p.upscale : "default",
         deband: p.deband === true,
         smooth: p.smooth === true,
+        frameGeneration: p.frameGeneration === 2 || p.frameGeneration === 3 ? p.frameGeneration : 0,
         toneMapping: p.toneMapping === "soft" || p.toneMapping === "contrast" ? p.toneMapping : "auto",
         hdrOutput: p.hdrOutput === true,
         aspect: (ASPECT_MODES as string[]).includes(p.aspect as string) ? (p.aspect as AspectMode) : "auto",
         skipMode: p.skipMode === "auto" || p.skipMode === "off" ? p.skipMode : "button",
-        audioDevice: typeof p.audioDevice === "string" ? p.audioDevice.slice(0, 300) : "",
       };
     }
   } catch {
@@ -237,22 +254,30 @@ function readPlayerPrefs(): PlayerPrefs {
   return { ...DEFAULT_PLAYER_PREFS };
 }
 
-// Matches the `${prefix}:${index}` id scheme data/sounds.ts assigns each file —
-// duplicated here (rather than imported) to avoid a load-order dependency between
-// the store and the sound engine, which reads the store back at play time.
-const DEFAULT_SOUND_CHOICE: Record<SoundCategory, string | null> = {
-  buttons: "buttons:0",
-  navigation: "navigation:0",
-  menuNavigation: "menuNavigation:0",
-  typing: "typing:0",
-};
-
 function readBool(key: string, fallback = false): boolean {
   try {
     const v = localStorage.getItem(key);
     return v == null ? fallback : v === "1";
   } catch {
     return fallback;
+  }
+}
+
+function readAudioDevice(): string {
+  try {
+    const current = localStorage.getItem(AUDIO_DEVICE_KEY);
+    if (current !== null) return current.slice(0, 300);
+    const legacy = JSON.parse(localStorage.getItem(PLAYER_PREFS_KEY) ?? "{}")?.audioDevice;
+    if (typeof legacy !== "string") return "";
+    const device = legacy.slice(0, 300);
+    try {
+      localStorage.setItem(AUDIO_DEVICE_KEY, device);
+    } catch {
+      /* the migrated setting still applies this session */
+    }
+    return device;
+  } catch {
+    return "";
   }
 }
 
@@ -278,18 +303,24 @@ function readUiZoom(): number {
   return 1;
 }
 
-function readSoundChoice(): Record<SoundCategory, string | null> {
+function readSoundPreferences(): { kit: SoundKitId; muted: boolean } {
   try {
-    const raw = localStorage.getItem(SOUND_KEY);
-    if (raw)
-      return {
-        ...DEFAULT_SOUND_CHOICE,
-        ...(JSON.parse(raw) as Partial<Record<SoundCategory, string | null>>),
-      };
+    const kit = localStorage.getItem(SOUND_KIT_KEY);
+    if (kit === "app" || kit === "ps4" || kit === "ps5") return { kit, muted: false };
+
+    const legacy = JSON.parse(localStorage.getItem(LEGACY_SOUND_KEY) ?? "null");
+    if (legacy?.buttons === "kit:ps4:select") return { kit: "ps4", muted: false };
+    if (legacy?.buttons === "kit:ps5:select") return { kit: "ps5", muted: false };
+    const muted = legacy?.buttons === null && legacy?.navigation === null
+      && legacy?.menuNavigation === null && legacy?.typing === null;
+    if (muted) {
+      localStorage.setItem(VOLUME_KEY, "0");
+      localStorage.setItem(SOUND_KIT_KEY, "app");
+    }
+    return { kit: "app", muted };
   } catch {
-    /* falls through to default */
+    return { kit: "app", muted: false };
   }
-  return { ...DEFAULT_SOUND_CHOICE };
 }
 
 function readVolume(key: string, fallback: number): number {
@@ -343,7 +374,7 @@ interface AppState {
   /** Whole-program zoom (1 = as designed); for big TVs. Applied by data/uiZoom.ts. */
   uiZoom: number;
   backgroundKind: BgKind;
-  soundChoice: Record<SoundCategory, string | null>;
+  soundKit: SoundKitId;
   sfxVolume: number;
   musicEnabled: boolean;
   musicVolume: number;
@@ -352,6 +383,9 @@ interface AppState {
   setPlayerDim: (v: number) => void;
   playerPrefs: PlayerPrefs;
   setPlayerPrefs: (patch: Partial<PlayerPrefs>) => void;
+  /** Shared output for every mpv screen. Empty means the system default. */
+  audioDevice: string;
+  setAudioDevice: (device: string) => void;
   /** Show what is being watched as a Discord status (needs Discord running and an application id). */
   discordEnabled: boolean;
   setDiscordEnabled: (on: boolean) => void;
@@ -378,12 +412,12 @@ interface AppState {
   expandPlayer: () => void;
   /** Stops and closes the minimised player. */
   closePlayer: () => void;
-  navigate: (screen: Screen) => void;
+  navigate: (screen: Screen, returnFocusKey?: string) => void;
   /** Swaps the current screen without touching history — for moving between screens of
    *  the same "session" (e.g. switching episodes inside the player) where Back should
    *  still exit to whatever opened that session, not step back through each swap first. */
   replace: (screen: Screen) => void;
-  back: () => boolean;
+  back: (steps?: number) => boolean;
   openSidebar: () => void;
   closeSidebar: () => void;
   toggleSidebar: () => void;
@@ -393,7 +427,7 @@ interface AppState {
   setBackdropTrailer: (on: boolean) => void;
   setUiZoom: (zoom: number) => void;
   setBackgroundKind: (kind: BgKind) => void;
-  setSoundChoice: (category: SoundCategory, id: string | null) => void;
+  setSoundKit: (id: SoundKitId) => void;
   setSfxVolume: (v: number) => void;
   setMusicEnabled: (on: boolean) => void;
   setMusicVolume: (v: number) => void;
@@ -406,6 +440,7 @@ interface AppState {
 }
 
 const initialBgKind = readBgKind();
+const initialSound = readSoundPreferences();
 applyBgPalette(initialBgKind);
 
 export const useApp = create<AppState>((set, get) => ({
@@ -418,8 +453,8 @@ export const useApp = create<AppState>((set, get) => ({
   backdropTrailer: readBool(BACKDROP_TRAILER_KEY, true),
   uiZoom: readUiZoom(),
   backgroundKind: initialBgKind,
-  soundChoice: readSoundChoice(),
-  sfxVolume: readVolume(VOLUME_KEY, 0.7),
+  soundKit: initialSound.kit,
+  sfxVolume: initialSound.muted ? 0 : readVolume(VOLUME_KEY, 0.7),
   musicEnabled: readBool(MUSIC_ENABLED_KEY),
   musicVolume: readVolume(MUSIC_VOLUME_KEY, 0.5),
   soundPinned: readBool(SOUND_PINNED_KEY),
@@ -440,6 +475,7 @@ export const useApp = create<AppState>((set, get) => ({
     }
   },
   playerPrefs: readPlayerPrefs(),
+  audioDevice: readAudioDevice(),
   metadataSource: null,
   setMetadataSourceState: (source) => set({ metadataSource: source }),
   currentTrack: null,
@@ -449,10 +485,10 @@ export const useApp = create<AppState>((set, get) => ({
   activePlayer: null,
   miniOn: false,
 
-  navigate(screen) {
+  navigate(screen, returnFocusKey) {
     const { screen: current, history } = get();
     snapshots.length = history.length;
-    snapshots.push(takeSnapshot());
+    snapshots.push(takeSnapshot(returnFocusKey));
     resetScroll();
     set({
       screen,
@@ -488,7 +524,7 @@ export const useApp = create<AppState>((set, get) => ({
     set({ activePlayer: null, miniOn: false });
   },
 
-  back() {
+  back(steps = 1) {
     const { screen, history } = get();
     if (get().sidebarOpen) {
       set({ sidebarOpen: false });
@@ -496,13 +532,13 @@ export const useApp = create<AppState>((set, get) => ({
       return true;
     }
     if (history.length === 0) return false;
-    const next = [...history];
-    const newScreen = next.pop()!;
-    const snapshot = snapshots.length === history.length ? snapshots.pop() : undefined;
-    snapshots.length = next.length;
+    const index = Math.max(0, history.length - steps);
+    const newScreen = history[index];
+    const snapshot = snapshots.length === history.length ? snapshots[index] : undefined;
+    snapshots.length = index;
     // Leaving a player screen ends playback — unless it was minimised, which keeps it going.
     const player = isPlayerRoute(newScreen) ? newScreen : get().miniOn ? get().activePlayer : null;
-    set({ screen: newScreen, history: next, activePlayer: player });
+    set({ screen: newScreen, history: history.slice(0, index), activePlayer: player });
     if (snapshot) restoreSnapshot(snapshot, focusKeyOfScreen(newScreen));
     return true;
   },
@@ -579,11 +615,10 @@ export const useApp = create<AppState>((set, get) => ({
     }
   },
 
-  setSoundChoice(category, id) {
-    const next = { ...get().soundChoice, [category]: id };
-    set({ soundChoice: next });
+  setSoundKit(id) {
+    set({ soundKit: id });
     try {
-      localStorage.setItem(SOUND_KEY, JSON.stringify(next));
+      localStorage.setItem(SOUND_KIT_KEY, id);
     } catch {
       /* preference just won't survive a restart */
     }
@@ -604,6 +639,15 @@ export const useApp = create<AppState>((set, get) => ({
     set({ playerPrefs: next });
     try {
       localStorage.setItem(PLAYER_PREFS_KEY, JSON.stringify(next));
+    } catch {
+      /* preference just won't survive a restart */
+    }
+  },
+
+  setAudioDevice(audioDevice) {
+    set({ audioDevice });
+    try {
+      localStorage.setItem(AUDIO_DEVICE_KEY, audioDevice);
     } catch {
       /* preference just won't survive a restart */
     }

@@ -1,4 +1,5 @@
 export type PlayerStatus = "idle" | "loading" | "playing" | "paused" | "buffering" | "ended" | "error";
+export type FrameGeneration = 0 | 2 | 3;
 
 export interface PlaySource {
   url: string;
@@ -8,8 +9,12 @@ export interface PlaySource {
   /** Hint for UI: finite file vs. an endless stream. Torrserve/torrent sources are always false. */
   live?: boolean;
   title?: string;
+  /** Initial position in seconds for a seekable video. */
+  startPosition?: number;
   /** Per-file mpv options (applied for this title only, e.g. a deliberate start delay). */
   mpvOptions?: Record<string, string>;
+  /** Motion-compensated interpolation multiplier for the native player. */
+  frameGeneration?: FrameGeneration;
   /** Subtitles and sound tracks that lie beside the file (a release's .srt / .mka), added once it is open. */
   extraTracks?: ExtraTrack[];
 }
@@ -90,8 +95,8 @@ export interface PlayerAdapter {
   play(): Promise<void>;
   pause(): Promise<void>;
   stop(): Promise<void>;
-  seek(positionSeconds: number): Promise<void>;
-  seekBy(deltaSeconds: number): Promise<void>;
+  seek(positionSeconds: number, exact?: boolean): Promise<void>;
+  seekBy(deltaSeconds: number, exact?: boolean): Promise<void>;
   setVolume(volume: number): Promise<void>;
   setMuted(muted: boolean): Promise<void>;
   selectTrack(kind: TrackKind, id: string | null): Promise<void>;
@@ -104,6 +109,7 @@ export interface PlayerAdapter {
   /** Raw mpv property access (mpv only): reads a string property / sets one live. */
   getProp?(key: string): Promise<string | undefined>;
   setProp?(key: string, value: string): Promise<void>;
+  setFrameGeneration?(factor: FrameGeneration): Promise<void>;
   getState(): PlayerState;
   subscribe(listener: StateListener): () => void;
   destroy(): void;

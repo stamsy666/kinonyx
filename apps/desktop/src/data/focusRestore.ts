@@ -50,10 +50,10 @@ function contentFocusKey(): string | null {
 let cameBackToSavedFocus = false;
 export const returnedToSavedFocus = () => cameBackToSavedFocus;
 
-export function takeSnapshot(): FocusSnapshot {
+export function takeSnapshot(focusKey = contentFocusKey()): FocusSnapshot {
   cameBackToSavedFocus = false;
   return {
-    focusKey: contentFocusKey(),
+    focusKey,
     scroll: SCROLLERS.flatMap((selector) => {
       const el = document.querySelector<HTMLElement>(selector);
       return el ? [{ selector, top: el.scrollTop }] : [];
@@ -81,18 +81,25 @@ export function restoreSnapshot(snapshot: FocusSnapshot, fallbackKey?: string) {
   const started = performance.now();
   let focusedAt = 0;
   let frame = 0;
+  const outgoingKey = getCurrentFocusKey();
 
   const stop = () => {
     cancelAnimationFrame(frame);
-    window.removeEventListener("keydown", stop, true);
-    window.removeEventListener("pointerdown", stop, true);
-    window.removeEventListener("wheel", stop, true);
+    window.removeEventListener("keydown", interrupt, true);
+    window.removeEventListener("pointerdown", interrupt, true);
+    window.removeEventListener("wheel", interrupt, true);
     if (cancelRunning === stop) cancelRunning = null;
   };
+  // A quick press on the remote can arrive before the previous screen has unmounted.
+  // Only give up the restore once the remounted page actually has a focused control.
+  const interrupt = () => {
+    const current = getCurrentFocusKey();
+    if (current && doesFocusableExist(current) && (focusedAt || current !== outgoingKey)) stop();
+  };
   cancelRunning = stop;
-  window.addEventListener("keydown", stop, true);
-  window.addEventListener("pointerdown", stop, true);
-  window.addEventListener("wheel", stop, true);
+  window.addEventListener("keydown", interrupt, true);
+  window.addEventListener("pointerdown", interrupt, true);
+  window.addEventListener("wheel", interrupt, true);
 
   // The saved card never came back (the shelf changed, the hero slide is gone): the screen's own
   // autoFocus was held back for it, so without this the pad/gamepad is left with no focus at all.

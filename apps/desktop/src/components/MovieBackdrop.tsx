@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BackIcon, EpisodesIcon, ExpandIcon, GearIcon, MiniPlayerIcon, MuteIcon, onBack, PauseIcon, PlayIcon, VolumeIcon } from "@kinonyx/ui";
 import { loadBackdropTrailer, type BackdropTrailer } from "../data/backdropTrailer";
 import { holdMusic } from "../data/music";
+import { PLAYER_VOLUME_STEP } from "../data/playerOptions";
 import { useApp } from "../store/app";
 import { PlayFlash } from "./PlayFlash";
 import { FIRST_HOLD_MS, MovieSlides, type Slide } from "./MovieSlides";
@@ -15,7 +16,6 @@ interface FilmNames {
 const SEEK_S = 10;
 /** The phone remote's and the media keys' "back/forward" (the remote's buttons say 15 seconds). */
 const REMOTE_SEEK_S = 15;
-const VOLUME_STEP = 0.1;
 const VOLUME_KEY = "kinonyx.trailerVolume";
 const readVolume = () => {
   try {
@@ -458,15 +458,15 @@ export function MovieBackdrop({
       if (k === "p" || k === "P" || k === "MediaPlayPause") return L.togglePlay();
       if (k === "i" || k === "I") return L.togglePip();
       // The phone remote's "+" / "−".
-      if (k === "AudioVolumeUp") return changeVolume(volumeRef.current + VOLUME_STEP);
-      if (k === "AudioVolumeDown") return changeVolume(volumeRef.current - VOLUME_STEP);
+      if (k === "AudioVolumeUp") return changeVolume(volumeRef.current + PLAYER_VOLUME_STEP);
+      if (k === "AudioVolumeDown") return changeVolume(volumeRef.current - PLAYER_VOLUME_STEP);
       if (k === "MediaRewind") return seekBy(-REMOTE_SEEK_S);
       if (k === "MediaFastForward") return seekBy(REMOTE_SEEK_S);
 
       // a level or a list is open over a button: it takes the arrows
       if (u.popup === "vol") {
-        if (k === "ArrowUp") changeVolume(volumeRef.current + VOLUME_STEP);
-        else if (k === "ArrowDown") changeVolume(volumeRef.current - VOLUME_STEP);
+        if (k === "ArrowUp") changeVolume(volumeRef.current + PLAYER_VOLUME_STEP);
+        else if (k === "ArrowDown") changeVolume(volumeRef.current - PLAYER_VOLUME_STEP);
         else if (k === "ArrowLeft" || k === "ArrowRight" || ok) setUi({ popup: null });
         return;
       }
@@ -640,7 +640,7 @@ export function MovieBackdrop({
           onClick={togglePlay}
           onWheel={(e) => {
             touch();
-            changeVolume(volume + (e.deltaY < 0 ? VOLUME_STEP : -VOLUME_STEP));
+            changeVolume(volume + (e.deltaY < 0 ? PLAYER_VOLUME_STEP : -PLAYER_VOLUME_STEP));
           }}
         >
           <PlayFlash status={paused ? "paused" : "playing"} />

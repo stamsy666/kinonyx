@@ -1,10 +1,13 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Tranquiluxe, Novatrix, Velustro } from "uvcanvas";
 import { BG_PALETTES, isPlainKind, type BgKind } from "../../data/backgrounds";
 import { BubbleBackground } from "./BubbleBackground";
 import { MonoBackground } from "./MonoBackground";
 import { RibbonBackground } from "./RibbonBackground";
 import { WavesBackground } from "./WavesBackground";
+
+// "Луг" brings three.js (~600 KB): loaded only when the theme is chosen, so nobody else pays for it at start-up.
+const MeadowBackground = lazy(() => import("./MeadowBackground").then((m) => ({ default: m.MeadowBackground })));
 
 /** Velustro takes `uColor` instead of `color` — everything else here shares the
  *  same single-colour prop, so this is the one spot that needs to know the odd one out.
@@ -15,7 +18,7 @@ function Effect({
   kind,
   color,
 }: {
-  kind: Exclude<BgKind, "plasma" | "ribbon" | "ps4" | "ps5" | "bw">;
+  kind: Exclude<BgKind, "plasma" | "ribbon" | "meadow" | "ps4" | "ps5" | "bw">;
   color: [number, number, number];
 }) {
   switch (kind) {
@@ -38,7 +41,11 @@ export function AppBackground({ kind }: { kind: BgKind }) {
   }, [kind]);
 
   if (isPlainKind(kind)) return null;
+  return <AnimatedBackground kind={kind} />;
+}
 
+/** Animated artwork without changing the app's global background or palette. */
+export function AnimatedBackground({ kind }: { kind: Exclude<BgKind, "bw"> }) {
   if (kind === "plasma") {
     return (
       <div className="app-background">
@@ -51,6 +58,18 @@ export function AppBackground({ kind }: { kind: BgKind }) {
     return (
       <div className="app-background">
         <RibbonBackground />
+      </div>
+    );
+  }
+
+  if (kind === "meadow") {
+    // A bright sunset sky under white text: a soft dark veil keeps the interface readable (the scene itself is as drawn).
+    return (
+      <div className="app-background">
+        <Suspense fallback={null}>
+          <MeadowBackground />
+        </Suspense>
+        <div className="meadow-veil" />
       </div>
     );
   }

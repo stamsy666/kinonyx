@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Focusable, FocusGroup, OfflineIcon, SearchIcon, Spinner } from "@kinonyx/ui";
+import { useEffect, useRef, useState } from "react";
+import { FocusGroup, OfflineIcon, SearchIcon, Spinner } from "@kinonyx/ui";
 import { EmptyState } from "../components/EmptyState";
 import { useApp } from "../store/app";
 import { kpFilmsFilter, type KpCollectionItem, type KpFilter } from "../data/api";
@@ -16,39 +16,29 @@ const SHELVES: { title: string; text: string; variant: "posters" | "feature" | "
   { title: "Новинки", text: "Свежие фильмы жанра.", variant: "banner", filter: { order: "NUM_VOTE", yearFrom: thisYear - 1 } },
 ];
 
-/** Full poster grid for one genre, opened from CategoriesScreen — paginated the same way
- *  as the LazyShelf placeholder fix: a trailing focusable tile gives keyboard/remote users
- *  somewhere to land so Down keeps loading pages, not just the mouse wheel. */
+/** Genre shelves followed by a poster grid that prefetches as the viewer approaches its end. */
 export function GenreScreen({ title, filter }: { title: string; filter: KpFilter }) {
   const navigate = useApp((s) => s.navigate);
   const [films, setFilms] = useState<KpCollectionItem[]>([]);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
   useHomeFeel(null);
 
-  const loadMore = useCallback(() => {
-    setLoading((already) => {
-      if (already) return already;
-      return true;
-    });
-  }, []);
-
-  // Kick the actual request from an effect keyed on `loading` so overlapping triggers
-  // (focus + IntersectionObserver firing close together) only ever cause one request.
   useEffect(() => {
     if (!loading) return;
     let cancelled = false;
     const next = page + 1;
+    setFailed(false);
     kpFilmsFilter(filter, next)
       .then((res) => {
         if (cancelled) return;
         const items = (res.items ?? []).filter((f) => f.posterUrlPreview);
         setFilms((prev) => [...prev, ...items]);
         setPage(next);
-        setHasMore(items.length > 0 && next < (res.totalPages ?? next));
+        setHasMore(next < (res.totalPages ?? next));
       })
       .catch((e) => {
         console.warn("[genre]", e);
@@ -62,17 +52,14 @@ export function GenreScreen({ title, filter }: { title: string; filter: KpFilter
   }, [loading]);
 
   useEffect(() => {
-    loadMore();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
     const el = sentinelRef.current;
     if (!el || !hasMore) return;
-    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && loadMore(), { rootMargin: "600px 0px" });
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) setLoading(true);
+    }, { rootMargin: "600px 0px" });
     io.observe(el);
     return () => io.disconnect();
-  }, [hasMore, loadMore]);
+  }, [hasMore, page]);
 
   const open = (film: KpCollectionItem) => navigate({ name: "movie", id: film.kinopoiskId, preview: film });
 
@@ -99,11 +86,9 @@ export function GenreScreen({ title, filter }: { title: string; filter: KpFilter
           <h2 className="shelf__title">Все</h2>
         </div>
         {films.length === 0 && loading && (
-          // Focusable (not a plain div): without it nothing is focused while the first
-          // page is loading, so the initial remote/keyboard press lands on nothing.
-          <Focusable focusKey="genre:loading" autoFocus scroll={false} style={{ display: "grid", placeItems: "center", height: 300 }}>
+          <div role="status" aria-label="Загрузка фильмов" style={{ display: "grid", placeItems: "center", height: 300 }}>
             <Spinner />
-          </Focusable>
+          </div>
         )}
         {films.length === 0 && !loading && (failed ? <EmptyState error icon={<OfflineIcon size={38} strokeWidth={1.6} />} title="Не удалось загрузить подборку" hint="Проверьте подключение и попробуйте ещё раз." /> : <EmptyState icon={<SearchIcon size={38} strokeWidth={1.6} />} title="Ничего не найдено" />)}
         {films.length > 0 && (
@@ -114,12 +99,8 @@ export function GenreScreen({ title, filter }: { title: string; filter: KpFilter
             ))}
           </div>
         )}
-        {hasMore && !failed && (
-          <Focusable focusKey="genre:more" className="archive-panel__more" scroll onFocus={loadMore}>
-            {loading ? "Загрузка…" : "Ещё"}
-          </Focusable>
-        )}
-        <div ref={sentinelRef} />
+        <div ref={sentinelRef} aria-hidden />
+        {films.length > 0 && loading && <div className="archive-panel__more" role="status">Загрузка…</div>}
       </div>
     </FocusGroup>
   );

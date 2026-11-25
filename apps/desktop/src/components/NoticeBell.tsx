@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { BellIcon, Focusable } from "@kinonyx/ui";
+import { useEffect, useState } from "react";
+import { ArchiveIcon, BellIcon, DownloadIcon, EpisodesIcon, Focusable } from "@kinonyx/ui";
+import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { useApp } from "../store/app";
-import { unreadCount, useNotices, type Notice } from "../store/notifications";
-import { EmptyState } from "./EmptyState";
+import { unreadCount, useNotices, type Notice, type NoticeKind } from "../store/notifications";
 import { Modal } from "./Modal";
 import { img } from "../data/images";
 
@@ -19,10 +19,16 @@ export function ago(at: number, now = Date.now()): string {
   return new Date(at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
 }
 
+const previewNotices: Notice[] = import.meta.env.DEV ? [
+  { id: "preview:episode", kind: "episode", title: "Новая серия", text: "Тестовое уведомление о выходе серии", at: Date.now(), read: true },
+  { id: "preview:download", kind: "download", title: "Загрузка завершена", text: "Тестовое уведомление о готовой загрузке", at: Date.now() - 300_000, read: true },
+] : [];
+
 /** The bell in the header: the number of what is unread and the list of what happened (a new episode, a finished download, an update). */
 export function NoticeBell({ focusKey }: { focusKey: string }) {
   const items = useNotices((s) => s.items);
   const [open, setOpen] = useState(false);
+  const [showPreview, setShowPreview] = useState(import.meta.env.DEV);
   const unread = unreadCount(items);
   return (
     <>
@@ -30,19 +36,42 @@ export function NoticeBell({ focusKey }: { focusKey: string }) {
         <BellIcon size={22} />
         {unread > 0 && <i className="home-round__dot">{unread > 9 ? "9+" : unread}</i>}
       </Focusable>
-      {open && <NoticesModal onClose={() => setOpen(false)} />}
+      {open && (
+        <NoticesModal
+          showPreview={showPreview}
+          onClear={() => {
+            setShowPreview(false);
+            useNotices.getState().clear();
+          }}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </>
   );
 }
 
-function NoticesModal({ onClose }: { onClose: () => void }) {
-  const items = useNotices((s) => s.items);
+const KIND_ICON: Record<NoticeKind, typeof BellIcon> = {
+  episode: EpisodesIcon,
+  download: DownloadIcon,
+  update: ArchiveIcon,
+  info: BellIcon,
+};
+
+function NoticesModal({ showPreview, onClear, onClose }: { showPreview: boolean; onClear: () => void; onClose: () => void }) {
+  const notices = useNotices((s) => s.items);
+  const items = showPreview ? [...previewNotices, ...notices] : notices;
   const navigate = useApp((s) => s.navigate);
+  const initialFocus = items.length > 0 ? "notice:0" : "notice:close";
   // What was new when the window opened stays marked for as long as it is open.
   const [fresh] = useState(() => new Set(useNotices.getState().items.filter((n) => !n.read).map((n) => n.id)));
-  useState(() => {
+  useEffect(() => {
     useNotices.getState().markAllRead();
-  });
+  }, []);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setFocus(initialFocus));
+    return () => cancelAnimationFrame(frame);
+  }, [initialFocus]);
+  const freshCount = items.filter((notice) => fresh.has(notice.id)).length;
 
   const go = (n: Notice) => {
     onClose();
@@ -52,29 +81,37 @@ function NoticesModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal focusKey="notices" preferredChildFocusKey={items.length > 0 ? "notice:0" : "notice:close"} className="links-tv" onClose={onClose}>
-      <h3 className="links-tv__title">Уведомления</h3>
-      <div className="links-tv__list links-tv__scroll notice-list">
-        {items.length === 0 && <EmptyState compact icon={<BellIcon size={34} strokeWidth={1.6} />} title="Пока ничего нового" hint="Здесь появятся новые серии избранных сериалов, готовые загрузки и обновления." />}
-        {items.map((n, i) => (
-          <Focusable as="button" key={n.id} focusKey={`notice:${i}`} className={`links-tv__row notice-row ${fresh.has(n.id) ? "notice-row--new" : ""}`} autoFocus={i === 0} scroll={false} onPress={() => go(n)}>
-            {n.poster ? <img className="notice-row__poster" src={img(n.poster)} alt="" /> : <span className="notice-row__poster notice-row__poster--none" />}
-            <span className="notice-row__body">
-              <span className="notice-row__title">{n.title}</span>
-              {n.text && <span className="notice-row__text">{n.text}</span>}
-            </span>
-            <span className="notice-row__when">{ago(n.at)}</span>
-          </Focusable>
-        ))}
+    <Modal focusKey="notices" preferredChildFocusKey={initialFocus} className="kx-notice" onClose={onClose}>
+      <header className="kx-notice__head">
+        <h3 className="kx-notice__title">Уведомления</h3>
+        {freshCount > 0 && <span className="kx-notice__count">{freshCount > 9 ? "9+" : freshCount}</span>}
+      </header>
+      <div className="kx-notice__body">
+        {items.length === 0 && <p className="kx-notice__empty">Пока здесь ничего нового</p>}
+        {items.map((n, i) => {
+          const Icon = KIND_ICON[n.kind] ?? BellIcon;
+          return (
+            <Focusable as="button" key={n.id} focusKey={`notice:${i}`} className={`kx-notice-row ${fresh.has(n.id) ? "kx-notice-row--new" : ""}`} scrollBlock="nearest" onPress={() => go(n)}>
+              {n.poster ? <img className="kx-notice-row__poster" src={img(n.poster)} alt="" /> : <span className="kx-notice-row__icon"><Icon /></span>}
+              <span className="kx-notice-row__body">
+                <span className="kx-notice-row__title">{n.title}</span>
+                {n.text && <span className="kx-notice-row__text">{n.text}</span>}
+              </span>
+              <span className="kx-notice-row__when">{ago(n.at)}</span>
+            </Focusable>
+          );
+        })}
       </div>
-      {items.length > 0 && (
-        <Focusable as="button" className="links-tv__row links-tv__row--center notice-clear" focusKey="notice:clear" scroll={false} onPress={() => useNotices.getState().clear()}>
-          <span className="links-tv__name">Очистить список</span>
+      <footer className="kx-notice__foot">
+        {items.length > 0 && (
+          <Focusable as="button" className="kx-notice-btn" focusKey="notice:clear" scroll={false} onPress={onClear}>
+            Очистить список
+          </Focusable>
+        )}
+        <Focusable as="button" back className="kx-notice-btn" focusKey="notice:close" scroll={false} onPress={onClose}>
+          Закрыть
         </Focusable>
-      )}
-      <Focusable as="button" back className="links-tv__row links-tv__row--close links-tv__foot" focusKey="notice:close" autoFocus={items.length === 0} scroll={false} onPress={onClose}>
-        <span className="links-tv__name">Закрыть</span>
-      </Focusable>
+      </footer>
     </Modal>
   );
 }

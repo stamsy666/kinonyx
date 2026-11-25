@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import { getCurrentWindow, LogicalPosition, LogicalSize } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { BackIcon, Focusable, FocusGroup, onBack } from "@kinonyx/ui";
+import { Focusable, FocusGroup, onBack } from "@kinonyx/ui";
+import { KxBack } from "../components/player/PlayerIcons";
 import { useApp } from "../store/app";
 import { FullscreenButton } from "../components/FullscreenButton";
 
@@ -13,7 +14,7 @@ import { FullscreenButton } from "../components/FullscreenButton";
 // below a thin bar that hosts our own back button, so it still reads as "fullscreen
 // trailer inside the app" rather than a window that visibly belongs to a browser.
 const LABEL = "kinonyx-trailer";
-const BAR_HEIGHT = 64;
+const BAR_HEIGHT = 72;
 
 export function WebTrailerScreen({ title, url }: { title: string; url: string }) {
   const back = useApp((s) => s.back);
@@ -85,13 +86,18 @@ export function WebTrailerScreen({ title, url }: { title: string; url: string })
   useEffect(() => onBack(() => (back(), true)), [back]);
 
   return (
-    <FocusGroup focusKey="web-trailer" className="web-trailer" isFocusBoundary>
-      <div className="web-trailer__bar">
-        <Focusable back as="button" className="icon-btn web-trailer__back" focusKey="web-trailer:back" onPress={() => back()} autoFocus scroll={false}>
-          <BackIcon />
+    <FocusGroup focusKey="web-trailer" className="web-trailer kx-web-trailer" isFocusBoundary>
+      <div className="kx-web-trailer__bar">
+        <Focusable back as="button" className="kx-btn kx-btn--plate" focusKey="web-trailer:back" onPress={() => back()} autoFocus scroll={false}>
+          <span className="kx-btn__icon" aria-label="Назад" title="Назад">
+            <KxBack />
+          </span>
         </Focusable>
-        <span className="web-trailer__title">{title}</span>
-        <FullscreenButton focusKey="web-trailer:fullscreen" className="icon-btn web-trailer__fullscreen" />
+        <div className="kx-web-trailer__text">
+          <span className="kx-web-trailer__kicker">Трейлер · Кинопоиск</span>
+          <span className="kx-web-trailer__title">{title}</span>
+        </div>
+        <FullscreenButton focusKey="web-trailer:fullscreen" className="kx-btn" />
       </div>
     </FocusGroup>
   );

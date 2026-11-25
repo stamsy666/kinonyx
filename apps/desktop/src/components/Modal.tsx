@@ -9,6 +9,8 @@ interface Props {
   focusKey: string;
   preferredChildFocusKey?: string;
   className?: string;
+  /** "sheet": a panel at the right edge with a dimming only on that side (the player's windows). */
+  variant?: "center" | "sheet";
   onClose: () => void;
   children: ReactNode;
 }
@@ -23,7 +25,7 @@ interface Props {
  * a visible darker rectangle with hard edges instead of the whole window. React context
  * (spatial navigation's FocusContext included) passes through the portal unchanged.
  */
-export function Modal({ focusKey, preferredChildFocusKey, className = "", onClose, children }: Props) {
+export function Modal({ focusKey, preferredChildFocusKey, className = "", variant = "center", onClose, children }: Props) {
   // Centralised here so every modal built on this component closes on Escape/Backspace/
   // remote-Back without each caller having to remember its own `onBack` registration —
   // a caller that needs different back behaviour (ReleasePickerModal's "step back a
@@ -76,7 +78,7 @@ export function Modal({ focusKey, preferredChildFocusKey, className = "", onClos
 
   return createPortal(
     <>
-      <div ref={backdropRef} className="modal-backdrop" onClick={onClose} />
+      <div ref={backdropRef} className={`modal-backdrop ${variant === "sheet" ? "modal-backdrop--sheet" : ""}`} onClick={onClose} />
       <FocusGroup focusKey={focusKey} className={`modal-panel ${className}`} isFocusBoundary preferredChildFocusKey={preferredChildFocusKey}>
         {children}
       </FocusGroup>

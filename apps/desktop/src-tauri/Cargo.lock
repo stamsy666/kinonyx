@@ -2166,10 +2166,11 @@ dependencies = [
 
 [[package]]
 name = "kinonyx"
-version = "1.4.0"
+version = "1.5.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
+ "cookie",
  "discord-rich-presence",
  "dotenvy",
  "encoding_rs",
@@ -2179,6 +2180,7 @@ dependencies = [
  "quick-xml",
  "regex",
  "reqwest 0.12.28",
+ "ring",
  "serde",
  "serde_json",
  "tauri",
@@ -2188,9 +2190,11 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-shell",
  "tauri-plugin-updater",
+ "tempfile",
  "tokio",
  "urlencoding",
  "win32job",
+ "windows-sys 0.61.2",
  "zip 2.4.2",
 ]
 

@@ -307,7 +307,7 @@ pub async fn adult_streams(key: String) -> Result<AdultStreams, String> {
         return Err("На странице нет ссылок на видео".into());
     }
     let default_index = files.iter().rposition(|(h, _)| *h <= 1080).unwrap_or(0);
-    let qualities = files.into_iter().map(|(height, url)| TrailerQuality { height, url, audio_url: None }).collect();
+    let qualities = files.into_iter().map(|(height, url)| TrailerQuality { height, url, audio_url: None, hls_bitrate: None }).collect();
     Ok(AdultStreams { qualities, default_index, cover: None })
 }
 

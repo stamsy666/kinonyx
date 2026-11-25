@@ -1,0 +1,1465 @@
+/* =====================================================================================================
+   KINONYX · плееры, направление A «Кромка»
+   Видео — главное, интерфейс прижат к нижней кромке кадра. Всё здесь размечено в «пикселях макета 1920×1080»
+   (единица --u = высота окна / 1080, умноженная на масштаб интерфейса из настроек), поэтому на 720p окне, на
+   1080p телевизоре и на 4K выглядит одинаково. Подключается из PlayerHost.tsx после theme.css / tv.css.
+   ===================================================================================================== */
+
+:root {
+  --kx-u: clamp(0.5px, calc(100vh / 1080), 2.4px);
+  --kx-fg: #f3ece7;
+  --kx-fg-2: rgba(243, 236, 231, 0.76);
+  --kx-fg-3: rgba(243, 236, 231, 0.52);
+  --kx-on-focus: #151012;
+  --kx-focus: #f3ece7;
+  --kx-ring: rgba(243, 236, 231, 0.32);
+  --kx-accent: var(--accent, #e63950);
+  --kx-live: #ff3b57;
+  --kx-plate: rgba(10, 7, 8, 0.56);
+  --kx-plate-strong: rgba(10, 7, 8, 0.84);
+  --kx-sheet-bg: #120c0e;
+  --kx-line: rgba(255, 255, 255, 0.12);
+  --kx-active: rgba(255, 255, 255, 0.22);
+  --kx-track: rgba(255, 255, 255, 0.26);
+  --kx-buffer: rgba(255, 255, 255, 0.46);
+  --kx-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --kx-shadow-text: 0 1px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- Корень плеера ---------- */
+.player.kx-player {
+  --u: calc(var(--kx-u) * var(--osd-scale, 1));
+  color: var(--kx-fg);
+  font-family: var(--font-body, "Roboto", system-ui, sans-serif);
+}
+/* Общие правила фокуса приложения (масштаб и красное кольцо) у плеера свои. */
+.player.kx-player .focusable::after,
+.modal-panel.kx-sheet .focusable::after,
+.kx-web-trailer .focusable::after {
+  content: none;
+}
+.player.kx-player .focusable.is-focused,
+.modal-panel.kx-sheet .focusable.is-focused,
+.kx-web-trailer .focusable.is-focused {
+  transform: none;
+}
+
+/* ---------- Слой управления и затемнение ---------- */
+.kx-osd {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  transition: opacity 300ms ease-in;
+}
+.kx-osd > * {
+  pointer-events: auto;
+}
+.kx-osd .kx-scrim {
+  pointer-events: none;
+}
+.kx-osd.is-hidden {
+  opacity: 0;
+}
+.kx-osd.is-hidden > * {
+  pointer-events: none;
+}
+/* Показ: затемнение 200 мс, ряды поднимаются снизу вверх с задержкой 0 / 40 / 80 мс. */
+.kx-osd:not(.is-hidden) {
+  transition: opacity 200ms var(--kx-ease);
+}
+.kx-osd:not(.is-hidden) .kx-bottom > * {
+  animation: kx-rise 240ms var(--kx-ease) both;
+}
+.kx-osd:not(.is-hidden) .kx-controls {
+  animation-delay: 0ms;
+}
+.kx-osd:not(.is-hidden) .kx-seekrow {
+  animation-delay: 40ms;
+}
+.kx-osd:not(.is-hidden) .kx-lockup {
+  animation-delay: 80ms;
+}
+@keyframes kx-rise {
+  from {
+    opacity: 0;
+    transform: translateY(calc(16 * var(--u)));
+  }
+}
+
+/* Затемнение только у краёв: середина кадра остаётся чистой. --osd-dim (Настройки → «Затемнение в плеере»)
+   умножает силу: 1 — как задумано, 0 — без затемнения, 2 — вдвое темнее. */
+.kx-scrim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+.kx-scrim--top {
+  top: 0;
+  height: calc(160 * var(--u));
+  background: linear-gradient(
+    180deg,
+    rgba(8, 5, 6, calc(0.4 * var(--osd-dim, 1))) 0%,
+    rgba(8, 5, 6, calc(0.12 * var(--osd-dim, 1))) 60%,
+    rgba(8, 5, 6, 0) 100%
+  );
+}
+.kx-scrim--bottom {
+  bottom: 0;
+  height: calc(440 * var(--u));
+  background: linear-gradient(
+    180deg,
+    rgba(8, 5, 6, 0) 0%,
+    rgba(8, 5, 6, calc(0.04 * var(--osd-dim, 1))) 14%,
+    rgba(8, 5, 6, calc(0.4 * var(--osd-dim, 1))) 30%,
+    rgba(8, 5, 6, calc(0.66 * var(--osd-dim, 1))) 40%,
+    rgba(8, 5, 6, calc(0.84 * var(--osd-dim, 1))) 58%,
+    rgba(8, 5, 6, calc(0.95 * var(--osd-dim, 1))) 100%
+  );
+}
+
+/* ---------- Сетка: поля 64 по бокам, 40 сверху ---------- */
+.kx-top {
+  position: absolute;
+  top: calc(40 * var(--u));
+  left: calc(64 * var(--u));
+  right: calc(64 * var(--u));
+  height: calc(64 * var(--u));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(16 * var(--u));
+}
+.kx-top__status {
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--u));
+  margin-left: auto;
+}
+.kx-bottom {
+  position: absolute;
+  left: calc(64 * var(--u));
+  right: calc(64 * var(--u));
+  bottom: calc(48 * var(--u));
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- Лок-ап: надзаголовок, название, факты ---------- */
+.kx-lockup {
+  display: flex;
+  align-items: flex-end;
+  gap: calc(24 * var(--u));
+  min-width: 0;
+  max-width: 72%;
+  margin-bottom: calc(20 * var(--u));
+}
+.kx-lockup__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(4 * var(--u));
+}
+.kx-eyebrow {
+  margin: 0;
+  font-size: calc(20 * var(--u));
+  line-height: calc(24 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--kx-fg-2);
+  text-shadow: var(--kx-shadow-text);
+}
+.kx-title {
+  margin: 0;
+  font-size: calc(44 * var(--u));
+  line-height: calc(52 * var(--u));
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--kx-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: var(--kx-shadow-text);
+}
+.kx-meta {
+  margin: 0;
+  font-size: calc(22 * var(--u));
+  line-height: calc(28 * var(--u));
+  font-weight: 500;
+  color: var(--kx-fg-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: var(--kx-shadow-text);
+}
+.kx-meta--muted {
+  color: var(--kx-fg-3);
+}
+.kx-logo {
+  flex: none;
+  width: calc(104 * var(--u));
+  height: calc(104 * var(--u));
+  display: grid;
+  place-items: center;
+  padding: calc(14 * var(--u));
+  border-radius: calc(24 * var(--u));
+  background: var(--kx-focus);
+  box-shadow: 0 calc(8 * var(--u)) calc(26 * var(--u)) rgba(0, 0, 0, 0.45);
+}
+.kx-logo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.kx-logo__initials {
+  font-size: calc(40 * var(--u));
+  font-weight: 800;
+  color: var(--kx-on-focus);
+}
+
+.kx-player--youtube .kx-lockup {
+  max-width: 100%;
+}
+
+.kx-player--youtube .kx-title {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+
+.kx-youtube-byline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(12 * var(--u));
+  margin-bottom: calc(8 * var(--u));
+}
+
+.kx-youtube-byline .kx-logo {
+  display: grid;
+  place-items: center;
+  width: calc(34 * var(--u));
+  height: calc(34 * var(--u));
+  padding: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.kx-youtube-byline .kx-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kx-youtube-byline .kx-logo__initials {
+  font-size: calc(13 * var(--u));
+}
+
+/* ---------- Шкала ---------- */
+.kx-seekrow {
+  display: flex;
+  align-items: center;
+  gap: calc(20 * var(--u));
+  height: calc(32 * var(--u));
+  margin-bottom: calc(20 * var(--u));
+}
+.kx-time {
+  flex: none;
+  min-width: calc(56 * var(--u));
+  font-size: calc(22 * var(--u));
+  line-height: calc(28 * var(--u));
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--kx-fg);
+  text-shadow: var(--kx-shadow-text);
+}
+.kx-time--dim {
+  color: var(--kx-fg-2);
+  text-align: right;
+}
+.kx-seek {
+  position: relative;
+  flex: 1;
+  height: calc(32 * var(--u));
+  outline: 0;
+}
+.kx-seek--clickable {
+  cursor: pointer;
+}
+.kx-seek__track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: calc(6 * var(--u));
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: var(--kx-track);
+  overflow: hidden;
+  transition: height 140ms var(--kx-ease);
+}
+.kx-seek.is-focused .kx-seek__track {
+  height: calc(12 * var(--u));
+}
+.kx-seek__buffer,
+.kx-seek__played {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: inherit;
+}
+.kx-seek__buffer {
+  background: var(--kx-buffer);
+}
+.kx-seek__played {
+  background: var(--kx-accent);
+}
+.kx-seek__mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: calc(3 * var(--u));
+  margin-left: calc(-1.5 * var(--u));
+  background: rgba(10, 7, 8, 0.85);
+}
+.kx-seek__live {
+  position: absolute;
+  top: 50%;
+  width: calc(4 * var(--u));
+  height: calc(20 * var(--u));
+  margin-left: calc(-2 * var(--u));
+  transform: translateY(-50%);
+  border-radius: calc(2 * var(--u));
+  background: var(--kx-fg);
+}
+.kx-seek__live::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + calc(4 * var(--u)));
+  width: calc(10 * var(--u));
+  height: calc(10 * var(--u));
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: var(--kx-live);
+}
+.kx-seek__thumb {
+  position: absolute;
+  top: 50%;
+  width: calc(16 * var(--u));
+  height: calc(16 * var(--u));
+  border-radius: 50%;
+  background: var(--kx-fg);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 calc(2 * var(--u)) calc(8 * var(--u)) rgba(0, 0, 0, 0.5);
+  transition:
+    width 140ms var(--kx-ease),
+    height 140ms var(--kx-ease),
+    box-shadow 140ms var(--kx-ease);
+}
+.kx-seek.is-focused .kx-seek__thumb {
+  width: calc(28 * var(--u));
+  height: calc(28 * var(--u));
+  box-shadow:
+    0 0 0 calc(6 * var(--u)) var(--kx-ring),
+    0 calc(2 * var(--u)) calc(8 * var(--u)) rgba(0, 0, 0, 0.5);
+}
+.kx-seek__bubble {
+  position: absolute;
+  bottom: calc(100% + calc(10 * var(--u)));
+  transform: translateX(-50%);
+  padding: calc(6 * var(--u)) calc(14 * var(--u));
+  border-radius: calc(12 * var(--u));
+  background: var(--kx-plate-strong);
+  font-size: calc(22 * var(--u));
+  line-height: calc(28 * var(--u));
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ---------- Ряд кнопок: лево · центр · право ---------- */
+.kx-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: calc(20 * var(--u));
+  height: calc(96 * var(--u));
+}
+.kx-controls__side,
+.kx-controls__center {
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--u));
+}
+.kx-controls__center {
+  gap: calc(20 * var(--u));
+  justify-self: center;
+}
+.kx-controls__side--right {
+  justify-content: flex-end;
+}
+
+.kx-btn {
+  flex: none;
+  width: calc(64 * var(--u));
+  height: calc(64 * var(--u));
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--kx-fg);
+  cursor: pointer;
+  transition:
+    background-color 160ms var(--kx-ease),
+    color 160ms var(--kx-ease),
+    box-shadow 160ms var(--kx-ease),
+    transform 160ms var(--kx-ease);
+}
+.kx-btn__icon {
+  display: grid;
+  place-items: center;
+}
+.kx-btn svg {
+  width: calc(32 * var(--u));
+  height: calc(32 * var(--u));
+  filter: drop-shadow(0 1px calc(6 * var(--u)) rgba(0, 0, 0, 0.55));
+}
+.kx-btn--plate {
+  background: var(--kx-plate);
+  box-shadow: inset 0 0 0 1px var(--kx-line);
+}
+.kx-btn--active {
+  background: var(--kx-active);
+}
+.kx-btn--on {
+  color: var(--kx-live);
+}
+.kx-btn--lg {
+  width: calc(96 * var(--u));
+  height: calc(96 * var(--u));
+  background: var(--kx-plate);
+  box-shadow: inset 0 0 0 calc(2.5 * var(--u)) var(--kx-fg);
+}
+.kx-btn--lg svg {
+  width: calc(44 * var(--u));
+  height: calc(44 * var(--u));
+}
+.kx-btn.is-focused,
+.kx-btn:hover {
+  background: var(--kx-focus);
+  color: var(--kx-on-focus);
+  box-shadow: 0 0 0 calc(5 * var(--u)) var(--kx-ring);
+}
+.kx-btn.kx-btn--on.is-focused,
+.kx-btn.kx-btn--on:hover {
+  color: var(--kx-live);
+}
+.player.kx-player .kx-btn.is-focused {
+  transform: scale(1.06);
+}
+.kx-btn.is-focused svg,
+.kx-btn:hover svg {
+  filter: none;
+}
+.kx-btn:active {
+  transform: scale(0.96);
+}
+
+/* Текстовые кнопки в капсуле */
+.kx-pill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  height: calc(56 * var(--u));
+  padding: 0 calc(26 * var(--u)) 0 calc(22 * var(--u));
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--kx-fg);
+  font: inherit;
+  font-size: calc(20 * var(--u));
+  line-height: calc(24 * var(--u));
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  text-shadow: var(--kx-shadow-text);
+  transition:
+    background-color 160ms var(--kx-ease),
+    color 160ms var(--kx-ease),
+    box-shadow 160ms var(--kx-ease);
+}
+.kx-pill svg {
+  width: calc(26 * var(--u));
+  height: calc(26 * var(--u));
+  flex: none;
+}
+.kx-pill--solid {
+  background: var(--kx-plate-strong);
+  box-shadow: inset 0 0 0 1px var(--kx-line);
+  text-shadow: none;
+}
+.kx-pill.is-focused,
+.kx-pill:hover {
+  background: var(--kx-focus);
+  color: var(--kx-on-focus);
+  text-shadow: none;
+  box-shadow: 0 0 0 calc(5 * var(--u)) var(--kx-ring);
+}
+.kx-pill__dot {
+  width: calc(10 * var(--u));
+  height: calc(10 * var(--u));
+  border-radius: 50%;
+  background: var(--kx-live);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+/* Метки состояния справа сверху */
+.kx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  height: calc(44 * var(--u));
+  padding: 0 calc(18 * var(--u));
+  border-radius: 999px;
+  font-size: calc(16 * var(--u));
+  line-height: calc(20 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.kx-chip--live {
+  background: var(--kx-live);
+  color: #fff;
+}
+.kx-chip--live i {
+  width: calc(9 * var(--u));
+  height: calc(9 * var(--u));
+  border-radius: 50%;
+  background: #fff;
+}
+.kx-chip--plate {
+  background: var(--kx-plate-strong);
+  box-shadow: inset 0 0 0 1px var(--kx-line);
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Громкость: капсула над кнопкой ---------- */
+.player.kx-player .volume-popup {
+  bottom: calc(100% + calc(12 * var(--u)));
+  width: calc(72 * var(--u));
+  gap: calc(12 * var(--u));
+  padding: calc(18 * var(--u)) 0 calc(12 * var(--u));
+  border: 0;
+  border-radius: 999px;
+  background: var(--kx-plate-strong);
+  box-shadow:
+    inset 0 0 0 1px var(--kx-line),
+    0 calc(16 * var(--u)) calc(40 * var(--u)) rgba(0, 0, 0, 0.4);
+  backdrop-filter: none;
+}
+.player.kx-player .volume-slider__value {
+  display: block;
+  font-size: calc(22 * var(--u));
+  font-weight: 700;
+  color: var(--kx-fg);
+}
+.player.kx-player .volume-slider__track {
+  width: calc(8 * var(--u));
+  height: calc(180 * var(--u));
+  border-radius: 999px;
+  background: var(--kx-track);
+}
+.player.kx-player .volume-slider__track i,
+.player.kx-player .volume-slider__thumb {
+  background: var(--kx-fg);
+}
+.player.kx-player .volume-slider__thumb {
+  width: calc(24 * var(--u));
+  height: calc(24 * var(--u));
+}
+.player.kx-player .volume-slider.is-focused .volume-slider__thumb {
+  transform: translate(-50%, 50%) scale(1);
+  box-shadow:
+    0 0 0 calc(6 * var(--u)) var(--kx-ring),
+    0 calc(2 * var(--u)) calc(8 * var(--u)) rgba(0, 0, 0, 0.5);
+}
+.player.kx-player .volume-popup__mute {
+  width: calc(52 * var(--u));
+  height: calc(52 * var(--u));
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--kx-fg);
+  cursor: pointer;
+}
+.player.kx-player .volume-popup__mute.is-focused,
+.player.kx-player .volume-popup__mute:hover {
+  background: var(--kx-focus);
+  color: var(--kx-on-focus);
+}
+
+/* ---------- Субтитры: над панелью (низ на y 740) или у кромки (y 1004) ---------- */
+.player.kx-player .live-subs {
+  bottom: calc(76 * var(--u));
+  width: min(86vw, calc(1500 * var(--u)));
+  transition: bottom 260ms var(--kx-ease);
+}
+.player.kx-player .live-subs--raised {
+  bottom: calc(340 * var(--u));
+}
+.player.kx-player .live-subs__text,
+.player.kx-player .live-subs__note {
+  padding: calc(10 * var(--u)) calc(24 * var(--u)) calc(12 * var(--u));
+  border-radius: calc(12 * var(--u));
+  background: rgba(0, 0, 0, 0.62);
+}
+/* Настройка «Фон» субтитров (LiveSubtitles задаёт --sub-bg). */
+.player.kx-player .live-subs__text {
+  background: var(--sub-bg, rgba(0, 0, 0, 0.62));
+}
+.player.kx-player .live-subs__text {
+  font-size: calc(calc(40 * var(--u)) * var(--sub-scale, 1));
+  line-height: 1.25;
+  font-weight: 500;
+}
+.player.kx-player .live-subs__note {
+  font-size: calc(20 * var(--u));
+  color: var(--kx-fg-2);
+}
+
+/* ---------- Ожидание, ошибка, вспышка паузы, статистика ---------- */
+.kx-center {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.kx-center--error {
+  z-index: 4;
+  background: rgba(8, 5, 6, 0.5);
+}
+.kx-wait {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(16 * var(--u));
+  height: calc(72 * var(--u));
+  padding: 0 calc(30 * var(--u)) 0 calc(24 * var(--u));
+  border-radius: 999px;
+  background: var(--kx-plate-strong);
+  box-shadow: inset 0 0 0 1px var(--kx-line);
+  font-size: calc(20 * var(--u));
+  font-weight: 700;
+  animation: fade-in 200ms var(--kx-ease) both;
+}
+.kx-wait .spinner {
+  --s: calc(40 * var(--u));
+}
+.kx-card {
+  pointer-events: auto;
+  width: calc(680 * var(--u));
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: calc(40 * var(--u));
+  border-radius: calc(28 * var(--u));
+  background: var(--kx-sheet-bg);
+  box-shadow:
+    inset 0 0 0 1px var(--kx-line),
+    0 calc(24 * var(--u)) calc(64 * var(--u)) rgba(0, 0, 0, 0.5);
+  animation: kx-pop 240ms var(--kx-ease) both;
+}
+.kx-card__icon {
+  width: calc(56 * var(--u));
+  height: calc(56 * var(--u));
+  color: var(--kx-accent);
+}
+.kx-card__title {
+  margin: calc(20 * var(--u)) 0 0;
+  font-size: calc(30 * var(--u));
+  line-height: calc(36 * var(--u));
+  font-weight: 700;
+}
+.kx-card__hint {
+  margin: calc(10 * var(--u)) 0 0;
+  font-size: calc(22 * var(--u));
+  line-height: calc(30 * var(--u));
+  color: var(--kx-fg-2);
+}
+.kx-card__actions {
+  display: flex;
+  gap: calc(16 * var(--u));
+  margin-top: calc(28 * var(--u));
+}
+@keyframes kx-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+.player.kx-player .play-flash__disc {
+  width: calc(132 * var(--u));
+  background: var(--kx-plate-strong);
+  box-shadow: inset 0 0 0 1px var(--kx-line);
+}
+.kx-stats {
+  position: absolute;
+  left: calc(64 * var(--u));
+  top: 40%;
+  z-index: 3;
+  transform: translateY(-50%);
+  width: calc(340 * var(--u));
+  display: flex;
+  flex-direction: column;
+  gap: calc(6 * var(--u));
+  padding: calc(18 * var(--u)) calc(20 * var(--u));
+  border-radius: calc(16 * var(--u));
+  background: var(--kx-plate-strong);
+  box-shadow: inset 0 0 0 1px var(--kx-line);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.kx-stats__title {
+  margin: 0 0 calc(4 * var(--u));
+  font-size: calc(16 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--kx-fg-3);
+}
+.kx-stats__row {
+  display: flex;
+  justify-content: space-between;
+  gap: calc(12 * var(--u));
+  font-size: calc(17 * var(--u));
+  color: var(--kx-fg-2);
+}
+.kx-stats__row b {
+  color: var(--kx-fg);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---------- Пропуск по главе (заставка, титры) — справа над панелью, остаётся и без неё ---------- */
+.kx-skip {
+  position: absolute;
+  z-index: 5;
+  right: calc(64 * var(--u));
+  bottom: calc(340 * var(--u));
+  display: inline-flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  height: calc(60 * var(--u));
+  padding: 0 calc(28 * var(--u)) 0 calc(22 * var(--u));
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: var(--kx-plate-strong);
+  box-shadow: inset 0 0 0 1px var(--kx-line);
+  color: var(--kx-fg);
+  font: inherit;
+  font-size: calc(20 * var(--u));
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  animation: kx-rise 300ms var(--kx-ease) both;
+}
+.kx-skip > * {
+  position: relative;
+}
+.kx-skip svg {
+  width: calc(26 * var(--u));
+  height: calc(26 * var(--u));
+}
+/* Сколько осталось: светлая заливка убывает слева направо. */
+.kx-skip__left {
+  position: absolute !important;
+  inset: 0;
+  background: var(--kx-active);
+  transform-origin: left center;
+  transition: transform 0.4s linear;
+}
+.kx-skip.is-focused,
+.kx-skip:hover {
+  background: var(--kx-focus);
+  color: var(--kx-on-focus);
+  box-shadow: 0 0 0 calc(5 * var(--u)) var(--kx-ring);
+}
+.kx-skip.is-focused .kx-skip__left,
+.kx-skip:hover .kx-skip__left {
+  background: rgba(21, 16, 18, 0.12);
+}
+.kx-skip--note {
+  cursor: default;
+  color: var(--kx-fg-2);
+}
+
+/* ---------- Конец серии: отсчёт до следующей ---------- */
+.kx-autonext {
+  position: absolute;
+  z-index: 6;
+  right: calc(64 * var(--u));
+  bottom: calc(48 * var(--u));
+  width: calc(600 * var(--u));
+  padding: calc(32 * var(--u));
+  border-radius: calc(28 * var(--u));
+  background: var(--kx-sheet-bg);
+  box-shadow:
+    inset 0 0 0 1px var(--kx-line),
+    0 calc(24 * var(--u)) calc(64 * var(--u)) rgba(0, 0, 0, 0.5);
+  animation: kx-rise 300ms var(--kx-ease) both;
+}
+.kx-autonext__name {
+  margin: calc(8 * var(--u)) 0 0;
+  font-size: calc(30 * var(--u));
+  line-height: calc(36 * var(--u));
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kx-autonext__bar {
+  height: calc(6 * var(--u));
+  margin-top: calc(20 * var(--u));
+  border-radius: 999px;
+  background: var(--kx-track);
+  overflow: hidden;
+}
+.kx-autonext__bar i {
+  display: block;
+  height: 100%;
+  background: var(--kx-accent);
+  transform-origin: left center;
+  transition: transform 1s linear;
+}
+.kx-autonext__actions {
+  display: flex;
+  gap: calc(16 * var(--u));
+  margin-top: calc(24 * var(--u));
+}
+
+/* =====================================================================================================
+   Окна плеера: панель 600 у правого края (Modal variant="sheet")
+   ===================================================================================================== */
+.modal-backdrop.modal-backdrop--sheet {
+  background: linear-gradient(90deg, rgba(8, 5, 6, 0) 45%, rgba(8, 5, 6, 0.62) 100%);
+  backdrop-filter: none;
+}
+.modal-panel.kx-sheet {
+  --u: var(--kx-u);
+  top: calc(24 * var(--u));
+  right: calc(24 * var(--u));
+  bottom: calc(24 * var(--u));
+  left: auto;
+  width: calc(600 * var(--u));
+  max-width: calc(100vw - calc(48 * var(--u)));
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+  padding: calc(28 * var(--u)) calc(24 * var(--u)) calc(24 * var(--u));
+  border: 0;
+  border-radius: calc(32 * var(--u));
+  box-shadow:
+    inset 0 0 0 1px var(--kx-line),
+    0 calc(24 * var(--u)) calc(64 * var(--u)) rgba(0, 0, 0, 0.5);
+  backdrop-filter: none;
+  color: var(--kx-fg);
+  font-family: var(--font-body, "Roboto", system-ui, sans-serif);
+  animation: kx-sheet-in 260ms var(--kx-ease) both;
+}
+.modal-panel.kx-sheet.kx-sheet--fit {
+  height: fit-content;
+  margin-block: auto;
+  max-height: calc(100vh - calc(48 * var(--u)));
+}
+.modal-panel.kx-sheet.modal-ghost {
+  animation: kx-sheet-out 200ms ease-in forwards;
+}
+@keyframes kx-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateX(calc(48 * var(--u)));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes kx-sheet-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(calc(32 * var(--u)));
+  }
+}
+
+.kx-sheet__head {
+  display: flex;
+  align-items: center;
+  gap: calc(14 * var(--u));
+  flex: none;
+}
+.kx-sheet__icon svg {
+  display: block;
+  width: calc(32 * var(--u));
+  height: calc(32 * var(--u));
+}
+.kx-sheet__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: calc(30 * var(--u));
+  line-height: calc(36 * var(--u));
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kx-sheet__count {
+  flex: none;
+  font-size: calc(17 * var(--u));
+  font-weight: 500;
+  color: var(--kx-fg-3);
+}
+
+.kx-tabs {
+  flex: none;
+  display: flex;
+  gap: calc(6 * var(--u));
+  margin-top: calc(18 * var(--u));
+  padding: calc(4 * var(--u));
+  border-radius: calc(18 * var(--u));
+  background: var(--kx-line);
+}
+.kx-tab {
+  flex: 1;
+  height: calc(48 * var(--u));
+  border: 0;
+  border-radius: calc(14 * var(--u));
+  background: transparent;
+  color: var(--kx-fg-2);
+  font: inherit;
+  font-size: calc(20 * var(--u));
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 140ms var(--kx-ease),
+    color 140ms var(--kx-ease);
+}
+.kx-tab.is-current {
+  background: var(--kx-active);
+  color: var(--kx-fg);
+}
+.kx-tab.is-focused,
+.kx-tab:hover {
+  background: var(--kx-focus);
+  color: var(--kx-on-focus);
+  box-shadow: 0 0 0 calc(4 * var(--u)) var(--kx-ring);
+}
+
+.kx-info {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: calc(14 * var(--u));
+  margin-top: calc(16 * var(--u));
+  padding: calc(14 * var(--u)) calc(16 * var(--u));
+  border-radius: calc(16 * var(--u));
+  background: rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 0 0 1px var(--kx-line);
+}
+.kx-info__part {
+  display: flex;
+  flex-direction: column;
+  gap: calc(2 * var(--u));
+}
+.kx-info__part small {
+  font-size: calc(14 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--kx-fg-3);
+}
+.kx-info__part b {
+  font-size: calc(22 * var(--u));
+  font-weight: 700;
+}
+.kx-info__dim {
+  color: var(--kx-fg-2);
+}
+.kx-info__arrow {
+  font-size: calc(22 * var(--u));
+  color: var(--kx-fg-3);
+}
+
+.kx-sheet__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(8 * var(--u));
+  margin: calc(16 * var(--u)) calc(-8 * var(--u)) 0;
+  padding: calc(6 * var(--u)) calc(8 * var(--u));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--kx-fg-3) transparent;
+}
+.modal-panel.kx-sheet--fit .kx-sheet__body {
+  flex: 0 1 auto;
+}
+.kx-sheet__group {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8 * var(--u));
+}
+.kx-sheet__label {
+  padding: calc(14 * var(--u)) calc(6 * var(--u)) calc(2 * var(--u));
+  font-size: calc(18 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--kx-fg-3);
+}
+.kx-sheet__text {
+  margin: 0;
+  padding: calc(12 * var(--u)) calc(6 * var(--u));
+  font-size: calc(20 * var(--u));
+  color: var(--kx-fg-2);
+}
+.kx-sheet__foot {
+  flex: none;
+  display: flex;
+  gap: calc(12 * var(--u));
+  margin-top: calc(16 * var(--u));
+}
+.kx-sheet-btn {
+  flex: 1;
+  height: calc(60 * var(--u));
+  border: 0;
+  border-radius: calc(18 * var(--u));
+  background: var(--kx-line);
+  color: var(--kx-fg);
+  font: inherit;
+  font-size: calc(20 * var(--u));
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 140ms var(--kx-ease),
+    color 140ms var(--kx-ease);
+}
+.kx-sheet-btn.is-focused,
+.kx-sheet-btn:hover {
+  background: var(--kx-focus);
+  color: var(--kx-on-focus);
+  box-shadow: 0 0 0 calc(4 * var(--u)) var(--kx-ring);
+}
+
+/* Строка списка: фокус — белая строка; выбранная — красная метка, жирный текст и галочка. */
+.kx-row {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: calc(14 * var(--u));
+  width: 100%;
+  min-height: calc(68 * var(--u));
+  padding: calc(10 * var(--u)) calc(22 * var(--u)) calc(10 * var(--u)) calc(20 * var(--u));
+  border: 0;
+  border-radius: calc(18 * var(--u));
+  background: var(--kx-line);
+  color: var(--kx-fg);
+  font: inherit;
+  font-size: calc(22 * var(--u));
+  line-height: calc(28 * var(--u));
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 140ms var(--kx-ease),
+    color 140ms var(--kx-ease);
+}
+.kx-row.is-selected::before {
+  content: "";
+  flex: none;
+  width: calc(4 * var(--u));
+  height: calc(28 * var(--u));
+  border-radius: calc(2 * var(--u));
+  background: var(--kx-accent);
+}
+.kx-row.is-selected .kx-row__label {
+  font-weight: 700;
+}
+.kx-row__label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kx-row__hint {
+  flex: none;
+  font-size: calc(17 * var(--u));
+  font-weight: 500;
+  color: var(--kx-fg-3);
+}
+.kx-row__check {
+  flex: none;
+  width: calc(28 * var(--u));
+  height: calc(28 * var(--u));
+  color: var(--kx-accent);
+}
+.kx-row.is-focused,
+.kx-row:hover {
+  background: var(--kx-focus);
+  color: var(--kx-on-focus);
+  box-shadow: 0 0 0 calc(4 * var(--u)) var(--kx-ring);
+}
+.kx-row.is-focused .kx-row__hint,
+.kx-row:hover .kx-row__hint,
+.kx-row.is-focused .kx-row__check,
+.kx-row:hover .kx-row__check,
+.kx-row.is-focused .kx-row__time,
+.kx-row:hover .kx-row__time {
+  color: var(--kx-on-focus);
+}
+.kx-row--stack {
+  min-height: calc(88 * var(--u));
+}
+.kx-row__stack {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(2 * var(--u));
+}
+.kx-row__time {
+  font-size: calc(17 * var(--u));
+  line-height: calc(22 * var(--u));
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--kx-fg-2);
+}
+
+/* Настройка со значениями: ← → меняют, видно все варианты. */
+.kx-set {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: calc(12 * var(--u));
+  padding: calc(16 * var(--u)) calc(18 * var(--u));
+  border-radius: calc(20 * var(--u));
+  background: var(--kx-line);
+  color: var(--kx-fg);
+  cursor: default;
+  transition:
+    background-color 140ms var(--kx-ease),
+    color 140ms var(--kx-ease);
+}
+.kx-set__head {
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+}
+.kx-set__label {
+  flex: 1;
+  min-width: 0;
+  font-size: calc(22 * var(--u));
+  line-height: calc(28 * var(--u));
+  font-weight: 700;
+}
+.kx-set__note {
+  font-size: calc(17 * var(--u));
+  color: var(--kx-fg-3);
+}
+.kx-set__arrows {
+  display: none;
+  font-size: calc(22 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+.kx-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(6 * var(--u));
+  padding: calc(4 * var(--u));
+  border-radius: calc(16 * var(--u));
+  background: var(--kx-line);
+}
+.kx-seg__opt {
+  flex: 1 0 auto;
+  min-width: 0;
+  height: calc(40 * var(--u));
+  display: grid;
+  place-items: center;
+  padding: 0 calc(10 * var(--u));
+  border-radius: calc(12 * var(--u));
+  font-size: calc(17 * var(--u));
+  font-weight: 500;
+  color: var(--kx-fg-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition:
+    background-color 140ms var(--kx-ease),
+    color 140ms var(--kx-ease);
+}
+.kx-seg__opt:hover {
+  color: var(--kx-fg);
+}
+.kx-seg__opt.is-on {
+  background: var(--kx-focus);
+  color: var(--kx-on-focus);
+  font-weight: 700;
+}
+.kx-set.is-focused {
+  background: var(--kx-focus);
+  color: var(--kx-on-focus);
+  box-shadow: 0 0 0 calc(4 * var(--u)) var(--kx-ring);
+}
+.kx-set.is-focused .kx-set__note {
+  color: var(--kx-on-focus);
+}
+.kx-set.is-focused .kx-set__arrows {
+  display: inline;
+}
+.kx-set.is-focused .kx-seg {
+  background: rgba(0, 0, 0, 0.08);
+}
+.kx-set.is-focused .kx-seg__opt {
+  color: rgba(21, 16, 18, 0.72);
+}
+.kx-set.is-focused .kx-seg__opt.is-on {
+  background: var(--kx-on-focus);
+  color: var(--kx-fg);
+}
+
+/* ---------- Трейлер Кинопоиска: наша полоса 72 px над чужим окном ---------- */
+.kx-web-trailer .kx-web-trailer__bar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 72px;
+  padding: 0 24px;
+  background: #0a0708;
+  border-bottom: 1px solid var(--kx-line);
+  color: var(--kx-fg);
+}
+.kx-web-trailer .kx-btn {
+  width: 52px;
+  height: 52px;
+}
+.kx-web-trailer .kx-btn svg {
+  width: 28px;
+  height: 28px;
+}
+.kx-web-trailer .kx-btn.is-focused,
+.kx-web-trailer .kx-btn:hover {
+  box-shadow: 0 0 0 4px var(--kx-ring);
+}
+.kx-web-trailer__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.kx-web-trailer__kicker {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--kx-fg-3);
+}
+.kx-web-trailer__title {
+  font-size: 18px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Мини-плеер: в покое только тонкий прогресс, при наведении — управление ---------- */
+.mini-player {
+  border-radius: 18px;
+  box-shadow: inset 0 0 0 1px var(--kx-line);
+}
+.mini-player__top {
+  padding: 10px 10px 30px 14px;
+  background: linear-gradient(rgba(0, 0, 0, 0.78), transparent);
+}
+.mini-player__bar {
+  padding: 30px 10px 12px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+}
+.mini-player__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--kx-fg);
+}
+.mini-player__btn {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--kx-fg);
+}
+.mini-player__btn:hover,
+.mini-player__btn:focus-visible {
+  background: var(--kx-focus);
+  color: var(--kx-on-focus);
+  outline: 0;
+}
+.mini-player__btn--play {
+  width: 52px;
+  height: 52px;
+  background: rgba(10, 7, 8, 0.56);
+  box-shadow: inset 0 0 0 2px var(--kx-fg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kx-osd:not(.is-hidden) .kx-bottom > *,
+  .kx-skip,
+  .kx-autonext,
+  .kx-card,
+  .modal-panel.kx-sheet {
+    animation: fade-in 160ms linear both;
+  }
+  .player.kx-player .kx-btn.is-focused {
+    transform: none;
+  }
+}
+
+/* ---------- Окно «Серии»: карточки с постером сериала, номером и прогрессом ---------- */
+.kx-ep {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: calc(16 * var(--u));
+  width: 100%;
+  min-height: calc(96 * var(--u));
+  padding: calc(10 * var(--u)) calc(18 * var(--u)) calc(10 * var(--u)) calc(10 * var(--u));
+  border: 0;
+  border-radius: calc(18 * var(--u));
+  background: var(--kx-line);
+  color: var(--kx-fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 140ms var(--kx-ease),
+    color 140ms var(--kx-ease);
+}
+.kx-ep.is-focused,
+.kx-ep:hover {
+  background: var(--kx-focus);
+  color: var(--kx-on-focus);
+  box-shadow: 0 0 0 calc(4 * var(--u)) var(--kx-ring);
+}
+.kx-ep__thumb {
+  position: relative;
+  flex: none;
+  width: calc(128 * var(--u));
+  height: calc(72 * var(--u));
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: calc(10 * var(--u));
+  background-color: #2a2226;
+  background-size: cover;
+  background-position: center 30%;
+}
+/* Постер сериала затемнён, чтобы номер читался; без постера — нейтральная заглушка. */
+.kx-ep__thumb::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 7, 8, 0.45);
+}
+.kx-ep__thumb--blank {
+  background-image: linear-gradient(135deg, #3a3035 0%, #1d171a 100%);
+}
+.kx-ep__thumb--blank::before {
+  content: none;
+}
+.kx-ep__num {
+  position: relative;
+  font-size: calc(30 * var(--u));
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px calc(8 * var(--u)) rgba(0, 0, 0, 0.6);
+}
+.kx-ep__progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: calc(5 * var(--u));
+  background: var(--kx-accent);
+}
+.kx-ep__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(4 * var(--u));
+}
+.kx-ep__title {
+  font-size: calc(22 * var(--u));
+  line-height: calc(28 * var(--u));
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kx-ep.is-selected .kx-ep__title {
+  font-weight: 700;
+}
+.kx-ep__meta {
+  font-size: calc(17 * var(--u));
+  line-height: calc(22 * var(--u));
+  color: var(--kx-fg-3);
+}
+.kx-ep__meta--now {
+  color: var(--kx-accent);
+  font-weight: 700;
+}
+.kx-ep.is-selected::before {
+  content: "";
+  flex: none;
+  width: calc(4 * var(--u));
+  height: calc(44 * var(--u));
+  margin-right: calc(-6 * var(--u));
+  border-radius: calc(2 * var(--u));
+  background: var(--kx-accent);
+}
+.kx-ep__check {
+  flex: none;
+  width: calc(26 * var(--u));
+  height: calc(26 * var(--u));
+  color: var(--kx-fg-3);
+}
+.kx-ep.is-focused .kx-ep__meta,
+.kx-ep:hover .kx-ep__meta,
+.kx-ep.is-focused .kx-ep__check,
+.kx-ep:hover .kx-ep__check {
+  color: var(--kx-on-focus);
+}

@@ -29,7 +29,7 @@ struct Progress {
 }
 
 /// A file name Windows accepts: no path parts, no reserved characters.
-fn safe_name(name: &str) -> String {
+pub(crate) fn safe_name(name: &str) -> String {
     let reserved = "\\/:*?\"<>|";
     let cleaned: String = name.chars().map(|c| if reserved.contains(c) || c.is_control() { '_' } else { c }).collect();
     let cleaned = cleaned.trim().trim_end_matches('.').trim().to_string();

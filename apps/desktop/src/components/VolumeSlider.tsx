@@ -1,5 +1,6 @@
 import { useFocusable } from "@noriginmedia/norigin-spatial-navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { PLAYER_VOLUME_STEP } from "../data/playerOptions";
 
 interface VolumeSliderProps {
   /** 0..1 */
@@ -12,7 +13,7 @@ interface VolumeSliderProps {
 }
 
 /** Vertical volume slider: Up/Down to step, click or drag on the track to set directly, Left closes the popup. */
-export function VolumeSlider({ volume, onChange, onClose, focusKey, step = 0.1, autoFocus }: VolumeSliderProps) {
+export function VolumeSlider({ volume, onChange, onClose, focusKey, step = PLAYER_VOLUME_STEP, autoFocus }: VolumeSliderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
 

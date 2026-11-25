@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { CloseIcon, ExpandIcon, PauseIcon, PlayIcon } from "@kinonyx/ui";
+import { KxClose, KxExpand, KxPause, KxPlay } from "./player/PlayerIcons";
 
 /** What the player screens render while minimised: a video area and a slim control bar. */
 export function MiniPlayerChrome({
@@ -22,15 +22,15 @@ export function MiniPlayerChrome({
           {title}
         </div>
         <button className="mini-player__btn" onClick={onExpand} aria-label="Развернуть">
-          <ExpandIcon size={18} />
+          <KxExpand size={20} />
         </button>
         <button className="mini-player__btn" onClick={onClose} aria-label="Закрыть">
-          <CloseIcon size={18} />
+          <KxClose size={20} />
         </button>
       </div>
       <div className="mini-player__bar">
-        <button className="mini-player__btn" onClick={onToggle} aria-label={playing ? "Пауза" : "Играть"}>
-          {playing ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
+        <button className="mini-player__btn mini-player__btn--play" onClick={onToggle} aria-label={playing ? "Пауза" : "Играть"}>
+          {playing ? <KxPause size={22} /> : <KxPlay size={22} />}
         </button>
       </div>
     </div>

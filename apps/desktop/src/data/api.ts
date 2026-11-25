@@ -278,6 +278,7 @@ export interface TrailerQuality {
   height: number;
   url: string;
   audioUrl?: string | null;
+  hlsBitrate?: number;
 }
 /** `url` empty = the source listed no video; Rust then searches Rutube by name + year (it
  *  also does that when a YouTube link fails, so the film's names travel with every call). */

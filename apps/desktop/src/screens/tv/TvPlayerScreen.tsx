@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { logEvent } from "../../data/log";
-import { PicturePanel } from "../../components/PicturePanel";
+import { PictureFooter, PictureInfo, PictureSettings, usePictureInfo } from "../../components/PicturePanel";
 import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { buildCatchupUrl, isWithinCatchupWindow, nowNext, type Programme } from "@kinonyx/epg";
 import {
@@ -9,47 +9,43 @@ import {
   MpvAdapter,
   type PlayerAdapter,
   type PlayerState,
-  type PlayerStats,
   type PlaySource,
-  type TrackKind,
 } from "@kinonyx/player-core";
-import {
-  ArchiveIcon,
-  MiniPlayerIcon,
-  PlayerSettingsIcon,
-  NextEpisodeIcon,
-  PrevChannelIcon,
-  BackIcon,
-  FavoriteIcon,
-  Focusable,
-  FocusGroup,
-  ForwardIcon,
-  MuteIcon,
-  OfflineIcon,
-  PauseIcon,
-  PlayIcon,
-  RewindIcon,
-  Spinner,
-  SubtitlesIcon,
-  TracksIcon,
-  VolumeIcon,
-  onBack,
-} from "@kinonyx/ui";
-import { useApp } from "../../store/app";
+import { FocusGroup, Focusable, onBack } from "@kinonyx/ui";
+import { useApp, type SubtitleBackground } from "../../store/app";
 import { useTv } from "../../store/tv";
 import { useChannelFavorites } from "../../store/channelFavorites";
 import { isTauri } from "../../data/io";
-import { SeekBar } from "../../components/SeekBar";
+import { KxSeekBar } from "../../components/player/KxSeekBar";
 import { useMpvReveal } from "../../components/useMpvReveal";
 import { MiniPlayerChrome, useCloseOnOutsidePress } from "../../components/MiniPlayer";
 import { VolumeSlider } from "../../components/VolumeSlider";
-import { Modal } from "../../components/Modal";
+import { KxButton, KxChannelLogo, KxError, KxLockup, KxPill, KxStreamStats, KxWait } from "../../components/player/PlayerChrome";
+import { KxRow, KxSegmentRow, KxSheet, KxSheetLabel, KxSheetText, KxStackRow, KxTabs, type KxTab } from "../../components/player/PlayerSheet";
+import {
+  KxArchive,
+  KxAudio,
+  KxBack,
+  KxForward,
+  KxHeart,
+  KxMini,
+  KxMute,
+  KxNext,
+  KxPause,
+  KxPicture,
+  KxPlay,
+  KxPrev,
+  KxRewind,
+  KxSubtitles,
+  KxVolume,
+} from "../../components/player/PlayerIcons";
 import { FullscreenButton } from "../../components/FullscreenButton";
 import { LiveSubtitles, useLiveTranslation } from "../../components/LiveSubtitles";
 import { useVoiceOver, voiceAudio } from "../../components/VoiceOver";
 import { useTranslator } from "../../store/translator";
 import { translatorRelease } from "../../data/translator";
-import { buildMpvOptions } from "../../data/playerOptions";
+import { applySubtitleBackground, PLAYER_VOLUME_STEP, readFrameGeneration, useMpvLoadOptions } from "../../data/playerOptions";
+import { preferredMpvAudioDevice } from "../../data/audioDevices";
 import { trackLabel } from "../../data/trackLabel";
 import { useWatchTracker } from "../../components/useWatchTracker";
 import { usePresence } from "../../components/usePresence";
@@ -62,6 +58,23 @@ const SEEK_STEP = 30;
 const REMOTE_SEEK = 15;
 const DEFAULT_CATCHUP_DAYS = 3;
 const ARCHIVE_PAGE_SIZE = 20;
+
+/** The windows of the channel player: the settings (three tabs) and the archive. */
+type TvSheet = "audio" | "subtitle" | "picture" | "archive";
+
+/** Sizes of the subtitles offered in the settings window (mpv's sub-scale; the local translation follows it). */
+const SUB_SIZES = [
+  { value: 0.8, label: "S" },
+  { value: 1, label: "M" },
+  { value: 1.25, label: "L" },
+  { value: 1.5, label: "XL" },
+];
+/** The plate behind the subtitle text (kept in the player settings — the same for films and channels). */
+const SUB_BACKGROUNDS: { value: SubtitleBackground; label: string }[] = [
+  { value: "default", label: "Обычный" },
+  { value: "none", label: "Без фона" },
+  { value: "dark", label: "Плашка" },
+];
 
 function fmt(sec: number) {
   if (!Number.isFinite(sec)) return "--:--";
@@ -128,9 +141,17 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   const stateRef = useRef(state);
   stateRef.current = state;
   const [osd, setOsd] = useState(true);
-  const [menu, setMenu] = useState<TrackKind | null>(null);
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [pictureOpen, setPictureOpen] = useState(false);
+  const [sheet, setSheet] = useState<TvSheet | null>(null);
+  // Rows take the focus when a window opens — not when the remote moves along its tabs.
+  const [sheetAutoFocus, setSheetAutoFocus] = useState(true);
+  const archiveOpen = sheet === "archive";
+  const setPlayerPrefs = useApp((s) => s.setPlayerPrefs);
+  const pictureInfo = usePictureInfo(adapterRef);
+  // What the video is and what goes to the screen, read each time «Картинка» opens.
+  useEffect(() => {
+    if (sheet === "picture") void pictureInfo.refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheet]);
   const [volumeOpen, setVolumeOpen] = useState(false);
   // The level comes up when the mouse is on the volume button (and goes when it leaves), as in the trailer player; the
   // remote opens it with OK and then holds the focus in it. Only the second takes the focus.
@@ -221,8 +242,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
     lastArchiveFocus[channel.id] != null &&
     visibleArchiveDays.some((day) => day.items.some((p) => p.start === lastArchiveFocus[channel.id]));
 
-  // Embedded subtitle tracks are drawn by mpv itself: its size/colour options, set per load.
-  const subtitleOptions = useMemo(() => buildMpvOptions(prefs), [prefs]);
+  const mpvOptions = useMpvLoadOptions();
 
   const baseSource: PlaySource | null = useMemo(() => {
     if (!channel) return null;
@@ -230,10 +250,10 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
       const offset = archive.offset ?? 0;
       const durationSec = Math.max(60, (archive.programme.stop - archive.programme.start) / 1000 - offset);
       const url = buildCatchupUrl(channel.url, channel.catchup, { start: new Date(archive.programme.start + offset * 1000), durationSec });
-      return { url, title: `${channel.name} · ${archive.programme.title}`, live: false, mpvOptions: subtitleOptions };
+      return { url, title: `${channel.name} · ${archive.programme.title}`, live: false, mpvOptions };
     }
-    return { url: channel.url, title: channel.name, live: true, mpvOptions: subtitleOptions };
-  }, [channel, archive, subtitleOptions]);
+    return { url: channel.url, title: channel.name, live: true, mpvOptions };
+  }, [channel, archive, mpvOptions]);
 
   const translateOn = useTranslator((s) => s.active);
   const setTranslateOn = useTranslator((s) => s.setActive);
@@ -273,14 +293,20 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
     if (prefs.autoHideSec <= 0) return;
     hideTimer.current = window.setTimeout(() => {
       setOsd(false);
-      setMenu(null);
-      setArchiveOpen(false);
+      setSheet(null);
       setVolumeOpen(false);
     }, prefs.autoHideSec * 1000);
   }, [prefs.autoHideSec]);
 
   // mpv renders into a native window behind a transparent hole — see useMpvReveal.
   const revealed = useMpvReveal(state.status, source);
+  // Subtitles drawn by mpv itself step up over the panel while it is shown (their bottom near y 740 of 1080) and
+  // go back to the edge when it hides, as the local translation does (sub-margin-y is in mpv's 720-line units).
+  useEffect(() => {
+    if (!isTauri || mini) return;
+    void adapterRef.current?.setProp?.("sub-margin-y", osd ? "228" : "22");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [osd, mini, source]);
   // The log: a player that stops on an error, and what it was playing (the host only — links carry tokens).
   useEffect(() => {
     if (state.status !== "error") return;
@@ -305,7 +331,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   );
 
   useEffect(() => {
-    const adapter = isTauri ? new MpvAdapter() : videoRef.current ? new Html5Adapter(videoRef.current) : null;
+    const adapter = isTauri ? new MpvAdapter(preferredMpvAudioDevice, readFrameGeneration) : videoRef.current ? new Html5Adapter(videoRef.current) : null;
     if (!adapter) return;
     adapterRef.current = adapter;
     const unsub = adapter.subscribe(setState);
@@ -337,18 +363,8 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
         bump();
         return true;
       }
-      if (pictureOpen) {
-        setPictureOpen(false);
-        bump();
-        return true;
-      }
-      if (archiveOpen) {
-        setArchiveOpen(false);
-        bump();
-        return true;
-      }
-      if (menu) {
-        setMenu(null);
+      if (sheet) {
+        setSheet(null);
         bump();
         return true;
       }
@@ -359,17 +375,17 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
       back();
       return true;
     });
-  }, [volumeOpen, archiveOpen, pictureOpen, menu, osd, back, bump, mini]);
+  }, [volumeOpen, sheet, osd, back, bump, mini]);
 
   useEffect(() => {
     if (mini) return; // …and does not swallow the keys of the screen the viewer is on
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === "Backspace") return;
-      if (e.key === "AudioVolumeUp") nudgeVolumeRef.current(0.1);
-      else if (e.key === "AudioVolumeDown") nudgeVolumeRef.current(-0.1);
+      if (e.key === "AudioVolumeUp") nudgeVolumeRef.current(PLAYER_VOLUME_STEP);
+      else if (e.key === "AudioVolumeDown") nudgeVolumeRef.current(-PLAYER_VOLUME_STEP);
       else if (e.key === "MediaRewind") seekByRef.current(-REMOTE_SEEK);
       else if (e.key === "MediaFastForward") seekByRef.current(REMOTE_SEEK);
-      else if (e.key === "m") setMenu((m) => (m ? null : "audio"));
+      else if (e.key === "m") openSheet("audio");
       else if (e.key === "p" || e.key === "MediaPlayPause") void togglePlay();
       else if (!osd) {
         e.stopImmediatePropagation();
@@ -415,28 +431,26 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
     else await a.play();
   };
 
-  const openMenu = (kind: TrackKind) => {
-    setArchiveOpen(false);
+  /** Opens a window (a second press of its button closes it); the volume level goes. */
+  const openSheet = (kind: TvSheet) => {
     setVolumeOpen(false);
-    setMenu((m) => (m === kind ? null : kind));
+    setSheetAutoFocus(true);
+    setSheet((cur) => (cur === kind ? null : kind));
   };
-
-  const toggleArchive = () => {
-    setMenu(null);
-    setVolumeOpen(false);
-    setArchiveOpen((v) => !v);
+  const closeSheet = () => {
+    setSheet(null);
+    bump();
   };
 
   const toggleVolume = () => {
-    setMenu(null);
-    setArchiveOpen(false);
+    setSheet(null);
     setVolumeByMouse(false);
     setVolumeOpen((v) => !v);
   };
 
   const selectArchive = (programme: Programme) => {
     setArchive({ programme });
-    setArchiveOpen(false);
+    setSheet(null);
     if (channel) setLastArchiveFocus(channel.id, programme.start);
     bump();
     void setFocus("pl:play");
@@ -482,7 +496,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
     setTranslateOn(!translateOn);
     // Switched off here (and no voice-over left running): no helper process stays behind.
     if (translateOn && !voiceOn) void translatorRelease("all").catch(() => undefined);
-    setMenu(null);
+    setSheet(null);
     bump();
   };
 
@@ -496,7 +510,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
     setVoiceOn(!voiceOn);
     // Voice off: its server (the heaviest process) goes at once; with the subtitles off too, everything does.
     if (voiceOn) void translatorRelease(translateOn ? "voice" : "all").catch(() => undefined);
-    setMenu(null);
+    setSheet(null);
     bump();
   };
 
@@ -505,26 +519,26 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   // silent black screen with no back button and no way to tell what went wrong.
   if (!channel) {
     return (
-      <FocusGroup focusKey="screen:player" className="player player--tvos" isFocusBoundary>
-        <div className="player__osd" style={{ "--osd-dim": playerDim * 2, "--osd-scale": prefs.uiScale } as React.CSSProperties}>
-          <div className="player__top">
-            <Focusable back as="button" className="icon-btn" focusKey="pl:back" onPress={() => back()} autoFocus scroll={false}>
-              <BackIcon />
-            </Focusable>
+      <FocusGroup
+        focusKey="screen:player"
+        className="player kx-player"
+        style={{ "--osd-dim": playerDim * 2, "--osd-scale": prefs.uiScale } as React.CSSProperties}
+        isFocusBoundary
+      >
+        <div className="kx-osd">
+          <div className="kx-scrim kx-scrim--top" />
+          <div className="kx-top">
+            <KxButton focusKey="pl:back" label="Назад" plate back autoFocus onPress={() => back()}>
+              <KxBack />
+            </KxButton>
           </div>
         </div>
-        <div className="player__center">
-          <div className="player__center-card player__center-card--error">
-            <OfflineIcon className="player__center-icon" />
-            <p className="player__center-label">Канал не найден</p>
-            <p className="player__center-hint">Плейлист мог измениться — попробуйте выбрать канал заново из списка.</p>
-          </div>
-        </div>
+        <KxError title="Канал не найден" hint="Плейлист мог измениться — выберите канал заново из списка." />
       </FocusGroup>
     );
   }
 
-  const tracks = state.tracks.filter((t) => t.kind === menu);
+  const tracks = sheet === "audio" || sheet === "subtitle" ? state.tracks.filter((t) => t.kind === sheet) : [];
   const isPlaying = state.status === "playing";
   const nowInfo = archive ? archive.programme : guide.now;
 
@@ -591,172 +605,172 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
     return <MiniPlayerChrome title={channel.name} playing={isPlaying} onToggle={() => void togglePlay()} onExpand={expandPlayer} onClose={closePlayer} />;
   }
 
+  const waiting = state.status === "loading" || state.status === "buffering" || (sessionOn && !source);
+  // Where the broadcast is now on the programme's bar (a channel watched behind it, or the buffer up to it).
+  const liveEdge = timeline && programmeOn && !archive ? Math.min(1, Math.max(0, nowSec / progLen)) : undefined;
+  const pictureTime = prog ? timeOf(prog.start + Math.max(0, viewSec) * 1000) : fmt(state.position);
+  const settingsTabs: KxTab[] = [
+    { key: "audio", label: "Аудио" },
+    { key: "subtitle", label: "Субтитры" },
+    ...(isTauri ? [{ key: "picture", label: "Картинка" }] : []),
+  ];
+  const settingsOpen = sheet === "audio" || sheet === "subtitle" || sheet === "picture";
+
   return (
-    <FocusGroup focusKey="screen:player" className={`player player--tvos ${isTauri ? "player--mpv" : ""} ${revealed ? "player--revealed" : ""} ${osd ? "" : "player--idle"}`} isFocusBoundary>
+    <FocusGroup
+      focusKey="screen:player"
+      className={`player kx-player ${isTauri ? "player--mpv" : ""} ${revealed ? "player--revealed" : ""} ${osd ? "" : "player--idle"}`}
+      style={{ "--osd-dim": playerDim * 2, "--osd-scale": prefs.uiScale } as React.CSSProperties}
+      isFocusBoundary
+    >
       {isTauri ? <div className="player__video-hole" /> : <video ref={videoRef} playsInline autoPlay />}
 
-      {showStreamStats && <StreamStats stats={state.stats} live={state.live} bufferedAhead={state.bufferedAhead} />}
+      {showStreamStats && <KxStreamStats stats={state.stats} bufferedAhead={state.bufferedAhead} extra={[["Режим", state.live ? "LIVE" : "Архив"]]} />}
 
       <PlayFlash status={state.status} />
 
-      {(state.status === "loading" || state.status === "buffering" || (sessionOn && !source)) && (
-        <div className="player__center">
-          <div className="player__center-card">
-            <Spinner />
-            <p className="player__center-label">
-              {sessionOn && !live.started ? "Готовлю перевод…" : state.status === "loading" ? "Подключение…" : "Буферизация…"}
-            </p>
-          </div>
-        </div>
-      )}
+      {waiting && <KxWait text={sessionOn && !live.started ? "Готовлю перевод…" : state.status === "loading" ? "Подключение…" : "Буферизация…"} />}
 
       <LiveSubtitles cues={live.cues} position={state.position} active={translateOn} note={translatorHint} raised={osd} />
 
       {state.status === "error" && (
-        <div className="player__center">
-          <div className="player__center-card player__center-card--error">
-            <OfflineIcon className="player__center-icon" />
-            <p className="player__center-label">Канал недоступен</p>
-            <p className="player__center-hint">{state.error ?? "Проверьте подключение или попробуйте другой канал."}</p>
-          </div>
-        </div>
+        <KxError title="Канал недоступен" hint={state.error ?? "Проверьте подключение или попробуйте другой канал."}>
+          <KxPill focusKey="pl:retry" variant="solid" autoFocus onPress={() => source && void adapterRef.current?.load(source)}>
+            Повторить
+          </KxPill>
+          {neighbours && (
+            <KxPill focusKey="pl:error-next" variant="solid" onPress={() => replaceScreen({ name: "tv-player", channelId: neighbours.next.id })}>
+              Следующий канал
+            </KxPill>
+          )}
+        </KxError>
       )}
 
-      <div className={`player__osd ${osd ? "" : "is-hidden"}`} style={{ "--osd-dim": playerDim * 2, "--osd-scale": prefs.uiScale } as React.CSSProperties}>
-        <div className="player__top player__top--tv">
-          <Focusable back as="button" className="icon-btn" focusKey="pl:back" onPress={() => back()} scroll={false}>
-            <BackIcon />
-          </Focusable>
-          <div className="player__info">
-            <PlayerLogo src={channel.logo} name={channel.name} />
-            <h2 className="player__channel">{channel.name}</h2>
-          </div>
-          <div className="player__status">
+      <div className={`kx-osd ${osd ? "" : "is-hidden"}`}>
+        <div className="kx-scrim kx-scrim--top" />
+        <div className="kx-scrim kx-scrim--bottom" />
+
+        <div className="kx-top">
+          <KxButton focusKey="pl:back" label="Назад" plate back onPress={() => back()}>
+            <KxBack />
+          </KxButton>
+          <div className="kx-top__status">
             {behindLive ? (
-              <Focusable as="button" className="btn btn--ghost archive-badge" focusKey="pl:live" onPress={goLive} scroll={false}>
-                В эфир
-              </Focusable>
+              <>
+                <span className="kx-chip kx-chip--plate">{archive ? "Архив" : `Отставание ${fmt(behind)}`}</span>
+                <KxPill focusKey="pl:live" variant="solid" dot onPress={goLive}>
+                  В эфир
+                </KxPill>
+              </>
             ) : state.live ? (
-              <span className="live-badge">LIVE</span>
+              <span className="kx-chip kx-chip--live">
+                <i />
+                LIVE
+              </span>
             ) : (
-              <span>
+              <span className="kx-chip kx-chip--plate">
                 {fmt(state.position)} / {fmt(state.duration)}
               </span>
             )}
           </div>
         </div>
 
-        <div className="player__bottom">
-          <p className="player__now player__now--center">
-            {nowInfo ? (
-              <>
-                <b>{nowInfo.title}</b>
-                <span className="player__now-meta">
+        <div className="kx-bottom">
+          {nowInfo ? (
+            <KxLockup
+              logo={<KxChannelLogo src={channel.logo} name={channel.name} />}
+              eyebrow={channel.name}
+              title={nowInfo.title}
+              meta={
+                <>
                   {timeRange(nowInfo)}
-                  {!archive && guide.next && <> · далее: {guide.next.title}</>}
-                </span>
-              </>
-            ) : (
-              <span style={{ color: "var(--text-faint)" }}>Нет данных программы</span>
-            )}
-          </p>
-          <SeekBar
-            focusKey="pl:seek"
-            progress={progress}
-            duration={timeline ? progLen : state.duration}
-            seekStep={SEEK_STEP}
-            onActivity={bump}
-            onSeekBy={seekAlong}
-            onSeekTo={(pos) => (timeline ? seekTimeline(pos) : void adapterRef.current?.seek(pos))}
-          />
-          <div className="player__controls">
-            <div className="player__controls-side player__controls-side--left">
-              {channel && activePlaylistId && (
-                <Focusable
-                  as="button"
-                  className={`icon-btn ${isFavChannel ? "icon-btn--active icon-btn--heart-on" : ""}`}
+                  {!archive && guide.next && <> · Далее: {guide.next.title}</>}
+                </>
+              }
+            />
+          ) : (
+            <KxLockup logo={<KxChannelLogo src={channel.logo} name={channel.name} />} eyebrow="Прямой эфир" title={channel.name} meta="Нет данных телепрограммы" metaMuted />
+          )}
+          <div className="kx-seekrow">
+            <span className="kx-time">{prog ? timeOf(prog.start) : state.live ? "Эфир" : fmt(state.position)}</span>
+            <KxSeekBar
+              focusKey="pl:seek"
+              progress={progress}
+              buffered={liveEdge}
+              liveEdge={liveEdge}
+              duration={timeline ? progLen : state.duration}
+              label={pictureTime}
+              seekStep={SEEK_STEP}
+              onActivity={bump}
+              onSeekBy={seekAlong}
+              onSeekTo={(pos) => (timeline ? seekTimeline(pos) : void adapterRef.current?.seek(pos))}
+            />
+            <span className="kx-time kx-time--dim">{prog ? timeOf(prog.stop) : state.live ? "" : fmt(state.duration)}</span>
+          </div>
+
+          <div className="kx-controls">
+            <div className="kx-controls__side">
+              <KxButton focusKey="pl:audio" label="Аудиодорожка" active={sheet === "audio"} onPress={() => openSheet("audio")}>
+                <KxAudio />
+              </KxButton>
+              <KxButton focusKey="pl:subs" label="Субтитры" active={sheet === "subtitle"} onPress={() => openSheet("subtitle")}>
+                <KxSubtitles />
+              </KxButton>
+              {isTauri && (
+                <KxButton focusKey="pl:picture" label="Картинка" active={sheet === "picture"} onPress={() => openSheet("picture")}>
+                  <KxPicture />
+                </KxButton>
+              )}
+              {activePlaylistId && (
+                <KxButton
                   focusKey="pl:favorite"
+                  label={isFavChannel ? "Убрать из избранного" : "В избранное"}
+                  on={isFavChannel}
                   onPress={() => toggleChannelFavorite(activePlaylistId, channel)}
-                  scroll={false}
                 >
-                  <FavoriteIcon fill={isFavChannel ? "currentColor" : "none"} />
-                </Focusable>
-              )}
-              <Focusable as="button" className="icon-btn" focusKey="pl:audio" onPress={() => openMenu("audio")} scroll={false}>
-                <TracksIcon />
-              </Focusable>
-              <Focusable as="button" className="icon-btn" focusKey="pl:subs" onPress={() => openMenu("subtitle")} scroll={false}>
-                <SubtitlesIcon />
-              </Focusable>
-              {isTauri && (
-                <Focusable
-                  as="button"
-                  className={`icon-btn ${pictureOpen ? "icon-btn--active" : ""}`}
-                  focusKey="pl:picture"
-                  onPress={() => setPictureOpen((o) => !o)}
-                  scroll={false}
-                >
-                  <PlayerSettingsIcon />
-                </Focusable>
+                  <KxHeart on={isFavChannel} />
+                </KxButton>
               )}
             </div>
 
-            <div className="player__controls-center">
+            <div className="kx-controls__center">
               {neighbours && (
-                <Focusable
-                  as="button"
-                  className="icon-btn"
-                  focusKey="pl:prev-channel"
-                  onPress={() => replaceScreen({ name: "tv-player", channelId: neighbours.prev.id })}
-                  scroll={false}
-                >
-                  <PrevChannelIcon />
-                </Focusable>
+                <KxButton focusKey="pl:prev-channel" label="Предыдущий канал" onPress={() => replaceScreen({ name: "tv-player", channelId: neighbours.prev.id })}>
+                  <KxPrev />
+                </KxButton>
               )}
-              <Focusable as="button" className="icon-btn" focusKey="pl:rew" onPress={() => seekAlong(-SEEK_STEP)} scroll={false}>
-                <RewindIcon />
-              </Focusable>
-              <Focusable as="button" className="icon-btn icon-btn--lg" focusKey="pl:play" autoFocus onPress={() => void togglePlay()} scroll={false}>
-                {isPlaying ? <PauseIcon /> : <PlayIcon />}
-              </Focusable>
-              <Focusable as="button" className="icon-btn" focusKey="pl:fwd" onPress={() => seekAlong(SEEK_STEP)} scroll={false}>
-                <ForwardIcon />
-              </Focusable>
+              <KxButton focusKey="pl:rew" label={`Назад на ${SEEK_STEP} с`} onPress={() => seekAlong(-SEEK_STEP)}>
+                <KxRewind step={SEEK_STEP} />
+              </KxButton>
+              <KxButton focusKey="pl:play" label={isPlaying ? "Пауза" : "Смотреть"} large autoFocus onPress={() => void togglePlay()}>
+                {isPlaying || state.status === "buffering" || state.status === "loading" ? <KxPause size={44} /> : <KxPlay size={44} />}
+              </KxButton>
+              <KxButton focusKey="pl:fwd" label={`Вперёд на ${SEEK_STEP} с`} onPress={() => seekAlong(SEEK_STEP)}>
+                <KxForward step={SEEK_STEP} />
+              </KxButton>
               {neighbours && (
-                <Focusable
-                  as="button"
-                  className="icon-btn"
-                  focusKey="pl:next-channel"
-                  onPress={() => replaceScreen({ name: "tv-player", channelId: neighbours.next.id })}
-                  scroll={false}
-                >
-                  <NextEpisodeIcon />
-                </Focusable>
+                <KxButton focusKey="pl:next-channel" label="Следующий канал" onPress={() => replaceScreen({ name: "tv-player", channelId: neighbours.next.id })}>
+                  <KxNext />
+                </KxButton>
               )}
             </div>
 
-            <div className="player__controls-side player__controls-side--right">
-              {isTauri && (
-                <Focusable as="button" className="icon-btn" focusKey="pl:mini" onPress={minimize} scroll={false}>
-                  <MiniPlayerIcon />
-                </Focusable>
-              )}
+            <div className="kx-controls__side kx-controls__side--right">
               {canArchive && (
-                <Focusable
-                  as="button"
-                  className={`icon-btn ${archiveOpen ? "icon-btn--active" : ""}`}
-                  focusKey="pl:archive"
-                  onPress={toggleArchive}
-                  scroll={false}
-                >
-                  <ArchiveIcon />
-                </Focusable>
+                <KxButton focusKey="pl:archive" label="Архив эфира" active={archiveOpen} onPress={() => openSheet("archive")}>
+                  <KxArchive />
+                </KxButton>
+              )}
+              {isTauri && (
+                <KxButton focusKey="pl:mini" label="Мини-плеер" onPress={minimize}>
+                  <KxMini />
+                </KxButton>
               )}
               <div
                 className="volume-control"
                 onMouseEnter={() => {
                   window.clearTimeout(volumeLeave.current);
-                  if (osd && !volumeOpen && !menu && !archiveOpen && !pictureOpen) {
+                  if (osd && !volumeOpen && !sheet) {
                     setVolumeByMouse(true);
                     setVolumeOpen(true);
                   }
@@ -771,16 +785,15 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
                   }, 280);
                 }}
               >
-                <Focusable
-                  as="button"
-                  className={`icon-btn ${volumeOpen ? "icon-btn--active" : ""}`}
+                <KxButton
                   focusKey="pl:vol"
+                  label={state.muted ? "Включить звук" : "Громкость"}
+                  active={volumeOpen}
                   // The level is already up under the mouse: a click on the button silences or restores the sound.
                   onPress={() => (volumeOpen && volumeByMouse ? void adapterRef.current?.setMuted(!state.muted) : toggleVolume())}
-                  scroll={false}
                 >
-                  {state.muted || state.volume === 0 ? <MuteIcon /> : <VolumeIcon />}
-                </Focusable>
+                  {state.muted || state.volume === 0 ? <KxMute /> : <KxVolume />}
+                </KxButton>
                 {volumeOpen && osd && (
                   <FocusGroup focusKey="player:volume" className="volume-popup" preferredChildFocusKey="vol:slider" isFocusBoundary>
                     <VolumeSlider
@@ -795,82 +808,82 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
                       onClose={() => {
                         setVolumeOpen(false);
                         bump();
-                        void setFocus(canArchive ? "pl:archive" : "pl:vol");
+                        void setFocus("pl:vol");
                       }}
                     />
-                    <Focusable
-                      as="button"
-                      className="volume-popup__mute"
-                      focusKey="vol:mute"
-                      onPress={() => void adapterRef.current?.setMuted(!state.muted)}
-                      scroll={false}
-                    >
-                      {state.muted ? <MuteIcon /> : <VolumeIcon />}
+                    <Focusable as="button" className="volume-popup__mute" focusKey="vol:mute" onPress={() => void adapterRef.current?.setMuted(!state.muted)} scroll={false}>
+                      {state.muted ? <KxMute size={26} /> : <KxVolume size={26} />}
                     </Focusable>
                   </FocusGroup>
                 )}
               </div>
-              <FullscreenButton focusKey="pl:fullscreen" />
+              <FullscreenButton focusKey="pl:fullscreen" className="kx-btn" />
             </div>
           </div>
         </div>
       </div>
 
-      {pictureOpen && osd && (
-        <PicturePanel
-          adapterRef={adapterRef}
-          onClose={() => {
-            setPictureOpen(false);
-            bump();
-          }}
-        />
-      )}
-
-      {menu && osd && (
-        <Modal
-          focusKey="player:menu"
-          preferredChildFocusKey="menu:0"
-          className="links-tv"
-          onClose={() => {
-            setMenu(null);
-            bump();
-          }}
+      {settingsOpen && osd && (
+        <KxSheet
+          focusKey="player:settings"
+          preferredChildFocusKey={sheet === "picture" ? "pic:aspect" : sheet === "subtitle" ? "menu:off" : `menu:${Math.max(0, tracks.findIndex((t) => t.selected))}`}
+          title={sheet === "audio" ? "Аудиодорожка" : sheet === "subtitle" ? "Субтитры" : "Картинка"}
+          icon={sheet === "audio" ? <KxAudio /> : sheet === "subtitle" ? <KxSubtitles /> : <KxPicture />}
+          count={sheet !== "picture" && tracks.length > 1 ? `${tracks.length} дорожек` : undefined}
+          tabs={
+            <KxTabs
+              tabs={settingsTabs}
+              current={sheet}
+              prefix="tab"
+              onSelect={(key) => {
+                setSheetAutoFocus(false);
+                setSheet(key as TvSheet);
+              }}
+            />
+          }
+          top={sheet === "picture" ? <PictureInfo info={pictureInfo.info} /> : undefined}
+          footer={
+            sheet === "picture" ? (
+              <PictureFooter adapterRef={adapterRef} onInfo={() => void pictureInfo.refresh()} onClose={closeSheet} prefix="player:settings" />
+            ) : undefined
+          }
+          onClose={closeSheet}
         >
-          <h3 className="links-tv__title">{menu === "audio" ? "Аудиодорожка" : "Субтитры"}</h3>
-          <div className="links-tv__list links-tv__scroll">
-            {menu === "subtitle" && (
-              <TrackItem
-                focusKey="menu:off"
-                label="Выключены"
-                active={!translateOn && !tracks.some((t) => t.selected)}
-                onPress={() => {
-                  setWantedSub(null);
-                  if (translateOn) toggleTranslation();
-                }}
-                autoFocus
-              />
-            )}
-            {/* Switched off in Settings (not just not downloaded) — not offered at all. */}
-            {menu === "subtitle" && isTauri && translationEnabled && (
-              <TrackItem
-                focusKey="menu:translate"
-                label="Локальный перевод на русский"
-                hint={translatorReady ? undefined : "скачайте в настройках"}
-                active={translateOn}
-                onPress={toggleTranslation}
-              />
-            )}
-            {tracks.length === 0 && menu === "audio" && !(isTauri && translationEnabled && voiceEnabled) && (
-              <p className="links-tv__text">Только одна дорожка</p>
-            )}
-            {tracks.map((t, i) => (
-              <TrackItem
+          {sheet === "picture" && <PictureSettings adapterRef={adapterRef} onInfo={() => void pictureInfo.refresh()} autoFocus={sheetAutoFocus} />}
+
+          {sheet === "subtitle" && (
+            <KxRow
+              focusKey="menu:off"
+              label="Выключены"
+              selected={!translateOn && !tracks.some((t) => t.selected)}
+              autoFocus={sheetAutoFocus}
+              onPress={() => {
+                setWantedSub(null);
+                if (translateOn) toggleTranslation();
+              }}
+            />
+          )}
+          {/* Switched off in Settings (not just not downloaded) — not offered at all. */}
+          {sheet === "subtitle" && isTauri && translationEnabled && (
+            <KxRow
+              focusKey="menu:translate"
+              label="Локальный перевод на русский"
+              hint={translatorReady ? undefined : "скачайте в настройках"}
+              selected={translateOn}
+              onPress={toggleTranslation}
+            />
+          )}
+          {sheet === "audio" && tracks.length === 0 && !(isTauri && translationEnabled && voiceEnabled) && <KxSheetText>Только одна дорожка</KxSheetText>}
+          {(sheet === "audio" || sheet === "subtitle") &&
+            tracks.map((t, i) => (
+              <KxRow
                 key={t.id}
                 focusKey={`menu:${i}`}
                 label={trackLabel(t, tracks, i)}
-                active={t.selected && !(menu === "subtitle" && translateOn)}
+                selected={t.selected && !(sheet === "subtitle" && translateOn)}
+                autoFocus={sheetAutoFocus && sheet === "audio" && t.selected}
                 onPress={() => {
-                  if (menu === "audio") {
+                  if (sheet === "audio") {
                     void adapterRef.current?.selectTrack("audio", t.id);
                     return;
                   }
@@ -878,224 +891,85 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
                   setWantedSub(t.id);
                   if (translateOn) {
                     setTranslateOn(false);
-                    setMenu(null);
-                    bump();
+                    closeSheet();
                   }
                 }}
-                autoFocus={menu === "audio" && i === 0}
               />
             ))}
-            {/* Voice-over is audio, so it lives in the audio menu — last, after the real tracks. */}
-            {menu === "audio" && isTauri && translationEnabled && voiceEnabled && (
-              <TrackItem
-                focusKey="menu:voice"
-                label="AI-переводчик"
-                hint={
-                  !voiceReady
-                    ? "скачайте в настройках"
-                    : voiceOn && live.voiceState === "starting"
-                      ? "загружается…"
-                      : undefined
-                }
-                active={voiceOn}
-                onPress={toggleVoice}
+          {/* Voice-over is audio, so it lives in the audio list — last, after the real tracks. */}
+          {sheet === "audio" && isTauri && translationEnabled && voiceEnabled && (
+            <KxRow
+              focusKey="menu:voice"
+              label="AI-переводчик"
+              hint={!voiceReady ? "скачайте в настройках" : voiceOn && live.voiceState === "starting" ? "загружается…" : undefined}
+              selected={voiceOn}
+              onPress={toggleVoice}
+            />
+          )}
+          {sheet === "subtitle" && (
+            <>
+              <KxSheetLabel>Вид субтитров</KxSheetLabel>
+              <KxSegmentRow
+                focusKey="menu:sub-size"
+                label="Размер"
+                options={SUB_SIZES}
+                value={SUB_SIZES.reduce((best, o) => (Math.abs(o.value - prefs.subtitleScale) < Math.abs(best.value - prefs.subtitleScale) ? o : best), SUB_SIZES[1]).value}
+                onChange={(v) => {
+                  setPlayerPrefs({ subtitleScale: v });
+                  void adapterRef.current?.setProp?.("sub-scale", String(v));
+                }}
               />
-            )}
-          </div>
-          <Focusable
-            as="button"
-            back
-            focusKey="menu:close"
-            className="links-tv__row links-tv__row--close links-tv__foot"
-            scroll={false}
-            onPress={() => {
-              setMenu(null);
-              bump();
-            }}
-          >
-            <span className="links-tv__name">Закрыть</span>
-          </Focusable>
-        </Modal>
+              <KxSegmentRow
+                focusKey="menu:sub-bg"
+                label="Фон"
+                options={SUB_BACKGROUNDS}
+                value={prefs.subtitleBackground}
+                onChange={(v) => {
+                  setPlayerPrefs({ subtitleBackground: v });
+                  void applySubtitleBackground(adapterRef.current, v);
+                }}
+              />
+            </>
+          )}
+        </KxSheet>
       )}
 
       {archiveOpen && osd && (
-        <Modal
+        <KxSheet
           focusKey="player:archive"
-          preferredChildFocusKey="arch:0"
-          className="links-tv arch-tv"
-          onClose={() => {
-            setArchiveOpen(false);
-            bump();
+          title="Архив эфира"
+          icon={<KxArchive />}
+          count={`за ${channel.catchup?.days ?? DEFAULT_CATCHUP_DAYS} дн.`}
+          onClose={closeSheet}
+          onBodyScroll={(el) => {
+            if (el.scrollHeight - el.scrollTop - el.clientHeight < 300) loadMoreArchive();
           }}
         >
-          <h3 className="links-tv__title">Архив эфира</h3>
-          <p className="arch-tv__range">за {channel.catchup?.days ?? DEFAULT_CATCHUP_DAYS} дн.</p>
-          <div
-            className="links-tv__list links-tv__scroll"
-            onScroll={(e) => {
-              const el = e.currentTarget;
-              if (el.scrollHeight - el.scrollTop - el.clientHeight < 300) loadMoreArchive();
-            }}
-          >
-            {archiveDays.length === 0 && <p className="links-tv__text">Нет данных программы за доступный период архива</p>}
-            {visibleArchiveDays.map((day, di) => (
-              <div key={day.key} className="arch-tv__day">
-                <div className="archive-panel__day">{day.label}</div>
-                {day.items.map((p, i) => {
-                  const isLastRendered = di === visibleArchiveDays.length - 1 && i === day.items.length - 1;
-                  return (
-                    <ArchiveItem
-                      key={`${day.key}:${i}`}
-                      focusKey={`arch:${day.key}:${i}`}
-                      programme={p}
-                      active={archive?.programme.start === p.start}
-                      onPress={() => selectArchive(p)}
-                      onFocus={isLastRendered && archiveVisible < archiveTotal ? loadMoreArchive : undefined}
-                      autoFocus={rememberedArchiveVisible ? p.start === lastArchiveFocus[channel.id] : di === 0 && i === 0}
-                    />
-                  );
-                })}
-              </div>
-            ))}
-            {archiveVisible < archiveTotal && <div className="archive-panel__more">Загрузка ещё…</div>}
-          </div>
-          <Focusable
-            as="button"
-            back
-            focusKey="arch:close"
-            className="links-tv__row links-tv__row--close links-tv__foot"
-            scroll={false}
-            onPress={() => {
-              setArchiveOpen(false);
-              bump();
-            }}
-          >
-            <span className="links-tv__name">Закрыть</span>
-          </Focusable>
-        </Modal>
+          {archiveDays.length === 0 && <KxSheetText>Нет данных программы за доступный период архива</KxSheetText>}
+          {visibleArchiveDays.map((day, di) => (
+            <div key={day.key} className="kx-sheet__group">
+              <KxSheetLabel>{day.label}</KxSheetLabel>
+              {day.items.map((p, i) => {
+                const isLastRendered = di === visibleArchiveDays.length - 1 && i === day.items.length - 1;
+                return (
+                  <KxStackRow
+                    key={`${day.key}:${i}`}
+                    focusKey={`arch:${day.key}:${i}`}
+                    time={timeRange(p)}
+                    title={p.title}
+                    selected={archive?.programme.start === p.start}
+                    onPress={() => selectArchive(p)}
+                    onFocus={isLastRendered && archiveVisible < archiveTotal ? loadMoreArchive : undefined}
+                    autoFocus={rememberedArchiveVisible ? p.start === lastArchiveFocus[channel.id] : di === 0 && i === 0}
+                    toClose="player:archive:close"
+                  />
+                );
+              })}
+            </div>
+          ))}
+          {archiveVisible < archiveTotal && <KxSheetText>Загрузка ещё…</KxSheetText>}
+        </KxSheet>
       )}
     </FocusGroup>
-  );
-}
-
-function initialsOf(name: string) {
-  const words = name.replace(/[^\p{L}\p{N} ]/gu, " ").trim().split(/\s+/);
-  return words.slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
-}
-
-function PlayerLogo({ src, name }: { src?: string; name: string }) {
-  const [failed, setFailed] = useState(false);
-  const showLogo = src && !failed;
-  return (
-    <div className="player__logo">
-      {showLogo ? (
-        <img src={src} alt="" loading="eager" decoding="async" onError={() => setFailed(true)} />
-      ) : (
-        <span className="player__logo-initials">{initialsOf(name)}</span>
-      )}
-    </div>
-  );
-}
-
-function CheckMark() {
-  return (
-    <svg className="links-tv__check" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-function TrackItem({
-  focusKey,
-  label,
-  hint,
-  active,
-  onPress,
-  autoFocus,
-}: {
-  focusKey: string;
-  label: string;
-  hint?: string;
-  active: boolean;
-  onPress: () => void;
-  autoFocus?: boolean;
-}) {
-  return (
-    <Focusable
-      as="button"
-      className={`links-tv__row ${active ? "is-active" : ""}`}
-      focusKey={focusKey}
-      onPress={onPress}
-      autoFocus={autoFocus}
-      scroll={false}
-    >
-      <span className="links-tv__name">{label}</span>
-      {hint && hint.trim().toLowerCase() !== label.trim().toLowerCase() && <span className="links-tv__hint">{hint}</span>}
-      {active && <CheckMark />}
-    </Focusable>
-  );
-}
-
-function ArchiveItem({
-  focusKey,
-  programme,
-  active,
-  onPress,
-  onFocus,
-  autoFocus,
-}: {
-  focusKey: string;
-  programme: Programme;
-  active: boolean;
-  onPress: () => void;
-  onFocus?: () => void;
-  autoFocus?: boolean;
-}) {
-  return (
-    <Focusable
-      as="button"
-      className={`links-tv__row links-tv__row--stack ${active ? "is-active" : ""}`}
-      focusKey={focusKey}
-      onPress={onPress}
-      onFocus={onFocus}
-      autoFocus={autoFocus}
-      scroll={true}
-      // A long list: "Закрыть" under it would be a hundred rows of Down away — Right jumps to it.
-      onArrowPress={(direction) => {
-        if (direction !== "right") return true;
-        void setFocus("arch:close");
-        return false;
-      }}
-    >
-      <span className="links-tv__stack">
-        <span className="archive-item__time">{timeRange(programme)}</span>
-        <span className="archive-item__title">{programme.title}</span>
-      </span>
-      {active && <CheckMark />}
-    </Focusable>
-  );
-}
-
-function StreamStats({ stats, live, bufferedAhead }: { stats: PlayerStats; live: boolean; bufferedAhead: number }) {
-  const codec = [stats.videoCodec, stats.audioCodec].filter(Boolean).join(" / ");
-  const rows: [string, string][] = [
-    ["Разрешение", stats.width && stats.height ? `${stats.width}×${stats.height}` : "—"],
-    ["FPS", stats.fps != null ? String(stats.fps) : "—"],
-    ["Битрейт", stats.bitrateKbps ? `${(stats.bitrateKbps / 1000).toFixed(1)} Мбит/с` : "—"],
-    ["Кодек", codec || "—"],
-    ["Буфер", `${bufferedAhead.toFixed(1)} с`],
-    ["Потеряно кадров", stats.droppedFrames != null ? String(stats.droppedFrames) : "—"],
-    ["Режим", live ? "LIVE" : "Архив"],
-  ];
-  return (
-    <div className="player__stats">
-      <p className="player__stats-title">Статистика потока</p>
-      {rows.map(([label, value]) => (
-        <div className="player__stats-row" key={label}>
-          <span>{label}</span>
-          <b>{value}</b>
-        </div>
-      ))}
-    </div>
   );
 }

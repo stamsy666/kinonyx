@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { returnedToSavedFocus } from "../data/focusRestore";
 import { cancelGlides, FavoriteIcon, Focusable, FocusGroup, NextIcon, PlusIcon } from "@kinonyx/ui";
 import { kpImages, type KpCollectionItem } from "../data/api";
 import { img } from "../data/images";
+import { useApp } from "../store/app";
 import { useFavorites } from "../store/favorites";
 import { ProgressiveImg } from "./ProgressiveImg";
 
@@ -23,6 +24,7 @@ const toTop = () => {
  */
 export function HeroCarousel({ films, onOpen }: { films: KpCollectionItem[]; onOpen: (film: KpCollectionItem) => void }) {
   const [index, setIndex] = useState(0);
+  const autofocus = useRef(!returnedToSavedFocus() && !useApp.getState().sidebarOpen).current;
   const slides = films.slice(0, 5);
   const ids = slides.map((f) => f.kinopoiskId).join(",");
   const favorites = useFavorites((s) => s.items);
@@ -117,7 +119,7 @@ export function HeroCarousel({ films, onOpen }: { films: KpCollectionItem[]; onO
           as="button"
           className="hero__btn hero__btn--pill"
           focusKey="hero:details"
-          autoFocus={!returnedToSavedFocus()}
+          autoFocus={autofocus}
           scroll={false}
           onFocus={toTop}
           onArrowPress={common((dir) => {

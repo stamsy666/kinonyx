@@ -12,11 +12,19 @@ import logoMark from "../assets/logo-mark.png";
  * page's `--sheet` as the page scrolls. Focus keys: `home:menu` (the banner's Up goes there), `<id>:search`.
  * `autoFocus`: nothing on the page to land on (an empty list) — the way back takes the focus, or the menu button if there is none.
  */
-export function HomeChrome({ id, label, extra, hideSearch, autoFocus }: { id: string; label?: string; extra?: ReactNode; hideSearch?: boolean; autoFocus?: boolean }) {
+export function HomeChrome({ id, label, extra, hideSearch, autoFocus, backAction }: {
+  id: string;
+  label?: string;
+  extra?: ReactNode;
+  hideSearch?: boolean;
+  autoFocus?: boolean;
+  backAction?: { label: string; onPress: () => void };
+}) {
   const navigate = useApp((s) => s.navigate);
   const toggleSidebar = useApp((s) => s.toggleSidebar);
   const back = useApp((s) => s.back);
-  const canBack = useApp((s) => s.history.length > 0);
+  const hasHistory = useApp((s) => s.history.length > 0);
+  const canBack = hasHistory || !!backAction;
   return (
     <div className="home__chrome">
       <div className="home__chrome-left">
@@ -42,7 +50,8 @@ export function HomeChrome({ id, label, extra, hideSearch, autoFocus }: { id: st
           </svg>
         </Focusable>
         {canBack && (
-          <Focusable as="button" className="home-round" focusKey={`${id}:back`} autoFocus={autoFocus} scroll={false} back aria-label="Назад" onPress={() => back()}>
+          <Focusable as="button" className="home-round" focusKey={`${id}:back`} autoFocus={autoFocus} scroll={false} back
+            aria-label={backAction?.label ?? "Назад"} title={backAction?.label} onPress={backAction?.onPress ?? (() => back())}>
             <BackIcon size={24} strokeWidth={2.2} />
           </Focusable>
         )}

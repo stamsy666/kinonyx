@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { KpCollectionItem } from "../data/api";
-import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
+import { getCurrentFocusKey, setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { Focusable, Spinner } from "@kinonyx/ui";
 import { CollectionBanner, FeatureCard } from "./HomeBlocks";
 import { RowScroll } from "./RowScroll";
@@ -32,13 +32,9 @@ export function LazyShelf({ title, text, load, focusPrefix, onOpen, perView, lim
   const [near, setNear] = useState(false);
   const [films, setFilms] = useState<KpCollectionItem[] | null>(null);
   const [failed, setFailed] = useState(false);
-  // Arrow-key navigation only ever lands on elements that already exist — a shelf that
-  // hasn't loaded yet has nothing to focus, so Down silently does nothing and the page
-  // never scrolls (only the mouse wheel triggered IntersectionObserver before this fix).
-  // Landing keyboard focus on the placeholder itself gives spatial-nav somewhere to go,
-  // which starts the load and scrolls it into view; once it loads, focus jumps onto the
-  // first card so the remote user keeps moving instead of getting stuck on a dead tile.
-  const wantsFocusRef = useRef(false);
+  const [placeholderFocused, setPlaceholderFocused] = useState(false);
+  const placeholderKey = `${focusPrefix}:placeholder`;
+  const unavailable = failed || films?.length === 0;
 
   useEffect(() => {
     const el = ref.current;
@@ -66,13 +62,20 @@ export function LazyShelf({ title, text, load, focusPrefix, onOpen, perView, lim
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [near, title]);
 
-  if (failed || films?.length === 0) return null;
+  useEffect(() => {
+    // A delayed response may arrive after the viewer already moved to another row.
+    if (films?.length && getCurrentFocusKey() === placeholderKey) {
+      setFocus(`${focusPrefix}:0`, { restore: true });
+    }
+  }, [films, focusPrefix, placeholderKey]);
+
+  if (unavailable && !placeholderFocused) return null;
 
   return (
     <div ref={ref}>
-      {!films && (
+      {(!films || unavailable) && (
         <Focusable
-          focusKey={`${focusPrefix}:placeholder`}
+          focusKey={placeholderKey}
           className="shelf-placeholder"
           scroll
           // Without this, a page whose first shelf hasn't loaded yet (e.g. right after
@@ -80,31 +83,31 @@ export function LazyShelf({ title, text, load, focusPrefix, onOpen, perView, lim
           // anywhere, first key press does nothing, and it reads as "focus got lost".
           autoFocus={autoFocusFirst}
           onFocus={() => {
-            wantsFocusRef.current = true;
+            setPlaceholderFocused(true);
             setNear(true);
           }}
+          onBlur={() => setPlaceholderFocused(false)}
         >
           {near && (
-            <div style={{ display: "grid", placeItems: "center", height: "100%" }}>
-              <Spinner />
+            <div role="status" style={{ display: "grid", placeItems: "center", height: "100%" }}>
+              {failed ? "Не удалось загрузить подборку" : unavailable ? "Подборка пуста" : <Spinner />}
             </div>
           )}
         </Focusable>
       )}
-      {films && variant === "feature" && (
+      {films && !unavailable && variant === "feature" && (
         <RowScroll label={title} count={films.length} className="shelf--feature">
           {films.slice(0, 10).map((film, i) => (
             <FeatureCard
               key={film.kinopoiskId}
               film={film}
               focusKey={`${focusPrefix}:${i}`}
-              autoFocus={(autoFocusFirst || wantsFocusRef.current) && i === 0}
               onPress={() => onOpen(film)}
             />
           ))}
         </RowScroll>
       )}
-      {films && variant === "banner" && (
+      {films && !unavailable && variant === "banner" && (
         <section className="shelf shelf--banner">
           <CollectionBanner
             film={films[0]}
@@ -115,7 +118,7 @@ export function LazyShelf({ title, text, load, focusPrefix, onOpen, perView, lim
           />
         </section>
       )}
-      {films && variant !== "feature" && (
+      {films && !unavailable && variant !== "feature" && (
         <RowScroll
           label={title}
           description={text}
@@ -129,7 +132,6 @@ export function LazyShelf({ title, text, load, focusPrefix, onOpen, perView, lim
               film={film}
               focusKey={`${focusPrefix}:${i}`}
               rank={ranked ? i + 1 : undefined}
-              autoFocus={(autoFocusFirst || wantsFocusRef.current) && i === 0}
               onPress={() => onOpen(film)}
             />
           ))}

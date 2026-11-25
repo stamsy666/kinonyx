@@ -1,5 +1,6 @@
 import { useFocusable } from "@noriginmedia/norigin-spatial-navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { cancelGlides } from "@kinonyx/ui";
 
 interface VolumeRowProps {
   focusKey: string;
@@ -20,6 +21,11 @@ export function VolumeRow({ focusKey, volume, onChange, step = 0.1, format }: Vo
 
   const { ref, focused, focusSelf } = useFocusable<HTMLDivElement>({
     focusKey,
+    onFocus: ({ node }, _props, details) => {
+      if (details?.byMouse || details?.skipScroll) return;
+      cancelGlides();
+      node.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
+    },
     onArrowPress: (direction) => {
       if (direction === "left") {
         onChange(Math.max(0, volume - step));
@@ -58,10 +64,11 @@ export function VolumeRow({ focusKey, volume, onChange, step = 0.1, format }: Vo
   return (
     <div
       ref={ref}
+      data-fk={focusKey}
       className={`volume-row ${focused ? "is-focused" : ""}`}
-      onMouseEnter={() => focusSelf()}
+      onMouseEnter={() => focusSelf({ byMouse: true })}
       onMouseDown={(e) => {
-        focusSelf();
+        focusSelf({ byMouse: true });
         setDragging(true);
         setFromClientX(e.clientX);
       }}

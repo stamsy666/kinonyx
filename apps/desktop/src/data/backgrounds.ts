@@ -1,4 +1,4 @@
-export type BgKind = "tranquiluxe" | "novatrix" | "velustro" | "plasma" | "ribbon" | "ps4" | "ps5" | "bw";
+export type BgKind = "tranquiluxe" | "novatrix" | "velustro" | "plasma" | "ribbon" | "meadow" | "ps4" | "ps5" | "bw";
 
 export interface BgPalette {
   label: string;
@@ -17,28 +17,28 @@ function hexToRgb(hex: string): [number, number, number] {
 
 export const BG_PALETTES: Record<BgKind, BgPalette> = {
   tranquiluxe: {
-    label: "Штиль",
+    label: "Tranquiluxe",
     accent: "#c9a8ff",
     accentDeep: "#8f5fd1",
     accentGlow: "rgba(201, 168, 255, 0.35)",
     colorA: hexToRgb("#c9a8ff"),
   },
   novatrix: {
-    label: "Спектр",
+    label: "Novatrix",
     accent: "#ff4fd8",
     accentDeep: "#a825a0",
     accentGlow: "rgba(255, 79, 216, 0.35)",
     colorA: hexToRgb("#ff4fd8"),
   },
   velustro: {
-    label: "Бархат",
+    label: "Velustro",
     accent: "#1fb888",
     accentDeep: "#0d7a5a",
     accentGlow: "rgba(31, 184, 136, 0.35)",
     colorA: hexToRgb("#1fb888"),
   },
   plasma: {
-    label: "Плазма",
+    label: "Bubble Background",
     accent: "#c26bff",
     accentDeep: "#6b1fb0",
     accentGlow: "rgba(194, 107, 255, 0.35)",
@@ -47,15 +47,25 @@ export const BG_PALETTES: Record<BgKind, BgPalette> = {
   },
   ribbon: {
     // Ribbon Glow (Originkit): cyan and violet ribbons on a near-black ground (RibbonBackground.tsx).
-    label: "Ленты",
+    label: "Ribbon Glow",
     accent: "#2fd3f2",
     accentDeep: "#7b61ff",
     accentGlow: "rgba(47, 211, 242, 0.35)",
     // Unused: the ribbons have their own two-colour palette.
     colorA: hexToRgb("#2fd3f2"),
   },
+  meadow: {
+    // Still Sunset Meadow (Originkit): a voxel meadow at sunset, three.js (MeadowBackground.tsx). The accent is the
+    // coral of its horizon, the deep tone the rose of its upper sky.
+    label: "Minecraft",
+    accent: "#ffb48e",
+    accentDeep: "#d0607a",
+    accentGlow: "rgba(255, 180, 142, 0.35)",
+    // Unused: the meadow has its own fixed palette.
+    colorA: hexToRgb("#ffb48e"),
+  },
   ps4: {
-    label: "PS4",
+    label: "PlayStation 4",
     accent: "#5ab4ff",
     accentDeep: "#1f5fb0",
     accentGlow: "rgba(90, 180, 255, 0.35)",
@@ -65,7 +75,7 @@ export const BG_PALETTES: Record<BgKind, BgPalette> = {
   ps5: {
     // Greyscale shader (MonoBackground.tsx, its own fixed palette), so a neutral light grey accent. It is also
     // the default theme (what was once called "Графит" is this one: the old name is read as PS5, see readBgKind).
-    label: "PS5",
+    label: "PlayStation 5",
     accent: "#d6d6d6",
     accentDeep: "#6a6a6a",
     accentGlow: "rgba(214, 214, 214, 0.3)",
@@ -107,7 +117,7 @@ const PLAIN_TOKENS: Partial<Record<BgKind, Record<string, string>>> = {
 
 const ALL_PLAIN_TOKEN_NAMES = Array.from(new Set(Object.values(PLAIN_TOKENS).flatMap((t) => Object.keys(t ?? {}))));
 
-export const BG_KINDS: BgKind[] = ["tranquiluxe", "novatrix", "velustro", "plasma", "ribbon", "ps4", "ps5", "bw"];
+export const BG_KINDS: BgKind[] = ["meadow", "tranquiluxe", "novatrix", "velustro", "plasma", "ribbon", "ps4", "ps5", "bw"];
 
 /** Animated themes first, then plain ones — the order Settings shows them in two groups. */
 /** Exclusive themes: shown in their own group in Settings, apart from the ordinary ones. */

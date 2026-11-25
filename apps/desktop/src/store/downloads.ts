@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { isTauri } from "../data/io";
 import { logEvent } from "../data/log";
 import { useNotices } from "./notifications";
@@ -9,20 +10,11 @@ const DIR_KEY = "kinonyx.downloadDir";
 
 export type DownloadStatus = "preparing" | "downloading" | "paused" | "done" | "error";
 
-/** A film or episode being saved to disk (the transfer itself is Rust's `download.rs`). */
-export interface DownloadItem {
+interface DownloadFields {
   id: string;
-  filmId: number;
-  /** What the list shows: the film's name (and the episode's file for a series). */
   title: string;
   poster?: string;
-  film?: { nameRu?: string; nameOriginal?: string; year?: string | number; genres?: string[] };
-  /** What the torrent is opened by, and which of its files — so a paused or restarted download can reconnect. */
-  link: string;
-  fileId: number;
-  filePath: string;
   fileName: string;
-  dir: string;
   total: number;
   received: number;
   speed: number;
@@ -31,6 +23,43 @@ export interface DownloadItem {
   /** Where the finished file is. */
   path?: string;
   addedAt: number;
+}
+
+interface TorrentDownload extends DownloadFields {
+  source?: "torrent";
+  filmId: number;
+  film?: { nameRu?: string; nameOriginal?: string; year?: string | number; genres?: string[] };
+  link: string;
+  fileId: number;
+  filePath: string;
+  dir: string;
+}
+
+type YoutubeStage = "started" | "video" | "audio" | "file" | "merging";
+interface YoutubeDownload extends DownloadFields {
+  source: "youtube";
+  videoId: string;
+  quality?: number;
+  stage?: YoutubeStage;
+}
+
+export type DownloadItem = TorrentDownload | YoutubeDownload;
+type DownloadPatch = Partial<DownloadFields & Pick<YoutubeDownload, "quality" | "stage">>;
+type YoutubeDownloadInput = Pick<YoutubeDownload, "videoId" | "title" | "poster" | "quality">;
+
+interface YoutubeProgress {
+  stage: YoutubeStage;
+  fileName: string | null;
+  received: number;
+  total: number;
+  speed: number;
+}
+
+interface SavedYoutubeVideo {
+  fileName: string;
+  path: string;
+  height: number | null;
+  bytes: number;
 }
 
 function read(): DownloadItem[] {
@@ -47,21 +76,22 @@ function read(): DownloadItem[] {
 }
 
 let saveTimer = 0;
-function save(items: DownloadItem[]) {
+function save(items: DownloadItem[], immediate = false) {
   window.clearTimeout(saveTimer);
-  // Progress arrives twice a second — the disk gets it every few seconds, and at once on anything that isn't progress.
-  saveTimer = window.setTimeout(() => {
+  const persist = () => {
     try {
       localStorage.setItem(KEY, JSON.stringify(items));
     } catch {
       /* the list won't survive a restart */
     }
-  }, 1500);
+  };
+  if (immediate) persist();
+  else saveTimer = window.setTimeout(persist, 1500);
 }
 
 interface DownloadsState {
   items: DownloadItem[];
-  patch: (id: string, patch: Partial<DownloadItem>) => void;
+  patch: (id: string, patch: DownloadPatch) => void;
   add: (item: DownloadItem) => void;
   drop: (id: string) => void;
 }
@@ -69,19 +99,22 @@ interface DownloadsState {
 export const useDownloads = create<DownloadsState>((set, get) => ({
   items: read(),
   patch(id, patch) {
-    const items = get().items.map((d) => (d.id === id ? { ...d, ...patch } : d));
+    const current = get().items;
+    const original = current.find((d) => d.id === id);
+    if (!original) return;
+    const items = current.map((d) => (d.id === id ? { ...d, ...patch } : d));
     set({ items });
-    save(items);
+    save(items, patch.status !== undefined && patch.status !== original.status);
   },
   add(item) {
     const items = [item, ...get().items.filter((d) => d.id !== item.id)];
     set({ items });
-    save(items);
+    save(items, true);
   },
   drop(id) {
     const items = get().items.filter((d) => d.id !== id);
     set({ items });
-    save(items);
+    save(items, true);
   },
 }));
 
@@ -110,7 +143,7 @@ export async function pickDownloadDir(): Promise<string | null> {
 const baseName = (path: string) => path.split(/[\\/]/).pop() ?? path;
 
 /** Adds a download to the list and starts it. */
-export async function enqueueDownload(input: Pick<DownloadItem, "filmId" | "title" | "poster" | "film" | "link" | "fileId" | "filePath" | "dir">): Promise<void> {
+export async function enqueueDownload(input: Pick<TorrentDownload, "filmId" | "title" | "poster" | "film" | "link" | "fileId" | "filePath" | "dir">): Promise<void> {
   const id = `${input.filmId}:${input.fileId}:${Date.now().toString(36)}`;
   useDownloads.getState().add({
     ...input,
@@ -125,18 +158,73 @@ export async function enqueueDownload(input: Pick<DownloadItem, "filmId" | "titl
   await startTransfer(id);
 }
 
+export function enqueueYoutubeDownload(input: YoutubeDownloadInput) {
+  return runYoutubeDownload(`youtube:${crypto.randomUUID()}`, input);
+}
+
+const pendingYoutubeDownloads = new Set<string>();
+
+async function runYoutubeDownload(id: string, input: YoutubeDownloadInput): Promise<SavedYoutubeVideo | null> {
+  if (pendingYoutubeDownloads.has(id)) return null;
+  pendingYoutubeDownloads.add(id);
+  const { add, patch, drop } = useDownloads.getState();
+  let started = false;
+  let finished = false;
+  const item: YoutubeDownload = { ...input, id, source: "youtube", status: "preparing",
+    fileName: "", received: 0, total: 0, speed: 0, addedAt: Date.now() };
+  const progress = new Channel<YoutubeProgress>((event) => {
+    if (finished) return;
+    if (event.stage === "started") {
+      started = true;
+      add({ ...item, stage: event.stage, fileName: event.fileName ?? "" });
+    } else if (started) {
+      const { stage, received, total, speed } = event;
+      patch(id, { stage, received, total, speed, status: "downloading" });
+    }
+  });
+  try {
+    const saved = await invoke<SavedYoutubeVideo | null>("youtube_download", {
+      taskId: id, id: input.videoId, title: input.title, height: input.quality, progress,
+    });
+    if (!saved) {
+      if (started) drop(id);
+      return null;
+    }
+    if (!started) add(item);
+    if (!useDownloads.getState().items.some((item) => item.id === id)) return saved;
+    patch(id, { status: "done", path: saved.path, quality: saved.height ?? input.quality,
+      fileName: saved.fileName, received: saved.bytes, total: saved.bytes, speed: 0 });
+    useNotices.getState().add({ id: `dl:${id}`, kind: "download", title: input.title,
+      text: "Видео YouTube сохранено", goto: "downloads" });
+    return saved;
+  } catch (error) {
+    if (started) patch(id, { status: "error", error: error instanceof Error ? error.message : String(error), speed: 0 });
+    throw error;
+  } finally {
+    finished = true;
+    pendingYoutubeDownloads.delete(id);
+  }
+}
+
 /** (Re)connects to the torrent and starts or continues the copy — the `.part` file decides where it picks up. */
 export async function startTransfer(id: string): Promise<void> {
   const item = useDownloads.getState().items.find((d) => d.id === id);
   if (!item || !isTauri) return;
   const { patch } = useDownloads.getState();
+  if (item.source === "youtube") {
+    try {
+      await runYoutubeDownload(id, item);
+    } catch (error) {
+      patch(id, { status: "error", error: error instanceof Error ? error.message : String(error), speed: 0 });
+    }
+    return;
+  }
   patch(id, { status: "preparing", error: undefined, speed: 0 });
   try {
     const torrent = await openTorrent(item.link);
     const file = torrent.files.find((f) => f.id === item.fileId) ?? torrent.files.find((f) => f.path === item.filePath);
     if (!file) throw new Error("Файл не найден в раздаче");
     const url = await streamUrlFor(torrent.hash, file);
-    const { invoke } = await import("@tauri-apps/api/core");
     patch(id, { status: "downloading", total: file.length });
     await invoke("dl_start", { id, url, dir: item.dir, fileName: item.fileName });
   } catch (e) {
@@ -148,7 +236,6 @@ export async function startTransfer(id: string): Promise<void> {
 
 export async function pauseTransfer(id: string): Promise<void> {
   if (!isTauri) return;
-  const { invoke } = await import("@tauri-apps/api/core");
   await invoke("dl_stop", { id });
   useDownloads.getState().patch(id, { status: "paused", speed: 0 });
 }
@@ -158,9 +245,12 @@ export async function removeDownload(id: string, deleteFile: boolean): Promise<v
   const item = useDownloads.getState().items.find((d) => d.id === id);
   if (!item) return;
   if (isTauri) {
-    const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("dl_stop", { id }).catch(() => undefined);
-    await invoke("dl_remove", { dir: item.dir, fileName: item.fileName, finishedPath: deleteFile ? item.path ?? null : null }).catch(() => undefined);
+    if (item.source === "youtube") {
+      await invoke("youtube_cancel_download", { taskId: id });
+    } else {
+      await invoke("dl_stop", { id }).catch(() => undefined);
+      await invoke("dl_remove", { dir: item.dir, fileName: item.fileName, finishedPath: deleteFile ? item.path ?? null : null }).catch(() => undefined);
+    }
   }
   useDownloads.getState().drop(id);
 }

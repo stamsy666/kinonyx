@@ -26,7 +26,7 @@ export function TranslatorSettings() {
     return (
       <section className="settings__item">
         <div className="settings__label">Локальный перевод</div>
-        <div className="settings__hint">
+        <div className="settings__hint" role="status">
           Доступен только в приложении для ПК.
         </div>
       </section>
@@ -70,7 +70,7 @@ export function TranslatorSettings() {
         >
           <span className="tr-item__text">
             <span className="tr-item__title">{item.title}</span>
-            <span className="tr-item__note">{p?.error ?? item.note}</span>
+            {p?.error && <span className="tr-item__note" role="status">{p.error}</span>}
           </span>
           <span className="tr-item__state">{status}</span>
         </Focusable>
@@ -93,9 +93,6 @@ export function TranslatorSettings() {
     <>
       <section className="settings__item">
         <div className="settings__label">Локальный перевод</div>
-        <div className="settings__hint">
-          Перевод речи каналов на русский прямо на этом компьютере. Включается в плеере: «Субтитры» → «Локальный перевод». Нужна видеокарта NVIDIA.
-        </div>
         {!t.bundled && (
           <div className="settings__hint settings__hint--error">
             В этой сборке нет whisper-server.exe — переустановите программу.
@@ -113,11 +110,6 @@ export function TranslatorSettings() {
       <section className="settings__item">
         <div className="settings__label">Распознавание речи</div>
         <Switch focusKey="settings:tr:asr:on" on={t.asrEnabled} onChange={t.setAsrEnabled} />
-        {!t.asrEnabled && (
-          <div className="settings__hint">
-            Выключено — в плеере недоступно, модели остаются на диске.
-          </div>
-        )}
         <div className={`tr-list ${t.asrEnabled ? "" : "tr-list--off"}`}>
           <FocusHighlight pad={5} radius={16} />
           {byKind("asr").map((i) =>
@@ -129,39 +121,25 @@ export function TranslatorSettings() {
       <section className="settings__item">
         <div className="settings__label">Модель перевода</div>
         <Switch focusKey="settings:tr:mt:on" on={t.mtEnabled} onChange={t.setMtEnabled} />
-        {!t.mtEnabled && (
-          <div className="settings__hint">
-            Выключено — в плеере недоступно, модели остаются на диске.
-          </div>
-        )}
         <div className={`tr-list ${t.mtEnabled ? "" : "tr-list--off"}`}>
           <FocusHighlight pad={5} radius={16} />
           {byKind("mt").map((i) =>
             row(i, t.mtModel === i.id, () => t.setMtModel(i.id)),
           )}
         </div>
-        <div className="settings__hint">
-          Модели хранятся в {t.root || "%USERPROFILE%\\.kinonyx\\translator"}.
-        </div>
       </section>
 
       <section className="settings__item">
         <div className="settings__label">Закадровый голос</div>
         <Switch focusKey="settings:tr:voice:on" on={t.voiceEnabled} onChange={t.setVoiceEnabled} />
-        <div className="settings__hint">
-          Перевод звучит голосом поверх приглушённого оригинала. Включается в плеере. Нужны распознавание и перевод.
-          {!t.voiceEnabled && " Сейчас выключен — в плеере его не будет."}
-        </div>
         {!t.voiceBundled && (
           <div className="settings__hint settings__hint--error">
             В этой сборке нет движка озвучки (omnivoice/tts-server.exe) — озвучка недоступна.
           </div>
         )}
-        {t.vramMb != null && t.vramMb < 10000 && (
-          <div className="settings__hint">
-            На видеокарте {Math.round(t.vramMb / 1024)} ГБ памяти впритык для
-            трёх моделей сразу — для голоса выберите сжатый Whisper и перевод Hy-MT2 1.8B
-            (7B вместе с озвучкой не поместится).
+        {t.voiceEnabled && t.mtEnabled && t.mtModel.startsWith("hymt2-7b-") && t.vramMb != null && t.vramMb < 10000 && (
+          <div className="settings__hint settings__hint--error" role="status">
+            Hy-MT2 7B и озвучке вместе не хватает видеопамяти. Выберите Hy-MT2 1.8B.
           </div>
         )}
         <div className={`tr-list ${t.voiceEnabled ? "" : "tr-list--off"}`}>
@@ -179,9 +157,6 @@ export function TranslatorSettings() {
           value={t.delay}
           onChange={(v) => t.setDelay(v)}
         />
-        <div className="settings__hint">
-          Чем больше задержка, тем точнее перевод длинных фраз. 20 с — хороший баланс.
-        </div>
       </section>
 
       <section className="settings__item">
@@ -193,9 +168,6 @@ export function TranslatorSettings() {
           value={t.sourceLang}
           onChange={(v) => t.setSourceLang(v)}
         />
-        <div className="settings__hint">
-          Если язык эфира известен, укажите его — так точнее.
-        </div>
       </section>
     </>
   );

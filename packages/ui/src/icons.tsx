@@ -5,6 +5,7 @@ import {
   ChartColumn,
   ChevronLeft,
   ChevronRight,
+  ChevronsRight,
   Clapperboard,
   Database,
   Dices,
@@ -99,6 +100,8 @@ export const TracksIcon = wrap(AudioLines);
 export const SubtitlesIcon = wrap(Captions);
 export const RewindIcon = wrap(Rewind);
 export const ForwardIcon = wrap(FastForward);
+/** "Skip the credits" in the film player: a double chevron, read together with its "+30 с" label. */
+export const SkipCreditsIcon = wrap(ChevronsRight);
 export const VolumeIcon = wrap(Volume2);
 export const MuteIcon = wrap(VolumeX);
 export const PlusIcon = wrap(Plus);

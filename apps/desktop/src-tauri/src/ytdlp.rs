@@ -5,11 +5,14 @@
 //! making a silent failure impossible to diagnose; shelling out ourselves means real
 //! stderr, in a UI-visible error, when it doesn't work.
 
-use std::path::PathBuf;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use tauri::ipc::Channel;
+use tokio::io::{AsyncBufReadExt, BufReader};
 
 const RESOLVE_TIMEOUT_SECS: u64 = 25;
 
@@ -31,6 +34,249 @@ fn ytdlp_path() -> Result<std::path::PathBuf, String> {
     tool_path(name).ok_or_else(|| format!("yt-dlp ({name}) не найден рядом с программой"))
 }
 
+fn configure_js_runtimes(command: &mut Command) {
+    command.args(["--js-runtimes", "deno", "--js-runtimes", "node"]);
+    if let Some(qjs) = tool_path(if cfg!(windows) { "qjs.exe" } else { "qjs" }) {
+        command.arg("--js-runtimes").arg(format!("quickjs:{}", qjs.display()));
+    }
+}
+
+pub(crate) async fn save_youtube_video(
+    video_id: &str,
+    height: u32,
+    work_dir: &Path,
+    account_cookies: Option<&str>,
+    progress: &Channel<YoutubeDownloadEvent>,
+    mut cancel: tokio::sync::oneshot::Receiver<()>,
+) -> Result<YoutubeDownloadResult, String> {
+    let ffmpeg = tool_path(if cfg!(windows) { "ffmpeg.exe" } else { "ffmpeg" })
+        .ok_or("Для скачивания видео со звуком нужен FFmpeg из комплекта KINONYX.")?;
+    let executable = ytdlp_path()?;
+    let attempt = |folder: &Path| {
+        let mut command = Command::new(&executable);
+        configure_youtube_download(&mut command, folder, &ffmpeg, video_id, height);
+        command
+    };
+
+    // A signed-in extractor can expose different formats than the public player.
+    // Keep the session in memory until YouTube requires it, and isolate partial files for each attempt.
+    let public = tempfile::tempdir_in(work_dir).map_err(|_| DownloadFailure::WriteDenied.message())?;
+    let result = run_youtube_download(attempt(public.path()), progress, &mut cancel).await;
+    match result {
+        Ok(result) => finish_download_attempt(public.path(), work_dir, result).await,
+        Err(error) => {
+            record_download_failure(video_id, false, error);
+            drop(public);
+            let Some(cookies) = account_cookies.filter(|_| error.retry_with_session()) else {
+                return Err(error.message().into());
+            };
+            let authorized = tempfile::tempdir_in(work_dir).map_err(|_| DownloadFailure::WriteDenied.message())?;
+            // The output folder may be shared or synced. Write credentials only in the user's temporary folder.
+            let mut session = tempfile::NamedTempFile::new().map_err(|_| "Не удалось подготовить сессию для загрузки.")?;
+            session.write_all(cookies.as_bytes()).map_err(|_| "Не удалось подготовить сессию для загрузки.")?;
+            let mut command = attempt(authorized.path());
+            command.arg("--cookies").arg(session.path());
+            let result = run_youtube_download(command, progress, &mut cancel).await.map_err(|error| {
+                record_download_failure(video_id, true, error);
+                error.message()
+            })?;
+            finish_download_attempt(authorized.path(), work_dir, result).await
+        }
+    }
+}
+
+async fn finish_download_attempt(attempt: &Path, destination: &Path, result: YoutubeDownloadResult) -> Result<YoutubeDownloadResult, String> {
+    if matches!(result, YoutubeDownloadResult::Saved(_)) {
+        let output = attempt.join("video.mkv");
+        if !tokio::fs::metadata(&output).await.is_ok_and(|info| info.is_file() && info.len() > 0) {
+            return Err("YouTube не предоставил готовый видеофайл. Для прямых эфиров дождитесь записи.".into());
+        }
+        tokio::fs::rename(output, destination.join("video.mkv")).await
+            .map_err(|_| "Не удалось записать загруженное видео в выбранную папку.")?;
+    }
+    Ok(result)
+}
+
+fn configure_youtube_download(command: &mut Command, work_dir: &Path, ffmpeg: &Path, video_id: &str, height: u32) {
+    command
+        .current_dir(work_dir)
+        .env("PYTHONIOENCODING", "utf-8")
+        .args([
+            "--ignore-config", "--no-plugin-dirs", "--no-update", "--no-playlist", "--no-simulate",
+            "--socket-timeout", "15", "--retries", "2", "--fragment-retries", "2",
+            "--match-filter", "!is_live & live_status != is_upcoming",
+            "--merge-output-format", "mkv", "--remux-video", "mkv",
+            "--newline", "--progress", "--progress-delta", "0.25",
+            "--progress-template", "download:kinonyx-progress:%(info.vcodec)s|%(info.acodec)s|%(progress)j",
+            "--progress-template", "postprocess:kinonyx-merging",
+            "--print", "after_move:height=%(height)s", "--output", "video.%(ext)s",
+        ])
+        .arg("--ffmpeg-location").arg(ffmpeg)
+        .arg("--format").arg(youtube_download_format(height))
+        .stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    configure_js_runtimes(command);
+    command.arg(format!("https://www.youtube.com/watch?v={video_id}"));
+    #[cfg(windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
+}
+
+async fn run_youtube_download(command: Command, progress: &Channel<YoutubeDownloadEvent>,
+    cancel: &mut tokio::sync::oneshot::Receiver<()>) -> Result<YoutubeDownloadResult, DownloadFailure> {
+    let mut child = tokio::process::Command::from(command).kill_on_drop(true).spawn()
+        .map_err(|_| DownloadFailure::Launch)?;
+    tokio::select! {
+        result = read_youtube_download(&mut child, progress) => result,
+        _ = cancel => {
+            #[cfg(windows)]
+            if let Some(pid) = child.id() {
+                let _ = tokio::process::Command::new("taskkill")
+                    .args(["/PID", &pid.to_string(), "/T", "/F"])
+                    .creation_flags(CREATE_NO_WINDOW)
+                    .output().await;
+            }
+            let _ = child.kill().await;
+            Ok(YoutubeDownloadResult::Cancelled)
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct YoutubeDownloadEvent {
+    // Header and transfer events share the same channel as the save command.
+    pub stage: &'static str,
+    pub file_name: Option<String>,
+    pub received: u64,
+    pub total: u64,
+    pub speed: f64,
+}
+
+pub(crate) enum YoutubeDownloadResult {
+    Saved(Option<u32>),
+    Cancelled,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DownloadFailure {
+    Launch,
+    SignIn,
+    Forbidden,
+    Unavailable,
+    Format,
+    DiskFull,
+    WriteDenied,
+    Network,
+    Merge,
+    Unknown,
+}
+
+impl DownloadFailure {
+    fn from_error(line: &str) -> Self {
+        let line = line.to_ascii_lowercase();
+        if line.contains("no space left") || line.contains("not enough space") || line.contains("winerror 112") {
+            Self::DiskFull
+        } else if line.contains("unable to open for writing") || line.contains("permission denied")
+            || line.contains("access is denied") || line.contains("winerror 5") || line.contains("errno 13") {
+            Self::WriteDenied
+        } else if line.contains("sign in") || line.contains("not a bot") || line.contains("private video") || line.contains("cookies are no longer valid") {
+            Self::SignIn
+        } else if line.contains("http error 403") || line.contains("403 forbidden") {
+            Self::Forbidden
+        } else if line.contains("requested format is not available") || line.contains("no video formats found") {
+            Self::Format
+        } else if line.contains("video is unavailable") || line.contains("video unavailable") || line.contains("not available in your country") {
+            Self::Unavailable
+        } else if line.contains("timed out") || line.contains("unable to download webpage") || line.contains("unable to download api page")
+            || line.contains("connection reset") || line.contains("ssl error") {
+            Self::Network
+        } else if line.contains("postprocessing") {
+            Self::Merge
+        } else {
+            Self::Unknown
+        }
+    }
+
+    fn retry_with_session(self) -> bool {
+        matches!(self, Self::SignIn | Self::Forbidden | Self::Format | Self::Unavailable)
+    }
+
+    fn message(self) -> &'static str {
+        match self {
+            Self::Launch => "Не удалось запустить сохранение видео.",
+            Self::SignIn => "YouTube запросил вход. Проверьте сессию в «Настройки → Источники».",
+            Self::Forbidden => "YouTube отклонил запрос к видео или звуку (HTTP 403). Повторите загрузку или выберите другое качество.",
+            Self::Unavailable => "YouTube не предоставил этот ролик для скачивания.",
+            Self::Format => "В выбранном качестве YouTube не предоставил файл для скачивания.",
+            Self::DiskFull => "На выбранном диске не хватило места для видео и звука.",
+            Self::WriteDenied => "Не удалось записать файл в выбранную папку. Проверьте права на запись.",
+            Self::Network => "Соединение с YouTube прервалось во время скачивания.",
+            Self::Merge => "Скачивание завершилось, но не удалось объединить видео и звук.",
+            Self::Unknown => "Загрузчик YouTube завершился с ошибкой.",
+        }
+    }
+}
+
+fn record_download_failure(video_id: &str, used_session: bool, failure: DownloadFailure) {
+    crate::elog!("[youtube download] video={video_id} signed_in={used_session} failure={failure:?}");
+}
+
+async fn read_youtube_download(child: &mut tokio::process::Child, progress: &Channel<YoutubeDownloadEvent>)
+    -> Result<YoutubeDownloadResult, DownloadFailure> {
+    let mut stdout = BufReader::new(child.stdout.take().expect("stdout is piped")).lines();
+    let mut stderr = BufReader::new(child.stderr.take().expect("stderr is piped")).lines();
+    let (mut stdout_closed, mut stderr_closed) = (false, false);
+    let mut height = None;
+    let mut error = None;
+    while !stdout_closed || !stderr_closed {
+        let line = tokio::select! {
+            line = stdout.next_line(), if !stdout_closed => {
+                stdout_closed = !matches!(line, Ok(Some(_)));
+                line.ok().flatten()
+            }
+            line = stderr.next_line(), if !stderr_closed => {
+                stderr_closed = !matches!(line, Ok(Some(_)));
+                line.ok().flatten()
+            }
+        };
+        let Some(line) = line else { continue };
+        if let Some(update) = youtube_download_progress(&line) {
+            let _ = progress.send(update);
+        } else if let Some(value) = line.strip_prefix("height=") {
+            height = value.parse().ok();
+        } else if line.starts_with("ERROR:") {
+            let reason = DownloadFailure::from_error(&line);
+            if error.is_none() || reason != DownloadFailure::Unknown {
+                error = Some(reason);
+            }
+        }
+    }
+    if child.wait().await.is_ok_and(|status| status.success()) {
+        Ok(YoutubeDownloadResult::Saved(height))
+    } else {
+        Err(error.unwrap_or(DownloadFailure::Unknown))
+    }
+}
+
+fn youtube_download_progress(line: &str) -> Option<YoutubeDownloadEvent> {
+    if line == "kinonyx-merging" {
+        return Some(YoutubeDownloadEvent { stage: "merging", file_name: None, received: 0, total: 0, speed: 0.0 });
+    }
+    let mut fields = line.strip_prefix("kinonyx-progress:")?.splitn(3, '|');
+    let stage = match (fields.next()?, fields.next()?) {
+        ("none", _) => "audio",
+        (_, "none") => "video",
+        _ => "file",
+    };
+    let data: serde_json::Value = serde_json::from_str(fields.next()?).ok()?;
+    let received = data["downloaded_bytes"].as_u64().unwrap_or(0);
+    let total = data["total_bytes"].as_u64().or_else(|| data["total_bytes_estimate"].as_u64()).unwrap_or(0);
+    Some(YoutubeDownloadEvent { stage, file_name: None, received, total, speed: data["speed"].as_f64().unwrap_or(0.0) })
+}
+
+fn youtube_download_format(height: u32) -> String {
+    format!("bv[height<={height}]+ba[language~='(?i)^ru(s)?(?:[-_]|$)']/bv[height<={height}]+ba/b[height<={height}]")
+}
+
 fn is_youtube(url: &str) -> bool {
     let host = url.split('/').nth(2).unwrap_or("").trim_start_matches("www.");
     host == "youtube.com" || host == "m.youtube.com" || host == "youtu.be"
@@ -39,23 +285,29 @@ fn is_youtube(url: &str) -> bool {
 /// One selectable quality. YouTube serves anything above 360p as separate video and audio
 /// streams, so a sharp quality is two URLs that mpv plays together; the old muxed 360p file
 /// has no `audio_url`.
-#[derive(serde::Serialize, Debug, PartialEq)]
+#[derive(Clone, serde::Serialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TrailerQuality {
     pub height: u32,
     pub url: String,
     pub audio_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hls_bitrate: Option<u64>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedTrailer {
     pub qualities: Vec<TrailerQuality>,
     /// Index into `qualities` to start with — the sharpest one up to `DEFAULT_MAX_HEIGHT`.
     pub default_index: usize,
+    pub title: Option<String>,
+    pub channel: Option<String>,
+    pub channel_id: Option<String>,
+    pub is_live: bool,
 }
 
-const DEFAULT_MAX_HEIGHT: u32 = 1080;
+pub(crate) const DEFAULT_MAX_HEIGHT: u32 = 1080;
 
 /// `allow_hls`: Rutube serves only HLS (muxed, one playlist per height) — mpv plays those
 /// directly. For YouTube they stay excluded: the progressive/split streams are better.
@@ -69,6 +321,35 @@ fn has_codec(f: &serde_json::Value, key: &str) -> bool {
     f[key].as_str().is_some_and(|c| c != "none")
 }
 
+pub(crate) fn is_russian_language(language: &str) -> bool {
+    language.trim_matches('"').split(['-', '_']).next().is_some_and(|code| {
+        code.eq_ignore_ascii_case("ru") || code.eq_ignore_ascii_case("rus")
+    })
+}
+
+fn russian_audio(format: &serde_json::Value) -> bool {
+    format["language"].as_str().is_some_and(is_russian_language)
+}
+
+fn best_audio<'a>(
+    formats: impl Iterator<Item = &'a serde_json::Value>,
+    allow_hls: bool,
+    prefer_russian: bool,
+) -> Option<(bool, String)> {
+    formats
+        .filter(|f| has_codec(f, "acodec") && !has_codec(f, "vcodec"))
+        .filter_map(|f| {
+            let preferred = prefer_russian && russian_audio(f);
+            let language_rank = if prefer_russian { f["language_preference"].as_i64().unwrap_or(0) } else { 0 };
+            let bitrate = f["abr"].as_f64().unwrap_or(0.0);
+            direct_url(f, allow_hls).map(|url| ((preferred, language_rank, bitrate), url))
+        })
+        .max_by(|((ru_a, rank_a, bitrate_a), _), ((ru_b, rank_b, bitrate_b), _)| {
+            (ru_a, rank_a).cmp(&(ru_b, rank_b)).then_with(|| bitrate_a.total_cmp(bitrate_b))
+        })
+        .map(|((preferred, _, _), url)| (preferred, url))
+}
+
 /// Hardware decoders handle H.264 everywhere, VP9 mostly, AV1 rarely — prefer them in that order.
 fn codec_rank(f: &serde_json::Value) -> u8 {
     match f["vcodec"].as_str().unwrap_or("") {
@@ -80,18 +361,12 @@ fn codec_rank(f: &serde_json::Value) -> u8 {
 
 /// From yt-dlp's `-J` dump: one entry per height (every one the video has), the best split video stream paired with the
 /// best audio stream (or a muxed progressive file where no audio-only stream exists).
-fn pick_qualities(info: &serde_json::Value, allow_hls: bool) -> Vec<TrailerQuality> {
-    let formats: Vec<&serde_json::Value> =
-        info["formats"].as_array().map(|a| a.iter().collect()).unwrap_or_default();
-    let audio = formats
-        .iter()
-        .filter(|f| has_codec(f, "acodec") && !has_codec(f, "vcodec"))
-        .filter_map(|f| direct_url(f, allow_hls).map(|u| (f["abr"].as_f64().unwrap_or(0.0), u)))
-        .max_by(|a, b| a.0.total_cmp(&b.0))
-        .map(|(_, u)| u);
+fn pick_qualities(info: &serde_json::Value, allow_hls: bool, prefer_russian: bool) -> Vec<TrailerQuality> {
+    let formats = info["formats"].as_array().map(Vec::as_slice).unwrap_or_default();
+    let audio = best_audio(formats.iter(), allow_hls, prefer_russian);
 
-    let mut by_height: std::collections::BTreeMap<u32, (u8, f64, TrailerQuality)> = Default::default();
-    for f in &formats {
+    let mut by_height = std::collections::BTreeMap::new();
+    for f in formats {
         let Some(height) = f["height"].as_u64() else { continue };
         let Some(url) = direct_url(f, allow_hls) else { continue };
         // Some sites list plain mp4 files without saying which codecs: a file with a height and no
@@ -102,21 +377,21 @@ fn pick_qualities(info: &serde_json::Value, allow_hls: bool) -> Vec<TrailerQuali
             continue;
         }
         // A split video stream needs an audio stream to go with it; a muxed one doesn't.
-        let audio_url = if muxed { None } else { audio.clone() };
-        if !muxed && audio_url.is_none() {
-            continue;
-        }
-        let rank = (codec_rank(f), f["tbr"].as_f64().unwrap_or(0.0));
+        let (preferred, audio_url) = if muxed {
+            (prefer_russian && russian_audio(f), None)
+        } else {
+            let Some((preferred, url)) = &audio else { continue };
+            (*preferred, Some(url.clone()))
+        };
+        // Prefer split streams when both choices have the same language priority.
+        let rank = (preferred, audio_url.is_some(), codec_rank(f), f["tbr"].as_f64().unwrap_or(0.0));
         let height = height as u32;
-        let better = by_height.get(&height).is_none_or(|(r, t, q)| {
-            // A split pair beats a muxed file at the same height (same picture, better audio).
-            (audio_url.is_some(), rank.0, rank.1) > (q.audio_url.is_some(), *r, *t)
-        });
+        let better = by_height.get(&height).is_none_or(|(current, _)| rank > *current);
         if better {
-            by_height.insert(height, (rank.0, rank.1, TrailerQuality { height, url, audio_url }));
+            by_height.insert(height, (rank, TrailerQuality { height, url, audio_url, hls_bitrate: None }));
         }
     }
-    by_height.into_values().map(|(_, _, q)| q).collect()
+    by_height.into_values().map(|(_, q)| q).collect()
 }
 
 /// Chain: the given YouTube link → Rutube search (when the film's name is known) → error,
@@ -170,11 +445,98 @@ pub fn cookies_file() -> PathBuf {
     crate::logs::dir().parent().map(|p| p.join("youtube-cookies.txt")).unwrap_or_else(|| PathBuf::from("youtube-cookies.txt"))
 }
 
+pub(crate) async fn export_browser_cookies(browser: &str, path: &std::path::Path) -> Result<(), String> {
+    if !matches!(browser, "chrome" | "edge" | "firefox") {
+        return Err("Сначала выберите браузер в настройке cookies для трейлеров.".into());
+    }
+    let mut command = tokio::process::Command::new(ytdlp_path()?);
+    // This local listing mode lets yt-dlp save its cookie jar without fetching a URL.
+    command
+        .args([
+            "--ignore-config",
+            "--no-plugin-dirs",
+            "--no-update",
+            "--list-impersonate-targets",
+            "--cookies-from-browser",
+            browser,
+            "--cookies",
+        ])
+        .arg(path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+    #[cfg(windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
+
+    let output = tokio::time::timeout(Duration::from_secs(RESOLVE_TIMEOUT_SECS), command.output())
+        .await
+        .map_err(|_| "Чтение сессии из браузера заняло слишком много времени.")?
+        .map_err(|_| "Не удалось запустить yt-dlp для чтения сессии браузера.")?;
+    if output.status.success() {
+        return Ok(());
+    }
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if stderr.contains("Could not copy") && stderr.contains("cookie") {
+        return Err("Закройте выбранный браузер полностью, включая фоновые процессы, и попробуйте снова.".into());
+    }
+    Err("Браузер не предоставил cookies. Проверьте, что вы вошли в YouTube, или импортируйте cookies.txt.".into())
+}
+
 enum Auth {
     None,
     File(PathBuf),
     /// Read from the browser and saved into the file for the next time.
     Browser(String, PathBuf),
+}
+
+pub(crate) async fn resolve_youtube_video(
+    video_id: &str,
+    cookie_file: Option<&std::path::Path>,
+) -> Result<ResolvedTrailer, String> {
+    let url = format!("https://www.youtube.com/watch?v={video_id}");
+    let result = run_ytdlp(
+        url.clone(),
+        cookie_file.map_or(Auth::None, |path| Auth::File(path.to_path_buf())),
+        None,
+    ).await;
+    match result {
+        Err(e) if e == BOT => Err("YouTube просит подтвердить вход. Переподключите аккаунт или откройте видео в браузере.".into()),
+        Err(_) => Err("Не удалось получить видеопоток. Попробуйте ещё раз или откройте видео в браузере.".into()),
+        Ok(stream) => Ok(stream),
+    }
+}
+
+async fn live_qualities(info: &serde_json::Value) -> Vec<TrailerQuality> {
+    let formats = info["formats"].as_array().map(Vec::as_slice).unwrap_or_default();
+    let hls = |format: &&serde_json::Value| format["protocol"].as_str().is_some_and(|value| value.starts_with("m3u8"));
+    let manifest = formats.iter().filter(hls).find_map(|format| format["manifest_url"].as_str());
+    let user_agent = info.pointer("/http_headers/User-Agent").and_then(serde_json::Value::as_str);
+    if let Some(manifest) = manifest {
+        if let Some(qualities) = crate::youtube::streams::load_master(manifest, user_agent).await {
+            return qualities;
+        }
+    }
+    let audio = best_audio(formats.iter().filter(hls).filter(|f| f["height"].is_null()), true, true);
+    let mut by_height = std::collections::BTreeMap::new();
+    for format in formats.iter().filter(hls) {
+        let Some(height) = format["height"].as_u64().and_then(|value| u32::try_from(value).ok()) else { continue };
+        let Some(url) = direct_url(format, true) else { continue };
+        if !has_codec(format, "vcodec") { continue; }
+        let (preferred, audio_url) = if has_codec(format, "acodec") {
+            (russian_audio(format), None)
+        } else {
+            let Some((preferred, url)) = &audio else { continue };
+            (*preferred, Some(url.clone()))
+        };
+        if by_height.get(&height).is_none_or(|(current, _)| preferred >= *current) {
+            by_height.insert(height, (preferred, TrailerQuality { height, url, audio_url, hls_bitrate: None }));
+        }
+    }
+    if by_height.is_empty() {
+        return pick_qualities(info, true, true);
+    }
+    by_height.into_values().map(|(_, quality)| quality).collect()
 }
 
 /// YouTube without making the viewer close the browser every time:
@@ -262,11 +624,7 @@ async fn run_ytdlp(url: String, auth: Auth, clients: Option<&'static str>) -> Re
         // YouTube's web client hides formats behind a JavaScript challenge that yt-dlp can
         // only solve with an external runtime (it looks for deno by default). Allow Node
         // too — a runtime that isn't installed is simply skipped.
-        cmd.args(["--js-runtimes", "deno", "--js-runtimes", "node"]);
-        // The bundled QuickJS (lib/qjs.exe) covers PCs with neither installed.
-        if let Some(qjs) = tool_path(if cfg!(windows) { "qjs.exe" } else { "qjs" }) {
-            cmd.arg("--js-runtimes").arg(format!("quickjs:{}", qjs.display()));
-        }
+        configure_js_runtimes(&mut cmd);
         // Other sites (Rutube) need neither the YouTube clients nor cookies. The forced Android client
         // used here before now wants a PO token itself (yt-dlp PO Token Guide) — yt-dlp's default
         // client list already skips the ones that do.
@@ -356,20 +714,58 @@ async fn run_ytdlp(url: String, auth: Auth, clients: Option<&'static str>) -> Re
 
     let info: serde_json::Value =
         serde_json::from_slice(&output.stdout).map_err(|e| format!("yt-dlp вернул неразборчивый ответ: {e}"))?;
-    let qualities = pick_qualities(&info, !youtube);
+    let live = info["is_live"].as_bool().unwrap_or(false);
+    let hls = youtube && live;
+    let qualities = if hls { live_qualities(&info).await } else { pick_qualities(&info, !youtube, youtube) };
     if qualities.is_empty() {
         return Err("yt-dlp не вернул ни одной ссылки на видео".into());
     }
     // Every quality is offered in the menu, but playback starts at the sharpest one up to
     // 1080p — a 4K/8K stream can stutter on a modest PC; the viewer opts into it.
     let default_index = qualities.iter().rposition(|q| q.height <= DEFAULT_MAX_HEIGHT).unwrap_or(0);
-    Ok(ResolvedTrailer { qualities, default_index })
+    let metadata = |key: &str| info[key].as_str().filter(|s| !s.trim().is_empty()).map(str::to_owned);
+    Ok(ResolvedTrailer {
+        qualities,
+        default_index,
+        title: metadata("title"),
+        channel: metadata("channel").or_else(|| metadata("uploader")),
+        channel_id: metadata("channel_id"),
+        is_live: live,
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn download_progress_distinguishes_video_audio_and_merging() {
+        let video = youtube_download_progress(r#"kinonyx-progress:avc1|none|{"downloaded_bytes":440,"total_bytes_estimate":800,"speed":22.5}"#).unwrap();
+        assert_eq!((video.stage, video.received, video.total, video.speed), ("video", 440, 800, 22.5));
+        let audio = youtube_download_progress(r#"kinonyx-progress:none|opus|{"downloaded_bytes":131,"total_bytes":150}"#).unwrap();
+        assert_eq!((audio.stage, audio.received, audio.total), ("audio", 131, 150));
+        assert_eq!(youtube_download_progress("kinonyx-merging").unwrap().stage, "merging");
+        assert!(youtube_download_progress("height=720").is_none());
+    }
+
+    #[test]
+    fn download_errors_retry_only_youtube_access_failures_with_the_session() {
+        let cases = [
+            ("ERROR: unable to download video data: HTTP Error 403: Forbidden", DownloadFailure::Forbidden, true),
+            ("ERROR: [youtube] Sign in to confirm your age", DownloadFailure::SignIn, true),
+            ("ERROR: [youtube] Requested format is not available", DownloadFailure::Format, true),
+            ("ERROR: unable to write data: [WinError 112] There is not enough space", DownloadFailure::DiskFull, false),
+            ("ERROR: unable to open for writing: [Errno 13] Permission denied", DownloadFailure::WriteDenied, false),
+            ("ERROR: Unable to download API page: The read operation timed out", DownloadFailure::Network, false),
+            ("ERROR: Postprocessing: Error opening input files", DownloadFailure::Merge, false),
+        ];
+        for (line, expected, retry) in cases {
+            let reason = DownloadFailure::from_error(line);
+            assert_eq!(reason, expected);
+            assert_eq!(reason.retry_with_session(), retry);
+        }
+    }
 
     fn video(height: u64, vcodec: &str, tbr: f64, url: &str) -> serde_json::Value {
         json!({ "protocol": "https", "url": url, "height": height, "vcodec": vcodec, "acodec": "none", "tbr": tbr })
@@ -385,15 +781,28 @@ mod tests {
             video(1080, "av01.0.08M", 1100.0, "https://v/1080-av1"),
             video(2160, "vp09.00", 9000.0, "https://v/4k"),
         ]});
-        let q = pick_qualities(&info, false);
+        let q = pick_qualities(&info, false, false);
         assert_eq!(
             q,
             vec![
-                TrailerQuality { height: 720, url: "https://v/720-avc".into(), audio_url: Some("https://a/high".into()) },
-                TrailerQuality { height: 1080, url: "https://v/1080-av1".into(), audio_url: Some("https://a/high".into()) },
-                TrailerQuality { height: 2160, url: "https://v/4k".into(), audio_url: Some("https://a/high".into()) },
+                TrailerQuality { height: 720, url: "https://v/720-avc".into(), audio_url: Some("https://a/high".into()), hls_bitrate: None },
+                TrailerQuality { height: 1080, url: "https://v/1080-av1".into(), audio_url: Some("https://a/high".into()), hls_bitrate: None },
+                TrailerQuality { height: 2160, url: "https://v/4k".into(), audio_url: Some("https://a/high".into()), hls_bitrate: None },
             ]
         );
+    }
+
+    #[test]
+    fn prefers_russian_audio_for_youtube_even_at_a_lower_bitrate() {
+        let mut info = json!({ "formats": [
+            video(1080, "avc1", 2000.0, "https://v/1080"),
+            { "protocol": "https", "url": "https://a/en", "vcodec": "none", "acodec": "opus", "abr": 180, "language": "en", "language_preference": 10 },
+            { "protocol": "https", "url": "https://a/ru", "vcodec": "none", "acodec": "aac", "abr": 90, "language": "ru-RU", "language_preference": -1 }
+        ] });
+        assert_eq!(pick_qualities(&info, false, true)[0].audio_url.as_deref(), Some("https://a/ru"));
+        assert_eq!(pick_qualities(&info, false, false)[0].audio_url.as_deref(), Some("https://a/en"));
+        info["formats"].as_array_mut().unwrap().pop();
+        assert_eq!(pick_qualities(&info, false, true)[0].audio_url.as_deref(), Some("https://a/en"));
     }
 
     #[test]
@@ -403,8 +812,8 @@ mod tests {
             { "protocol": "m3u8_native", "url": "https://hls/720", "height": 720, "vcodec": "avc1", "acodec": "mp4a" },
         ]});
         assert_eq!(
-            pick_qualities(&info, false),
-            vec![TrailerQuality { height: 360, url: "https://m/360".into(), audio_url: None }]
+            pick_qualities(&info, false, false),
+            vec![TrailerQuality { height: 360, url: "https://m/360".into(), audio_url: None, hls_bitrate: None }]
         );
     }
 
@@ -412,8 +821,8 @@ mod tests {
     fn hls_is_used_only_when_allowed_and_picks_one_entry_per_height() {
         let hls = |h: u64, url: &str| json!({ "protocol": "m3u8_native", "url": url, "height": h, "vcodec": "avc1", "acodec": "mp4a", "tbr": 1000.0 });
         let info = json!({ "formats": [hls(480, "https://r/480a"), hls(480, "https://r/480b"), hls(1080, "https://r/1080")] });
-        assert!(pick_qualities(&info, false).is_empty());
-        let heights: Vec<u32> = pick_qualities(&info, true).iter().map(|q| q.height).collect();
+        assert!(pick_qualities(&info, false, false).is_empty());
+        let heights: Vec<u32> = pick_qualities(&info, true, false).iter().map(|q| q.height).collect();
         assert_eq!(heights, vec![480, 1080]);
     }
 
@@ -427,6 +836,6 @@ mod tests {
     #[test]
     fn split_video_without_any_audio_is_dropped() {
         let info = json!({ "formats": [video(1080, "avc1", 2000.0, "https://v/1080")] });
-        assert!(pick_qualities(&info, false).is_empty());
+        assert!(pick_qualities(&info, false, false).is_empty());
     }
 }

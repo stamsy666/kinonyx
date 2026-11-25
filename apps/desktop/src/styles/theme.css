@@ -354,37 +354,41 @@ img {
   padding: 30px 0;
 }
 
-/* Loading animation: four dots chasing round a square that melt together (the #kx-goo filter in
-   index.html blurs and re-thresholds the alpha). Dots are the theme accent, so it follows the theme.
-   Sized from --s so one rule scales: dot = s/4, centre square = s/2, frame = s/8. */
 .spinner {
   --s: 56px;
-  --dot: var(--accent);
+  position: relative;
+  display: inline-grid;
+  place-items: center;
   flex: none;
   width: var(--s);
-  aspect-ratio: 1;
-  border: calc(var(--s) / 8) solid transparent;
-  box-sizing: border-box;
-  background:
-    radial-gradient(farthest-side, var(--dot) 98%, transparent) 0 0 / calc(var(--s) / 4) calc(var(--s) / 4),
-    radial-gradient(farthest-side, var(--dot) 98%, transparent) 100% 0 / calc(var(--s) / 4) calc(var(--s) / 4),
-    radial-gradient(farthest-side, var(--dot) 98%, transparent) 100% 100% / calc(var(--s) / 4) calc(var(--s) / 4),
-    radial-gradient(farthest-side, var(--dot) 98%, transparent) 0 100% / calc(var(--s) / 4) calc(var(--s) / 4),
-    linear-gradient(var(--dot) 0 0) 50% / calc(var(--s) / 2) calc(var(--s) / 2);
-  background-repeat: no-repeat;
-  filter: url(#kx-goo);
-  animation: spinner-chase 0.8s infinite;
+  height: var(--s);
 }
 
-@keyframes spinner-chase {
-  100% {
-    background-position:
-      100% 0,
-      100% 100%,
-      0 100%,
-      0 0,
-      center;
-  }
+.spinner__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.spinner__fallback {
+  position: absolute;
+  inset: 18%;
+  border: 2px dotted currentColor;
+  border-radius: 50%;
+  color: #fff;
+  animation: spinner-turn 1s linear infinite;
+}
+
+.spinner__canvas[data-ready] + .spinner__fallback {
+  display: none;
+}
+
+@keyframes spinner-turn {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner__fallback { animation: none; }
 }
 
 @keyframes screen-in {
@@ -564,15 +568,23 @@ img {
 }
 
 .sidebar__nav {
+  /* Leave room for the scaled row and the outer focus ring inside the scrollport. */
+  --sidebar-focus-gutter: calc(14 * var(--u, 1px));
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  margin-inline: calc(-1 * var(--sidebar-focus-gutter));
+  padding: 10px var(--sidebar-focus-gutter);
 }
 
 .sidebar__item {
   display: flex;
   align-items: center;
   gap: 14px;
+  flex-shrink: 0;
   height: 56px;
   padding: 0 10px;
   border-radius: 999px;
@@ -5704,7 +5716,13 @@ body .sidebar__item.is-focused .sidebar__icon {
 
 /* the translator's models: one pill each — name and note on the left, the state on the right; the small round
    button beside it removes the model (or cancels the download) */
+.settings--tv .settings-pane .tr-list {
+  max-width: none;
+}
+
 .settings--tv .settings-pane .tr-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) calc(56 * var(--u));
   gap: calc(12 * var(--u));
   margin-bottom: calc(10 * var(--u));
 }
@@ -5712,6 +5730,10 @@ body .sidebar__item.is-focused .sidebar__icon {
 .settings--tv .settings-pane .tr-item__main {
   min-height: calc(72 * var(--u));
   padding: calc(8 * var(--u)) calc(26 * var(--u));
+}
+
+.settings--tv .settings-pane .tr-item__main:only-child {
+  grid-column: 1 / -1;
 }
 
 .settings--tv .settings-pane .tr-item__text {
@@ -7412,11 +7434,6 @@ body .sidebar__item.is-focused .sidebar__icon {
   margin-top: calc(14 * var(--mu));
 }
 
-/* The loader is white everywhere, like the rest of the page's light parts. */
-.spinner {
-  --dot: #fff;
-}
-
 /* A film in the favourites: its heart is red (also while the button is chosen and filled with light). */
 .home--tv .hero__btn.is-on,
 .home--tv .hero__btn.is-on.is-focused {
@@ -8305,7 +8322,6 @@ body .sidebar__item.is-focused .sidebar__icon {
 
 .player--tvos .player__center-card .spinner {
   --s: 36px;
-  --dot: #fff;
   flex: none;
 }
 
@@ -9464,164 +9480,117 @@ body .sidebar__item.is-focused .sidebar__icon {
   background: #ff4d5e;
 }
 
-/* ----- The screensaver ----- */
+/* Idle clock and its full-screen artwork. */
 .ss {
   position: fixed;
   z-index: 200;
   inset: 0;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
   overflow: hidden;
-  background: #000;
+  color: #fff;
   cursor: none;
-  animation: ss-wake 2.2s ease-in-out both;
+  background:
+    radial-gradient(ellipse at 20% 85%, color-mix(in srgb, var(--ss-deep) 45%, #09090e), transparent 68%),
+    linear-gradient(155deg, #101019, #050507);
+  animation: ss-wake 800ms ease-out both;
 }
 
 .ss--closing {
   animation: ss-sleep 600ms ease-in forwards;
 }
 
-.ss__slide {
+.ss__art,
+.ss::after {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
+  pointer-events: none;
 }
 
-/* the new picture melts in over the old one, which stays whole under it */
-.ss__slide--in {
-  animation: ss-in 2.4s ease-in-out both;
-}
-
-.ss__backdrop {
+.ss__art .app-background {
   position: absolute;
-  inset: -8%;
-  background-position: center;
-  background-size: cover;
-  filter: blur(46px) brightness(0.5) saturate(1.2);
-  animation: ss-drift 24s ease-in-out infinite alternate;
+  z-index: 0;
+  background: transparent;
 }
 
-.ss__card {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  gap: 14px;
-  animation: ss-rise 12s ease-out both;
+.ss::after {
+  content: "";
+  background:
+    linear-gradient(180deg, #08080c85, transparent 27%, transparent 70%, #08080ca8),
+    radial-gradient(ellipse at center, #08080c99, #08080c25 64%);
 }
 
-.ss__card img {
-  height: min(62vh, 640px);
-  aspect-ratio: 2 / 3;
-  border-radius: 22px;
-  object-fit: cover;
-  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.65);
+.ss__brand,
+.ss__clock {
+  z-index: 1;
 }
 
-.ss__title {
-  max-width: 70vw;
-  font-size: clamp(22px, 3vh, 40px);
-  font-weight: 800;
-  color: #fff;
-  text-align: center;
-  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.6);
-}
-
-.ss__year {
-  font-size: clamp(16px, 2vh, 24px);
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.ss__top {
+.ss__brand {
   position: absolute;
-  top: 5vh;
-  left: 0;
-  right: 0;
-  z-index: 2;
-  justify-content: center;
-  font-size: clamp(22px, 3.6vh, 42px);
-  color: #fff;
-  cursor: none;
-  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.6);
+  top: clamp(22px, 5vh, 64px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1vw, 16px);
+  font-size: clamp(14px, 2.65vh, 36px);
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  white-space: nowrap;
+  text-shadow: 0 2px 16px #000a;
 }
 
-.ss__top .topbar__logo-mark {
-  height: clamp(28px, 4.4vh, 54px);
+.ss__brand img {
+  width: clamp(24px, 4vh, 50px);
+  height: auto;
+  filter: brightness(0) invert(1) drop-shadow(0 2px 8px #0008);
 }
 
-/* a frame of the film behind the poster, blurred; it comes in when it has loaded */
-.ss__still {
-  position: absolute;
-  inset: -8%;
-  width: 116%;
-  height: 116%;
-  object-fit: cover;
-  filter: blur(6px) brightness(0.62) saturate(1.15);
-  opacity: 0;
-  transition: opacity 1.8s ease;
-  animation: ss-drift 24s ease-in-out infinite alternate;
-}
-
-.ss__still.is-in {
-  opacity: 1;
+.ss__brand em {
+  color: var(--ss-accent);
+  font-style: normal;
 }
 
 .ss__clock {
-  position: absolute;
-  right: 5vw;
-  bottom: 6vh;
   display: grid;
-  justify-items: end;
-  color: #fff;
-  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.7);
+  justify-items: center;
+  gap: clamp(10px, 2.8vh, 34px);
+  padding: 0 4vw;
+  text-align: center;
+  text-shadow: 0 3px 30px #000a, 0 2px 10px #0009;
 }
 
-.ss__clock b {
-  font-size: clamp(36px, 7vh, 84px);
-  font-weight: 800;
-  line-height: 1;
+.ss__time {
+  font-size: clamp(56px, min(17vw, 21vh), 310px);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.055em;
+  line-height: 0.94;
+  padding-inline-end: 0.055em;
 }
 
-.ss__clock span {
-  font-size: clamp(14px, 2.2vh, 24px);
-  font-weight: 700;
-  text-transform: capitalize;
-  opacity: 0.75;
+.ss__date {
+  font-size: clamp(13px, 2.5vh, 36px);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: #f6f5fa;
+}
+
+.ss__date::first-letter {
+  text-transform: uppercase;
 }
 
 @keyframes ss-wake {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes ss-in {
-  from {
-    opacity: 0;
-  }
+  from { opacity: 0; }
 }
 
 @keyframes ss-sleep {
-  to {
-    opacity: 0;
-  }
+  to { opacity: 0; }
 }
 
-@keyframes ss-drift {
-  from {
-    transform: scale(1) translate(-1.5%, -1%);
-  }
-  to {
-    transform: scale(1.08) translate(1.5%, 1%);
-  }
-}
-
-@keyframes ss-rise {
-  from {
-    transform: scale(0.97);
-  }
-  to {
-    transform: scale(1.03);
-  }
+@media (prefers-reduced-motion: reduce) {
+  .ss { animation: none; }
 }
 
 .notice-row {
@@ -9815,4 +9784,84 @@ body .sidebar__item.is-focused .sidebar__icon {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.credits-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 22px 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+  transition: background-color 180ms ease, color 180ms ease, transform 220ms var(--ease, ease);
+}
+
+.credits-btn svg {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  filter: drop-shadow(0 1px 6px rgba(0, 0, 0, 0.5));
+}
+
+.credits-btn.is-focused,
+.credits-btn:hover {
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+  text-shadow: none;
+  transform: scale(1.06);
+}
+
+.credits-btn.is-focused svg,
+.credits-btn:hover svg {
+  filter: none;
+}
+
+.credits-btn.is-focused::after {
+  content: none;
+}
+
+.credits-btn:active {
+  transform: scale(0.97);
+}
+
+/* ----- Opening the saved release: its name under the wait, and "Выбрать другую раздачу" (focused from the start) ----- */
+.rel-tv__saved {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: calc(14 * var(--mu));
+  font-weight: 600;
+}
+
+.links-tv__wait:has(.rel-tv__saved) {
+  padding-bottom: calc(26 * var(--mu));
+}
+
+.rel-tv__another {
+  gap: calc(12 * var(--mu));
+}
+
+.rel-tv__another svg {
+  flex: none;
+}
+
+/* Minecraft: shade the meadow behind menus and the idle clock, with less dimming at the horizon. */
+.meadow-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(16, 14, 18, 0.52) 0%, rgba(16, 14, 18, 0.24) 46%, rgba(10, 13, 9, 0.32) 62%, rgba(8, 10, 8, 0.58) 100%),
+    rgba(14, 14, 16, 0.29);
 }

@@ -37,7 +37,7 @@ export function StoragePanel() {
 
   const press = async (item: StorageItem) => {
     if (!item.clearable) {
-      setNote(item.hint);
+      setNote(item.key === "translator" ? "Модели можно удалить в разделе «Перевод и озвучка»." : item.hint);
       return;
     }
     // Clearing asks twice: the first press arms the row.
@@ -91,7 +91,7 @@ export function StoragePanel() {
             <span className="cycle-row__value">{armed === item.key ? "Нажмите ещё раз" : item.clearable ? `${formatBytes(item.bytes)} · очистить` : formatBytes(item.bytes)}</span>
           </Focusable>
         ))}
-        <div className="settings__hint">{note || "Кэши (картинки, ответы источников, программа передач, журналы) можно очищать: они скачаются заново. Остальное программа не трогает."}</div>
+        {note && <div className="settings__hint" role="status">{note}</div>}
       </section>
     </>
   );

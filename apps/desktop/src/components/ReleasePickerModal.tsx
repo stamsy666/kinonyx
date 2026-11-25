@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
-import { AboutIcon, Focusable, NextIcon, Spinner, onBack } from "@kinonyx/ui";
+import { AboutIcon, EpisodesIcon, Focusable, NextIcon, Spinner, onBack } from "@kinonyx/ui";
 import {
   openTorrent,
   parseSize,
@@ -112,6 +112,9 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
     requestAnimationFrame(() => requestAnimationFrame(() => setFocus(key)));
   };
   const cancel = useRef({ cancelled: false });
+  // "Выбрать другую раздачу" pressed while the remembered release was being reopened: that reconnect is dropped
+  // (its result, success or failure, is ignored) and the ordinary search and list run instead.
+  const resumeAborted = useRef(false);
 
   // Fresh token per mount: StrictMode's dev-only unmount/remount would otherwise leave the
   // (ref-persisted) token cancelled forever, silently aborting every connect attempt.
@@ -168,16 +171,18 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
       try {
         await ensureTorrserve();
         const torrent = await openTorrent(remembered.link, cancel.current);
-        if (cancelled || cancel.current.cancelled) return;
+        if (cancelled || cancel.current.cancelled || resumeAborted.current) return;
         const remembered_ = torrent.files.find((f) => f.id === remembered.fileId) ?? torrent.files.find((f) => f.path === remembered.filePath);
         const { choices } = playableFiles(torrent.files);
         // A series pack: not the file picked last time but the right one NOW — the episode
         // left half-watched, else the one after the last watched.
         const file = (choices.length > 1 ? useEpisodeProgress.getState().smartPick(filmId, choices) : undefined) ?? remembered_;
         if (!file) throw new Error("Файл не найден в раздаче");
+        if (resumeAborted.current) return;
         await play(remembered.link, torrent.hash, remembered.releaseTitle, file, choices, torrent.files);
       } catch {
-        if (cancelled) return;
+        // Left by the viewer for another release: the saved one is not dead, it is kept until a new pick replaces it.
+        if (cancelled || resumeAborted.current) return;
         // Dead link (no seeds left, file renamed) — don't keep retrying it on every
         // future "Смотреть" press for this film.
         useLastRelease.getState().clear(filmId);
@@ -309,6 +314,18 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
     }
   }
 
+  // From the "opening the saved release" wait: drop that reconnect and show every release of the film, so another one
+  // can be chosen. The saved choice stays until the new pick (play) overwrites it.
+  function chooseAnother() {
+    if (resumeAborted.current) return;
+    resumeAborted.current = true;
+    // A fresh token for the search and the next pick; the old one stops the reconnect's polling of TorrServer.
+    cancel.current.cancelled = true;
+    cancel.current = { cancelled: false };
+    setResuming(false);
+    setStage("searching");
+  }
+
   // The episode to highlight in the list: the one in progress, else the one after the last watched.
   const smartFile = stage === "files" && files ? useEpisodeProgress.getState().smartPick(filmId, files.choices) : undefined;
 
@@ -395,7 +412,15 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
             <span className="links-tv__text">
               {stage === "searching" ? (quality ? `Ищу раздачу ${qualityLabel(quality)}…` : "Ищу раздачи…") : resuming ? "Открываю сохранённую раздачу…" : "Получаю файлы раздачи от пиров…"}
             </span>
+            {stage === "connecting" && resuming && remembered?.releaseTitle && <span className="rel-tv__saved">{remembered.releaseTitle}</span>}
           </div>
+        )}
+        {stage === "connecting" && resuming && (
+          // The focus is here from the start: OK on the remote at once opens the list of releases instead.
+          <Focusable as="button" className="links-tv__row links-tv__row--center rel-tv__another" focusKey="release:another" autoFocus scroll={false} onPress={chooseAnother}>
+            <EpisodesIcon size={22} />
+            <span className="links-tv__name">Выбрать другую раздачу</span>
+          </Focusable>
         )}
         {stage === "error" && (
           <>

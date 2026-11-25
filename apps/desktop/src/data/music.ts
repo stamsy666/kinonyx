@@ -24,7 +24,7 @@ export const MUSIC_CREDITS = [
 
 /** The stock playlist, or the active sound kit's own music. */
 function playlist(): MusicTrack[] {
-  const music = activeKit()?.music;
+  const music = activeKit().music;
   return music ? [music] : MUSIC_TRACKS;
 }
 
@@ -146,13 +146,13 @@ function reconcile() {
 export function installMusicEngine() {
   reconcile();
   useApp.subscribe((state, prev) => {
-    if (state.soundChoice.buttons !== prev.soundChoice.buttons) {
+    if (state.soundKit !== prev.soundKit) {
       // A different kit: its music (or the stock playlist) starts from the top.
       trackIndex = 0;
       loadCurrentTrack();
     }
     if (
-      state.soundChoice.buttons !== prev.soundChoice.buttons ||
+      state.soundKit !== prev.soundKit ||
       state.musicEnabled !== prev.musicEnabled || state.musicVolume !== prev.musicVolume || state.screen.name !== prev.screen.name || state.activePlayer !== prev.activePlayer) {
       reconcile();
     }

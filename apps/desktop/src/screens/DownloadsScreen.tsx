@@ -12,17 +12,20 @@ function bytes(n: number): string {
 }
 
 function statusLine(d: DownloadItem): string {
-  const pct = d.total > 0 ? Math.floor((d.received / d.total) * 100) : 0;
+  const pct = d.total > 0 ? Math.min(100, Math.floor((d.received / d.total) * 100)) : 0;
   switch (d.status) {
     case "preparing":
-      return "Подключаюсь к раздаче…";
+      return d.source === "youtube" ? "Подключаемся к YouTube…" : "Подключаюсь к раздаче…";
     case "downloading": {
+      if (d.source === "youtube" && d.stage === "merging") return "Объединяем видео и звук…";
+      const track = d.source === "youtube" ? d.stage === "video" ? "Видео · " : d.stage === "audio" ? "Звук · " : "" : "";
       const left = d.speed > 0 && d.total > d.received ? Math.ceil((d.total - d.received) / d.speed) : 0;
       const eta = left > 0 ? ` · осталось ${left >= 3600 ? `${Math.floor(left / 3600)} ч ${Math.floor((left % 3600) / 60)} мин` : `${Math.max(1, Math.ceil(left / 60))} мин`}` : "";
-      return `${pct}% · ${bytes(d.received)} из ${bytes(d.total)}${d.speed > 0 ? ` · ${(d.speed / 1024 ** 2).toFixed(1)} МБ/с` : ""}${eta}`;
+      const amount = d.total > 0 ? `${pct}% · ${bytes(d.received)} из ${bytes(d.total)}` : `Скачано ${bytes(d.received)}`;
+      return `${track}${amount}${d.speed > 0 ? ` · ${(d.speed / 1024 ** 2).toFixed(1)} МБ/с` : ""}${eta}`;
     }
     case "paused":
-      return `Пауза · ${pct}% (${bytes(d.received)} из ${d.total ? bytes(d.total) : "?"})`;
+      return d.source === "youtube" ? "Загрузка прервана" : `Пауза · ${pct}% (${bytes(d.received)} из ${d.total ? bytes(d.total) : "?"})`;
     case "error":
       return d.error ?? "Ошибка";
     case "done":
@@ -46,8 +49,7 @@ export function DownloadsScreen() {
       name: "player",
       title: d.title,
       url: d.path,
-      filmId: d.filmId,
-      film: d.film,
+      ...(d.source === "youtube" ? {} : { filmId: d.filmId, film: d.film }),
       poster: d.poster,
     });
 
@@ -56,24 +58,26 @@ export function DownloadsScreen() {
       <HomeChrome id="downloads" label="Загрузки" hideSearch autoFocus={items.length === 0} />
       <div className="dl">
         {items.length === 0 && (
-          <EmptyState icon={<DownloadIcon size={38} strokeWidth={1.6} />} title="Загрузок пока нет" hint="Кнопка со стрелкой на странице фильма сохранит его на диск." />
+          <EmptyState icon={<DownloadIcon size={38} strokeWidth={1.6} />} title="Загрузок пока нет" hint="Скачайте фильм с его страницы или видео из плеера YouTube." />
         )}
         {items.map((d, n) => {
           const pct = d.total > 0 ? Math.min(100, (d.received / d.total) * 100) : 0;
           const running = d.status === "downloading" || d.status === "preparing";
+          const youtube = d.source === "youtube";
+          const merging = youtube && d.status === "downloading" && d.stage === "merging";
           return (
             <section className={`dl__item dl__item--${d.status}`} key={d.id}>
               <div className="dl__cover">
                 {d.poster ? <img src={img(d.poster)} alt="" /> : <DownloadIcon size={34} strokeWidth={1.4} />}
                 {d.status !== "done" && (
                   <div className="dl__cover-shade">
-                    <span>{d.status === "error" ? "!" : `${Math.floor(pct)}%`}</span>
+                    <span>{d.status === "error" ? "!" : youtube && (!d.total || merging) ? "…" : `${Math.floor(pct)}%`}</span>
                   </div>
                 )}
               </div>
               <div className="dl__body">
                 <div className="dl__title">{d.title}</div>
-                <div className="dl__status">{statusLine(d)}</div>
+                <div className="dl__status">{youtube && `YouTube${d.quality ? ` · ${d.quality}p` : ""} · `}{statusLine(d)}</div>
                 {d.status !== "done" && (
                   <div className="dl__bar">
                     <i style={{ width: `${pct}%` }} />
@@ -90,20 +94,21 @@ export function DownloadsScreen() {
                       </Focusable>
                     </>
                   )}
-                  {running && (
+                  {running && !youtube && (
                     <Focusable as="button" className="dl__btn dl__btn--primary" focusKey={`dl:${n}:pause`} autoFocus={n === 0} onPress={() => void pauseTransfer(d.id)}>
                       Пауза
                     </Focusable>
                   )}
                   {(d.status === "paused" || d.status === "error") && (
                     <Focusable as="button" className="dl__btn dl__btn--primary" focusKey={`dl:${n}:resume`} autoFocus={n === 0} onPress={() => void startTransfer(d.id)}>
-                      Продолжить
+                      {youtube ? "Скачать заново" : "Продолжить"}
                     </Focusable>
                   )}
-                  <Focusable as="button" className="dl__btn" focusKey={`dl:${n}:remove`} onPress={() => void removeDownload(d.id, false)}>
-                    {d.status === "done" ? "Убрать из списка" : "Отменить"}
+                  <Focusable as="button" className="dl__btn" focusKey={`dl:${n}:remove`} autoFocus={n === 0 && youtube && running}
+                    onPress={() => void removeDownload(d.id, false)}>
+                    {d.status === "done" || (youtube && !running) ? "Убрать из списка" : "Отменить"}
                   </Focusable>
-                  {d.status === "done" && (
+                  {d.status === "done" && !youtube && (
                     <Focusable as="button" className="dl__btn" focusKey={`dl:${n}:delete`} onPress={() => void removeDownload(d.id, true)}>
                       Удалить файл
                     </Focusable>

@@ -4,6 +4,7 @@ mod diagnostics;
 mod download;
 mod discord;
 mod epg;
+mod framegen;
 mod http;
 mod images;
 mod jacred;
@@ -21,6 +22,7 @@ mod translator;
 mod tv;
 mod userdata;
 mod ytdlp;
+mod youtube;
 
 use config::AppConfig;
 use tauri::Manager;
@@ -67,6 +69,7 @@ pub fn run() {
         std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", args);
     }
 
+    let framegen = framegen::FrameGeneration::detect();
     tauri::Builder::default()
         .plugin(tauri_plugin_libmpv::init())
         .plugin(tauri_plugin_opener::init())
@@ -81,6 +84,8 @@ pub fn run() {
         .manage(discord::Discord::default())
         .manage(download::Downloads::default())
         .manage(remote::Remote::default())
+        .manage(framegen)
+        .manage(youtube::YoutubeSession::default())
         .setup(|app| {
             app.manage(AppConfig::load(app.path().app_config_dir().ok(), app.path().app_cache_dir().ok()));
             torrserve::spawn(app.handle());
@@ -96,7 +101,20 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            framegen::frame_generation_filter,
             ytdlp::resolve_trailer_url,
+            youtube::youtube_feed,
+            youtube::youtube_history,
+            youtube::youtube_search,
+            youtube::youtube_more,
+            youtube::youtube_connect,
+            youtube::youtube_connect_from_browser,
+            youtube::youtube_disconnect,
+            youtube::youtube_play,
+            youtube::youtube_download,
+            youtube::youtube_cancel_download,
+            youtube::youtube_channel,
+            youtube::youtube_author,
             prepare_for_update,
             download::dl_start,
             download::dl_stop,

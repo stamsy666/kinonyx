@@ -7,8 +7,9 @@ import {
   observeProperties,
   type MpvObservableProperty,
 } from "tauri-plugin-libmpv-api";
+import { invoke } from "@tauri-apps/api/core";
 import { StateStore } from "./state-store";
-import type { ExtraTrack, PlaySource, PlayerAdapter, PlayerState, StateListener, Track, TrackKind } from "./types";
+import type { ExtraTrack, FrameGeneration, PlaySource, PlayerAdapter, PlayerState, StateListener, Track, TrackKind } from "./types";
 
 const OBSERVED_PROPERTIES = [
   ["pause", "flag"],
@@ -64,7 +65,7 @@ function cleanTrackText(value: string | undefined): string | undefined {
 // for the original incident this comment refers to).
 let mpvReady: Promise<void> | null = null;
 
-function ensureMpv(): Promise<void> {
+export function prepareMpv(): Promise<void> {
   if (!mpvReady) {
     mpvReady = mpvInit({
       initialOptions: {
@@ -110,7 +111,12 @@ async function softSet(key: string, value: string) {
 const OPTION_DEFAULTS: Record<string, string> = {
   "rebase-start-time": "yes",
   af: "",
+  vf: "",
+  hwdec: "auto-safe",
+  alang: "",
   "audio-files": "",
+  "demuxer-lavf-format": "",
+  "hls-bitrate": "max",
   start: "none",
   "sub-scale": "1",
   "sub-color": "#FFFFFF",
@@ -126,7 +132,6 @@ const OPTION_DEFAULTS: Record<string, string> = {
   "video-aspect-override": "-1",
   keepaspect: "yes",
   panscan: "0",
-  "audio-device": "auto",
 };
 
 /** Audio filter a source adds (via `mpvOptions.af`) to make `setDuck` work. */
@@ -140,6 +145,34 @@ function enqueue<T>(fn: () => Promise<T>): Promise<T> {
   const run = commandQueue.then(fn, fn);
   commandQueue = run.catch(() => undefined);
   return run;
+}
+
+type ResolveAudioDevice = () => Promise<string>;
+let appliedAudioDevice: string | undefined;
+
+function frameGenerationFilter(factor: FrameGeneration): Promise<string> {
+  return factor ? invoke<string>("frame_generation_filter", { multiplier: factor }) : Promise.resolve("");
+}
+
+/** Called inside the mpv command queue so a change cannot race loadfile. */
+async function applyAudioDevice(resolve: ResolveAudioDevice): Promise<void> {
+  const device = await resolve().catch(() => "auto");
+  if (device === appliedAudioDevice) return;
+  try {
+    await mpvSetProperty("audio-device", device);
+    appliedAudioDevice = device;
+  } catch (error) {
+    appliedAudioDevice = undefined;
+    console.warn("[mpv] Audio device could not be applied:", error);
+    if (device !== "auto") await softSet("audio-device", "auto");
+  }
+}
+
+/** Changes the output of the shared player without seeking or reopening its source. */
+export function refreshMpvAudioDevice(resolve: ResolveAudioDevice): Promise<void> {
+  const ready = mpvReady;
+  if (!ready) return Promise.resolve();
+  return ready.then(() => enqueue(() => applyAudioDevice(resolve)));
 }
 
 /**
@@ -157,12 +190,20 @@ export class MpvAdapter implements PlayerAdapter {
   private unlistenEvents: (() => void) | null = null;
   private attached: Promise<void> | null = null;
   private destroyed = false;
+  private loadedUrl: string | null = null;
+  private videoFilters = "";
+  private hardwareDecoder = OPTION_DEFAULTS.hwdec;
 
   private paused = true;
   private coreIdle = true;
   private pausedForCache = false;
   private eofReached = false;
   private loading = true;
+
+  constructor(
+    private readonly resolveAudioDevice: ResolveAudioDevice = async () => "auto",
+    private readonly readFrameGeneration: () => FrameGeneration = () => 0,
+  ) {}
 
   private attach(): Promise<void> {
     if (!this.attached) this.attached = this.subscribe_();
@@ -331,14 +372,17 @@ export class MpvAdapter implements PlayerAdapter {
   }
 
   async load(source: PlaySource): Promise<void> {
+    const serial = ++this.loadSerial;
     this.loading = true;
     this.store.reset();
     this.store.patch({ status: "loading", live: source.live ?? false });
     try {
-      await ensureMpv();
+      await prepareMpv();
       await this.attach();
       if (this.destroyed) return;
       await enqueue(async () => {
+        if (this.destroyed) return;
+        await applyAudioDevice(this.resolveAudioDevice);
         if (this.destroyed) return;
         await mpvSetProperty(
           "http-header-fields",
@@ -352,19 +396,36 @@ export class MpvAdapter implements PlayerAdapter {
         // Extra options are set as plain properties (the loadfile per-file option list
         // didn't reliably take effect through the plugin — `rebase-start-time` was ignored),
         // and anything a previous title changed goes back to its default.
-        const extra = source.mpvOptions ?? {};
+        const extra = { ...source.mpvOptions };
+        if (source.startPosition != null) extra.start = String(source.startPosition);
+        this.videoFilters = extra.vf ?? "";
+        this.hardwareDecoder = extra.hwdec ?? OPTION_DEFAULTS.hwdec;
+        const factor = source.frameGeneration ?? this.readFrameGeneration();
+        const filter = factor ? await frameGenerationFilter(factor).catch(() => "") : "";
+        if (this.destroyed) return;
+        if (filter) {
+          extra.hwdec = "auto-copy";
+          extra.vf = [this.videoFilters, filter].filter(Boolean).join(",");
+        }
+        // A new player session should use its language preference even if the
+        // shared mpv instance was last set to a specific track.
+        if (this.loadedUrl === null && extra.alang) await softSet("aid", "auto");
         for (const key of appliedExtraOptions) {
           if (!(key in extra) && key in OPTION_DEFAULTS) await softSet(key, OPTION_DEFAULTS[key]);
         }
         for (const [key, value] of Object.entries(extra)) await softSet(key, value);
         appliedExtraOptions = Object.keys(extra);
         await mpvCommand("loadfile", [source.url, "replace"]);
+        if (this.loadedUrl !== source.url) {
+          await mpvSetProperty("pause", false);
+          this.loadedUrl = source.url;
+        }
       });
       if (this.destroyed) return;
       this.loading = false;
       await this.primeState();
       this.syncStatus();
-      if (source.extraTracks?.length) void this.addExtraTracks(source.extraTracks, ++this.loadSerial);
+      if (source.extraTracks?.length) void this.addExtraTracks(source.extraTracks, serial);
     } catch (e) {
       if (this.destroyed) return;
       this.loading = false;
@@ -384,7 +445,10 @@ export class MpvAdapter implements PlayerAdapter {
       for (let attempt = 0; attempt < 40; attempt++) {
         if (this.destroyed || serial !== this.loadSerial) return;
         try {
-          await mpvCommand(t.kind === "subtitle" ? "sub-add" : "audio-add", [t.url, "auto", t.title ?? "", t.lang ?? ""]);
+          await enqueue(async () => {
+            if (this.destroyed || serial !== this.loadSerial) return;
+            await mpvCommand(t.kind === "subtitle" ? "sub-add" : "audio-add", [t.url, "auto", t.title ?? "", t.lang ?? ""]);
+          });
           break;
         } catch {
           await new Promise((r) => setTimeout(r, 500));
@@ -413,16 +477,20 @@ export class MpvAdapter implements PlayerAdapter {
   }
 
   async stop() {
-    await this.control(() => enqueue(() => mpvCommand("stop")));
+    ++this.loadSerial;
+    await this.control(() => enqueue(async () => {
+      this.loadedUrl = null;
+      await mpvCommand("stop");
+    }));
     this.store.reset();
   }
 
-  seek(positionSeconds: number) {
-    return this.control(() => mpvCommand("seek", [positionSeconds, "absolute"]));
+  seek(positionSeconds: number, exact = false) {
+    return this.control(() => mpvCommand("seek", [positionSeconds, exact ? "absolute+exact" : "absolute"]));
   }
 
-  seekBy(deltaSeconds: number) {
-    return this.control(() => mpvCommand("seek", [deltaSeconds, "relative"]));
+  seekBy(deltaSeconds: number, exact = false) {
+    return this.control(() => mpvCommand("seek", [deltaSeconds, exact ? "relative+exact" : "relative"]));
   }
 
   setVolume(volume: number) {
@@ -451,6 +519,26 @@ export class MpvAdapter implements PlayerAdapter {
 
   setProp(key: string, value: string) {
     return this.control(() => softSet(key, value));
+  }
+
+  setFrameGeneration(factor: FrameGeneration): Promise<void> {
+    return enqueue(async () => {
+      if (this.destroyed || !this.loadedUrl) return;
+      const filter = await frameGenerationFilter(factor);
+      if (this.destroyed) return;
+      try {
+        if (filter) await mpvSetProperty("hwdec", "auto-copy");
+        await mpvSetProperty("vf", [this.videoFilters, filter].filter(Boolean).join(","));
+        if (!filter) await mpvSetProperty("hwdec", this.hardwareDecoder);
+      } catch (error) {
+        await softSet("vf", this.videoFilters);
+        await softSet("hwdec", this.hardwareDecoder);
+        throw error;
+      }
+      for (const option of ["hwdec", "vf"]) {
+        if (!appliedExtraOptions.includes(option)) appliedExtraOptions.push(option);
+      }
+    });
   }
 
   setVideoMargins(margins: { left: number; right: number; top: number; bottom: number } | null) {
