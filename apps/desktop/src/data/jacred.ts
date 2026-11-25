@@ -93,13 +93,21 @@ export function mergeReleases(a: TorApiRelease[], b: TorApiRelease[]): TorApiRel
   const byHash = new Map<string, TorApiRelease>();
   const rest: TorApiRelease[] = [];
   for (const r of [...a, ...b]) {
-    const h = btihOf(r.hash);
+    const h = btihOf(r.hash) ?? btihOf(r.magnet);
     if (!h) {
       rest.push(r);
       continue;
     }
     const have = byHash.get(h);
-    if (!have || (r.seeds ?? 0) > (have.seeds ?? 0)) byHash.set(h, have ? { ...r, hash: have.hash ?? r.hash } : r);
+    if (!have) {
+      byHash.set(h, r);
+      continue;
+    }
+    const best = (r.seeds ?? 0) > (have.seeds ?? 0) ? r : have;
+    const other = best === r ? have : r;
+    const magnet = best.magnet || other.magnet
+      || [best.hash, other.hash].find((link) => /^magnet:/i.test(link ?? ""));
+    byHash.set(h, { ...best, magnet, torrent: best.torrent || other.torrent });
   }
   return [...byHash.values(), ...rest];
 }

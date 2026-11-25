@@ -30,6 +30,7 @@ describe("mergeReleases", () => {
     expect(out).toHaveLength(1);
     expect(out[0].seeds).toBe(30);
     expect(btihOf(out[0].hash)).toBe(HASH);
+    expect(out[0].magnet).toBe(magnet);
   });
   it("keeps releases that have no hash", () => {
     expect(mergeReleases([{ id: "1", provider: "X", name: "A" }], [{ id: "2", provider: "Y", name: "B" }])).toHaveLength(2);

@@ -352,10 +352,10 @@ export interface TorApiRelease {
   id: string;
   provider: string;
   name: string;
-  /** Present straight in title-search results for some trackers (RuTor) — lets us skip
-   *  the per-release `/api/search/id` round trip entirely. */
+  /** Info hash from the title search, used if the tracker has no magnet or torrent URL. */
   hash?: string;
-  /** Direct .torrent download URL — TorrServer can add from it too; last-resort link. */
+  magnet?: string;
+  /** Direct .torrent download URL. */
   torrent?: string;
   size?: string;
   seeds?: number;
@@ -399,7 +399,8 @@ function normalizeReleases(raw: unknown, provider: string): TorApiRelease[] {
           id: String(pick(r, "Id", "id") ?? ""),
           provider: key.toLowerCase(),
           name: String(pick(r, "Name", "Title", "name") ?? ""),
-          hash: (pick(r, "Hash", "hash") as string | undefined)?.toLowerCase(),
+          hash: (pick(r, "Hash", "hash") as string | undefined)?.trim(),
+          magnet: (pick(r, "Magnet", "magnet") as string | undefined)?.trim(),
           torrent: pick(r, "Torrent", "torrent") as string | undefined,
           size: pick(r, "Size", "size") as string | undefined,
           seeds: toNum(pick(r, "Seeds", "seeds")),
@@ -427,7 +428,7 @@ export async function torApiSearchId(provider: string, id: string): Promise<TorA
   return {
     name: str(pick(item, "Name", "name")) ?? "",
     magnet: str(pick(item, "Magnet", "magnet")),
-    hash: str(pick(item, "Hash", "hash"))?.toLowerCase(),
+    hash: str(pick(item, "Hash", "hash")),
     torrent: str(pick(item, "Torrent", "torrent")),
   };
 }
@@ -471,7 +472,7 @@ export async function ensureTorrserve(): Promise<void> {
   throw new Error("TorrServer не запущен: не отвечает. Перезапустите KINONYX; если не помогло — добавьте папку установки в исключения антивируса.");
 }
 export function tsAddMagnet(magnet: string) {
-  return invoke<{ hash?: string }>("ts_add_magnet", { magnet });
+  return invoke<{ hash?: string; file_stats?: TsFileStat[] }>("ts_add_magnet", { magnet });
 }
 export function tsGetTorrent(hash: string) {
   return invoke<Record<string, unknown>>("ts_get_torrent", { hash });
@@ -489,13 +490,6 @@ interface TsFileStat {
 const VIDEO_EXT = /\.(mkv|mp4|avi|m4v|mov|ts|m2ts|webm|wmv|flv|mpg|mpeg)$/i;
 const METADATA_TIMEOUT_MS = 45_000;
 const METADATA_POLL_MS = 1_000;
-
-/**
- * Public trackers added to every link. RuTor results were added as a bare info-hash
- * (it's right there in the search results, saving a request) — but a bare hash can only
- * find peers through DHT, which is slow to warm up and misses most of a small swarm.
- * The first two are the ones RuTor's own magnets carry.
- */
 
 /** hash or magnet → magnet carrying our tracker list. .torrent URLs pass through as-is. */
 export function withTrackers(link: string): string {
@@ -523,27 +517,55 @@ export interface TorrentFile {
   length: number;
 }
 
+export async function openReleaseTorrent(release: TorApiRelease, signal?: { cancelled: boolean }) {
+  let detail: TorApiReleaseDetail | undefined;
+  const foundMagnet = release.magnet || (/^magnet:/i.test(release.hash ?? "") ? release.hash : undefined);
+  if (!foundMagnet) {
+    try {
+      detail = await torApiSearchId(release.provider, release.id);
+    } catch (error) {
+      if (!release.hash && !release.torrent) throw error;
+    }
+  }
+  const magnet = foundMagnet || detail?.magnet;
+  const torrent = detail?.torrent || release.torrent;
+  const candidates = [...new Set([magnet, torrent, magnet ? undefined : detail?.hash || release.hash].filter((link): link is string => !!link))];
+  if (!candidates.length) throw new Error("Трекер не отдал ссылку на раздачу.");
+  for (const [index, link] of candidates.entries()) {
+    const last = index === candidates.length - 1;
+    try {
+      const opened = await openTorrent(link, signal, last ? METADATA_TIMEOUT_MS : 12_000);
+      return { ...opened, link, name: detail?.name || release.name };
+    } catch (error) {
+      if (last || signal?.cancelled) throw error;
+    }
+  }
+  throw new Error("Не удалось открыть раздачу.");
+}
+
 /**
  * Adds the torrent and waits for its file list. TorrServer only knows the files once it
  * has fetched the metadata from peers, which `add` doesn't wait for — so poll `get` until
  * `file_stats` shows up.
  */
-export async function openTorrent(link: string, signal?: { cancelled: boolean }): Promise<{ hash: string; files: TorrentFile[] }> {
+export async function openTorrent(link: string, signal?: { cancelled: boolean }, timeout = METADATA_TIMEOUT_MS): Promise<{ hash: string; files: TorrentFile[] }> {
+  if (signal?.cancelled) throw new Error("cancelled");
   const added = await tsAddMagnet(withTrackers(link));
   const hash = added.hash;
   if (!hash) throw new Error("TorrServer не вернул hash раздачи");
 
-  const deadline = Date.now() + METADATA_TIMEOUT_MS;
-  let stats: TsFileStat[] = [];
-  while (Date.now() < deadline) {
+  const deadline = Date.now() + timeout;
+  let stats = added.file_stats ?? [];
+  while (!stats.length && Date.now() < deadline) {
     if (signal?.cancelled) throw new Error("cancelled");
     const torrent = await tsGetTorrent(hash);
     stats = (torrent.file_stats as TsFileStat[] | undefined) ?? [];
     if (stats.length) break;
     await new Promise((r) => setTimeout(r, METADATA_POLL_MS));
   }
-  if (!stats.length) throw new Error("Не удалось получить список файлов — у раздачи нет активных сидов");
-  const files = stats.map((f) => ({ id: f.id, path: f.path, name: f.path.split("/").pop() ?? f.path, length: f.length ?? 0 }));
+  if (signal?.cancelled) throw new Error("cancelled");
+  if (!stats.length) throw new Error("TorrServer не получил список файлов за отведённое время. Попробуйте открыть другую раздачу.");
+  const files = stats.map((f) => ({ id: f.id, path: f.path, name: f.path.split(/[/\\]/).pop() ?? f.path, length: f.length ?? 0 }));
   return { hash, files };
 }
 

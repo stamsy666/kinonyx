@@ -283,12 +283,16 @@ pub async fn torrserve_health(config: tauri::State<'_, AppConfig>) -> Result<boo
 }
 
 async fn torrents_action(config: &AppConfig, body: Value) -> Result<Value, String> {
+    let timeout = if body["action"] == "add" { 15 } else { 6 };
     let res = local()
         .post(format!("{}/torrents", base_url(config)))
+        .timeout(Duration::from_secs(timeout))
         .json(&body)
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            if e.is_timeout() { "TorrServer не ответил вовремя.".to_string() } else { e.to_string() }
+        })?;
     if !res.status().is_success() {
         return Err(format!("TorrServer HTTP {}", res.status()));
     }

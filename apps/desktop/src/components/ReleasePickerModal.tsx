@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { setFocus } from "@noriginmedia/norigin-spatial-navigation";
 import { AboutIcon, EpisodesIcon, Focusable, NextIcon, Spinner, onBack } from "@kinonyx/ui";
 import {
+  openReleaseTorrent,
   openTorrent,
   parseSize,
   playableFiles,
   streamUrlFor,
-  torApiSearchId,
   torApiSearchTitle,
   ensureTorrserve,
   probeTracks,
@@ -170,7 +170,10 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
     (async () => {
       try {
         await ensureTorrserve();
-        const torrent = await openTorrent(remembered.link, cancel.current);
+        // Older saved releases can contain only a hash. Give them a short
+        // attempt before searching again for the tracker’s complete links.
+        const bareHash = /^[a-f\d]{40}$/i.test(remembered.link);
+        const torrent = await openTorrent(remembered.link, cancel.current, bareHash ? 12_000 : undefined);
         if (cancelled || cancel.current.cancelled || resumeAborted.current) return;
         const remembered_ = torrent.files.find((f) => f.id === remembered.fileId) ?? torrent.files.find((f) => f.path === remembered.filePath);
         const { choices } = playableFiles(torrent.files);
@@ -242,32 +245,6 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
     };
   }, [stage, title, year]);
 
-  /** The link TorrServer can add a release by (a magnet, a hash or a .torrent address) and its name. */
-  async function resolveLink(release: TorApiRelease): Promise<{ link: string; name: string }> {
-    let link = release.hash;
-    let name = release.name;
-    let lookupError: unknown;
-    if (!link) {
-      try {
-        const detail = await torApiSearchId(release.provider, release.id);
-        link = detail.magnet || detail.hash || detail.torrent;
-        name = detail.name || name;
-      } catch (e) {
-        lookupError = e;
-      }
-    }
-    // TorrServer can also add straight from the tracker's .torrent URL.
-    link ||= release.torrent;
-    if (!link) {
-      throw new Error(
-        lookupError instanceof Error
-          ? `Не удалось получить ссылку на раздачу: ${lookupError.message}`
-          : "Трекер не отдал ни magnet, ни .torrent для этой раздачи — выберите другую",
-      );
-    }
-    return { link, name };
-  }
-
   // "What is inside": connects to the release, opens its biggest file (the first episode of a pack) and reads its tracks.
   async function inspect(release: TorApiRelease) {
     setInspecting(release);
@@ -276,8 +253,7 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
     setStage("inspect");
     try {
       await ensureTorrserve();
-      const { link } = await resolveLink(release);
-      const torrent = await openTorrent(link, cancel.current);
+      const torrent = await openReleaseTorrent(release, cancel.current);
       if (cancel.current.cancelled) return;
       const { auto, choices } = playableFiles(torrent.files);
       const file = auto ?? choices[0];
@@ -296,8 +272,8 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
     setStage("connecting");
     try {
       await ensureTorrserve();
-      const { link, name } = await resolveLink(release);
-      const torrent = await openTorrent(link, cancel.current);
+      const torrent = await openReleaseTorrent(release, cancel.current);
+      const { link, name } = torrent;
       if (cancel.current.cancelled) return;
       const { auto, choices } = playableFiles(torrent.files);
       if (auto) {
@@ -410,7 +386,7 @@ export function ReleasePickerModal({ filmId, title, year, durationMin, remembere
           <div className="links-tv__wait">
             <Spinner />
             <span className="links-tv__text">
-              {stage === "searching" ? (quality ? `Ищу раздачу ${qualityLabel(quality)}…` : "Ищу раздачи…") : resuming ? "Открываю сохранённую раздачу…" : "Получаю файлы раздачи от пиров…"}
+              {stage === "searching" ? (quality ? `Ищу раздачу ${qualityLabel(quality)}…` : "Ищу раздачи…") : resuming ? "Открываю сохранённую раздачу…" : "Получаю список файлов раздачи…"}
             </span>
             {stage === "connecting" && resuming && remembered?.releaseTitle && <span className="rel-tv__saved">{remembered.releaseTitle}</span>}
           </div>

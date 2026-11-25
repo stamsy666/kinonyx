@@ -55,5 +55,10 @@ pub async fn torapi_search_id(
 ) -> Result<Value, String> {
     let base = base_url(&config);
     let q = urlencoding::encode(&id);
-    get_json(format!("{base}/api/search/id/{provider}?query={q}")).await
+    tokio::time::timeout(
+        std::time::Duration::from_secs(8),
+        get_json(format!("{base}/api/search/id/{provider}?query={q}")),
+    )
+    .await
+    .map_err(|_| "Трекер не ответил на запрос ссылки на раздачу.".to_string())?
 }
