@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { FocusContext, getCurrentFocusKey, setFocus, useFocusable } from "@noriginmedia/norigin-spatial-navigation";
 import { History, RotateCw } from "lucide-react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
 import { prepareMpv } from "@kinonyx/player-core";
 import { BackIcon, cancelGlides, Focusable, FocusGroup, SearchIcon, Spinner, onBack } from "@kinonyx/ui";
 import { FocusHighlight } from "../components/FocusHighlight";
@@ -24,6 +24,7 @@ import {
 import { KxChannelLogo } from "../components/player/PlayerChrome";
 import { isTauri, openExternal } from "../data/io";
 import { playCategorySound } from "../data/sounds";
+import { applyRemoteTextEdit } from "../data/remote";
 import { useApp } from "../store/app";
 import "../styles/youtube.css";
 
@@ -285,6 +286,21 @@ function YoutubeContent({ channel, watchHistory, refreshKey, session }: {
     requestAnimationFrame(() => void setFocus("youtube:lang"));
   };
 
+  const editSearchRemotely = useEffectEvent((e: WindowEventMap["kinonyx:remote-edit"]) => {
+    if (!isTauri || channel || playback || document.querySelector("[role=dialog]")) return;
+    const focused = getCurrentFocusKey();
+    if (focused === "youtube:search-open") openSearch();
+    else if (!keyboard || !document.querySelector(".yt-search-keys .is-focused")) return;
+    if (e.detail.submit) return submitSearch(draft);
+    playCategorySound("typing");
+    changeQuery(applyRemoteTextEdit(draft, e.detail).value);
+  });
+  useEffect(() => {
+    const onRemoteEdit = (e: WindowEventMap["kinonyx:remote-edit"]) => editSearchRemotely(e);
+    window.addEventListener("kinonyx:remote-edit", onRemoteEdit);
+    return () => window.removeEventListener("kinonyx:remote-edit", onRemoteEdit);
+  }, []);
+
   const prefetch = (video: Video) => {
     window.clearTimeout(prefetchTimer.current);
     prefetchTimer.current = window.setTimeout(() => {
@@ -364,7 +380,8 @@ function YoutubeContent({ channel, watchHistory, refreshKey, session }: {
   const busy = searching ? !results?.videos : feedBusy;
   const contentError = searching ? results?.error : error || (feed?.expired ? undefined : feed?.error);
   const needsAccount = !searching && !hasVideoFeed && !busy && !contentError;
-  const title = searching ? "Результаты" : watchHistory ? "История просмотров" : channel ? "Видео" : "Рекомендации";
+  const title = searching ? "Результаты" : watchHistory ? "История просмотров"
+    : channel ? (feed?.recentUploadsOnly ? "Последние загрузки" : "Видео") : "Рекомендации";
 
   const cursor = searching ? results?.next : hasVideoFeed ? feed?.next : undefined;
   const appendPage = async () => {

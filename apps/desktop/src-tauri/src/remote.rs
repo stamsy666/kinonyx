@@ -1,7 +1,5 @@
 //! The phone as a remote control. A tiny web server on the local network serves one page (a
-//! d-pad, OK, Back, play/pause, seek, a text box); what is pressed on the phone reaches the app as
-//! `remote://key` / `remote://text` events, which the front end turns into the same key presses the
-//! gamepad produces.
+//! d-pad, OK, Back, playback, keyboard and volume). Requests are delivered as app events.
 //!
 //! The page and every request carry a secret token (the one in the QR code); anything without it
 //! is refused, so only whoever scanned the code can press keys. The server runs only while the
@@ -12,7 +10,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -22,7 +20,7 @@ const PAGE: &str = include_str!("remote.html");
 const LOGO: &[u8] = include_bytes!("../../src/assets/logo-mark.png");
 const PREFERRED_PORT: u16 = 47_815;
 /// Keys the phone may send: the d-pad, OK, Back, the menu (what the gamepad's PS/Xbox button does), and the player's own keys.
-const KEYS: [&str; 13] = [
+const KEYS: [&str; 14] = [
     "ArrowUp",
     "ArrowDown",
     "ArrowLeft",
@@ -36,8 +34,19 @@ const KEYS: [&str; 13] = [
     "MediaFastForward",
     "AudioVolumeUp",
     "AudioVolumeDown",
+    "RemoteKeyboard",
 ];
 const MAX_TEXT_CHARS: usize = 200;
+const MAX_EDIT_CHARS: usize = 2_000;
+const MAX_EDIT_BYTES: usize = 32_768;
+
+#[derive(Deserialize, Serialize)]
+struct TextEdit {
+    remove: usize,
+    text: String,
+    #[serde(default)]
+    submit: bool,
+}
 
 #[derive(Default)]
 pub struct Remote {
@@ -253,29 +262,63 @@ async fn respond(socket: &mut TcpStream, status: &str, content_type: &str, body:
     let _ = socket.shutdown().await;
 }
 
+async fn read_text_edit(socket: &mut TcpStream, headers: &str, buffered: &[u8]) -> Option<TextEdit> {
+    let mut length = None;
+    let mut json = false;
+    for line in headers.lines().skip(1) {
+        let (name, value) = line.split_once(':')?;
+        if name.eq_ignore_ascii_case("content-length") {
+            if length.is_some() { return None; }
+            length = Some(value.trim().parse::<usize>().ok()?);
+        } else if name.eq_ignore_ascii_case("content-type") {
+            json = value.trim().eq_ignore_ascii_case("application/json");
+        } else if name.eq_ignore_ascii_case("transfer-encoding") {
+            return None;
+        }
+    }
+    let length = length?;
+    if !json || length > MAX_EDIT_BYTES || buffered.len() > length { return None; }
+    let mut body = vec![0; length];
+    body[..buffered.len()].copy_from_slice(buffered);
+    socket.read_exact(&mut body[buffered.len()..]).await.ok()?;
+    let edit: TextEdit = serde_json::from_slice(&body).ok()?;
+    (edit.remove <= MAX_EDIT_CHARS && edit.text.chars().count() <= MAX_EDIT_CHARS).then_some(edit)
+}
+
 async fn handle(mut socket: TcpStream, emit: Emit, token: String, theme: Arc<Mutex<String>>) {
     let mut buf = vec![0u8; 8192];
     let mut len = 0;
     // Read until the end of the headers.
-    loop {
+    let head_end = loop {
         match socket.read(&mut buf[len..]).await {
             Ok(0) | Err(_) => return,
             Ok(n) => len += n,
         }
-        if buf[..len].windows(4).any(|w| w == b"\r\n\r\n") || len == buf.len() {
-            break;
+        if let Some(index) = buf[..len].windows(4).position(|w| w == b"\r\n\r\n") {
+            break index;
         }
-    }
-    let text = String::from_utf8_lossy(&buf[..len]).into_owned();
+        if len == buf.len() { return; }
+    };
+    let text = String::from_utf8_lossy(&buf[..head_end]);
     let Some(line) = text.lines().next() else { return };
     let mut parts = line.split_whitespace();
     let (method, target) = (parts.next().unwrap_or(""), parts.next().unwrap_or(""));
-    if method != "GET" {
-        return respond(&mut socket, "405 Method Not Allowed", "text/plain", b"").await;
-    }
     let (path, query) = target.split_once('?').unwrap_or((target, ""));
     if query_of(query, "t").as_deref() != Some(token.as_str()) {
         return respond(&mut socket, "403 Forbidden", "text/plain; charset=utf-8", "Откройте пульт по QR-коду из KINONYX".as_bytes()).await;
+    }
+    if method == "POST" && path == "/edit" {
+        let edit = read_text_edit(&mut socket, &text, &buf[head_end + 4..len]).await;
+        return match edit.and_then(|edit| serde_json::to_string(&edit).ok()) {
+            Some(payload) => {
+                emit("remote://edit", payload);
+                respond(&mut socket, "204 No Content", "text/plain", b"").await
+            }
+            None => respond(&mut socket, "400 Bad Request", "text/plain", b"").await,
+        };
+    }
+    if method != "GET" {
+        return respond(&mut socket, "405 Method Not Allowed", "text/plain", b"").await;
     }
     match path {
         "/" => {
@@ -314,6 +357,16 @@ async fn handle(mut socket: TcpStream, emit: Emit, token: String, theme: Arc<Mut
             emit("remote://text", v);
             respond(&mut socket, "204 No Content", "text/plain", b"").await;
         }
+        "/volume" => {
+            match query_of(query, "v").and_then(|v| v.parse::<u8>().ok()).filter(|v| *v <= 100) {
+                Some(level) => {
+                    let feedback = query_of(query, "step").as_deref() == Some("1");
+                    emit("remote://volume", format!(r#"{{"level":{level},"feedback":{feedback}}}"#));
+                    respond(&mut socket, "204 No Content", "text/plain", b"").await;
+                }
+                None => respond(&mut socket, "400 Bad Request", "text/plain", b"").await,
+            }
+        }
         _ => respond(&mut socket, "404 Not Found", "text/plain", b"").await,
     }
 }
@@ -341,17 +394,27 @@ mod tests {
         assert!(KEYS.contains(&"Enter") && !KEYS.contains(&"Delete"));
     }
 
-    /// One GET against a running server; returns the status line and the body.
-    async fn get(port: u16, target: &str) -> (String, String) {
+    /// One request against a running server; returns the status line and the body.
+    async fn request(port: u16, head: &str, body: &str) -> (String, String) {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         let mut s = tokio::net::TcpStream::connect(("127.0.0.1", port)).await.unwrap();
-        s.write_all(format!("GET {target} HTTP/1.1\r\nHost: x\r\n\r\n").as_bytes()).await.unwrap();
+        s.write_all(head.as_bytes()).await.unwrap();
+        s.write_all(body.as_bytes()).await.unwrap();
         let mut out = Vec::new();
         s.read_to_end(&mut out).await.unwrap();
         let text = String::from_utf8_lossy(&out).into_owned();
         let status = text.lines().next().unwrap_or("").to_string();
         let body = text.split("\r\n\r\n").nth(1).unwrap_or("").to_string();
         (status, body)
+    }
+
+    async fn get(port: u16, target: &str) -> (String, String) {
+        request(port, &format!("GET {target} HTTP/1.1\r\nHost: x\r\n\r\n"), "").await
+    }
+
+    async fn post_edit(port: u16, target: &str, body: &str) -> (String, String) {
+        let head = format!("POST {target} HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n", body.len());
+        request(port, &head, body).await
     }
 
     #[tokio::test]
@@ -374,6 +437,13 @@ mod tests {
         assert!(get(port, "/k?t=secret12&k=Delete").await.0.contains("400"), "unknown key refused");
         assert!(get(port, "/k?k=Enter").await.0.contains("403"), "key without token refused");
         assert!(get(port, "/txt?t=secret12&v=%D0%BF%D1%80+%D0%B8").await.0.contains("204"));
+        assert!(post_edit(port, "/edit?t=wrong", r#"{"remove":1,"text":"кино"}"#).await.0.contains("403"));
+        assert!(post_edit(port, "/edit?t=secret12", r#"{"remove":1,"text":"кино"}"#).await.0.contains("204"));
+        assert!(post_edit(port, "/edit?t=secret12", r#"{"remove":2001,"text":""}"#).await.0.contains("400"));
+        assert!(post_edit(port, "/edit?t=secret12", r#"{"remove":0,"text":"","submit":true}"#).await.0.contains("204"));
+        assert!(get(port, "/volume?t=secret12&v=101").await.0.contains("400"));
+        assert!(get(port, "/volume?v=50").await.0.contains("403"));
+        assert!(get(port, "/volume?t=secret12&v=51&step=1").await.0.contains("204"));
         assert!(get(port, "/nope?t=secret12").await.0.contains("404"));
         let (status, body) = get(port, "/?t=secret12").await;
         assert!(status.contains("200") && body.contains("--accent:#112233;"), "the page carries the app's colours");
@@ -388,7 +458,14 @@ mod tests {
         let _ = stop.send(true);
 
         let got = got.lock().unwrap().clone();
-        assert_eq!(got, vec![("remote://key".to_string(), "Enter".to_string()), ("remote://text".to_string(), "пр и".to_string())]);
+        let expected = [
+            ("remote://key", "Enter"),
+            ("remote://text", "пр и"),
+            ("remote://edit", r#"{"remove":1,"text":"кино","submit":false}"#),
+            ("remote://edit", r#"{"remove":0,"text":"","submit":true}"#),
+            ("remote://volume", r#"{"level":51,"feedback":true}"#),
+        ];
+        assert_eq!(got.iter().map(|(name, payload)| (name.as_str(), payload.as_str())).collect::<Vec<_>>(), expected);
     }
 
     #[test]

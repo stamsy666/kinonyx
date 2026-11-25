@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FocusContext, setFocus, useFocusable } from "@noriginmedia/norigin-spatial-navigation";
+import { FocusContext, getCurrentFocusKey, setFocus, useFocusable } from "@noriginmedia/norigin-spatial-navigation";
 import { Focusable, FocusGroup, MicIcon, OfflineIcon, SearchIcon, Spinner } from "@kinonyx/ui";
 import { EmptyState } from "../components/EmptyState";
 import { useApp } from "../store/app";
@@ -13,6 +13,7 @@ import { useHomeFeel } from "../components/useHomeFeel";
 import { returnedToSavedFocus } from "../data/focusRestore";
 import { SearchKeys, type SearchKeyMode } from "../components/SearchKeys";
 import { VoiceSearchModal } from "../components/VoiceSearchModal";
+import { applyRemoteTextEdit } from "../data/remote";
 
 const DEBOUNCE_MS = 450;
 
@@ -142,6 +143,20 @@ export function SearchScreen() {
   const queryRef = useRef(query);
   queryRef.current = query;
   useEffect(() => {
+    const submit = () => {
+      if (!queryRef.current.trim()) return;
+      useSearchHistory.getState().add(queryRef.current);
+      wantsResultFocus.current = true;
+      setResults((r) => (r ? [...r] : r));
+    };
+    const onRemoteEdit = (e: WindowEventMap["kinonyx:remote-edit"]) => {
+      if (document.querySelector(".modal, [role=dialog]") || !getCurrentFocusKey()?.startsWith("search:")) return;
+      if (e.detail.submit) return submit();
+      typedOnKeyboard.current = true;
+      playCategorySound("typing");
+      setQuery((value) => applyRemoteTextEdit(value, e.detail).value);
+    };
+    window.addEventListener("kinonyx:remote-edit", onRemoteEdit);
     const onKey = (e: KeyboardEvent) => {
       if (document.querySelector(".modal, [role=dialog]")) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -158,14 +173,15 @@ export function SearchScreen() {
         e.stopImmediatePropagation();
         playCategorySound("typing");
         setQuery((q) => q + e.key);
-      } else if (e.key === "Enter" && typedOnKeyboard.current && queryRef.current.trim()) {
-        useSearchHistory.getState().add(queryRef.current);
-        wantsResultFocus.current = true;
-        setResults((r) => (r ? [...r] : r)); // re-run the "focus the first result" effect if results are already in
+      } else if (e.key === "Enter" && typedOnKeyboard.current) {
+        submit();
       }
     };
     window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("kinonyx:remote-edit", onRemoteEdit);
+      window.removeEventListener("keydown", onKey, true);
+    };
   }, []);
 
   const type = (ch: string) => {

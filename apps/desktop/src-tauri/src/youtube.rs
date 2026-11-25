@@ -1,6 +1,7 @@
 use crate::config::AppConfig;
 use crate::ytdlp::{cookies_file, export_browser_cookies, resolve_youtube_video, save_youtube_video, ResolvedTrailer,
     YoutubeDownloadEvent, YoutubeDownloadResult};
+use quick_xml::{escape::unescape, events::Event, Reader};
 use reqwest::{
     header::{HeaderValue, ACCEPT_LANGUAGE, AUTHORIZATION, COOKIE, LOCATION, SET_COOKIE},
     Response, Url,
@@ -25,6 +26,7 @@ const MAX_COOKIE_FILE: usize = 128 * 1024;
 const MAX_BROWSER_COOKIE_FILE: usize = 8 * 1024 * 1024;
 const MAX_PAGE: usize = 8 * 1024 * 1024;
 const MAX_PAGE_REDIRECTS: usize = 3;
+const MAX_CHANNEL_FEED: usize = 256 * 1024;
 
 static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
     reqwest::Client::builder()
@@ -66,6 +68,8 @@ pub struct Feed {
     error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     author: Option<Author>,
+    #[serde(rename = "recentUploadsOnly", skip_serializing_if = "std::ops::Not::not")]
+    recent_uploads_only: bool,
     #[serde(flatten)]
     page: VideoPage,
 }
@@ -77,6 +81,7 @@ impl Feed {
             expired,
             error,
             author: None,
+            recent_uploads_only: false,
             page: VideoPage { videos: Vec::new(), next: None },
         }
     }
@@ -96,6 +101,7 @@ enum Source {
     Search,
     PublicSearch,
     Channel,
+    ChannelSession,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -445,19 +451,24 @@ async fn page(
     parse_page(response).await
 }
 
-async fn parse_page(mut response: Response) -> Result<HtmlPage, String> {
-    let set_cookies = response.headers().get_all(SET_COOKIE).iter().cloned().collect();
-    let mut html = Vec::new();
+async fn read_page_body(mut response: Response, limit: usize) -> Result<Vec<u8>, String> {
+    let mut bytes = Vec::new();
     while let Some(chunk) = response
         .chunk()
         .await
         .map_err(|_| "Не удалось прочитать ответ YouTube.")?
     {
-        if html.len() + chunk.len() > MAX_PAGE {
+        if bytes.len() + chunk.len() > limit {
             return Err("YouTube вернул слишком большой ответ.".into());
         }
-        html.extend_from_slice(&chunk);
+        bytes.extend_from_slice(&chunk);
     }
+    Ok(bytes)
+}
+
+async fn parse_page(response: Response) -> Result<HtmlPage, String> {
+    let set_cookies = response.headers().get_all(SET_COOKIE).iter().cloned().collect();
+    let html = read_page_body(response, MAX_PAGE).await?;
     let html = String::from_utf8_lossy(&html);
     static CONTEXT: LazyLock<regex::Regex> =
         LazyLock::new(|| regex::Regex::new(r#""INNERTUBE_CONTEXT"\s*:\s*"#).unwrap());
@@ -954,6 +965,7 @@ async fn personal_feed(app: &AppHandle, state: &YoutubeSession, path: &str, sour
         expired: false,
         error,
         author: None,
+        recent_uploads_only: false,
         page: video_page(&page.data, source, page.context, None),
     })
 }
@@ -1011,12 +1023,15 @@ pub async fn youtube_more(app: AppHandle, cursor: Cursor, state: State<'_, Youtu
         })
         .ok_or("YouTube изменил формат страницы. Обновите ленту.")?;
     let session = match cursor.source {
-        Source::WebHome | Source::History | Source::Search => load_session(&app).ok().flatten(),
+        Source::WebHome | Source::History | Source::Search | Source::ChannelSession => load_session(&app).ok().flatten(),
         Source::PublicSearch | Source::Channel => None,
     };
     let cookie = session.as_ref().and_then(|session| session.header.clone());
     if cursor.source == Source::History && cookie.is_none() {
         return Err("Подключите аккаунт YouTube в настройках, чтобы открыть историю.".into());
+    }
+    if cursor.source == Source::ChannelSession && cookie.is_none() {
+        return Err("Сессия YouTube недоступна. Обновите страницу канала.".into());
     }
     let signed_feed = matches!(cursor.source, Source::WebHome | Source::History) && cookie.is_some();
     let (data, set_cookies) = innertube(cursor.source, context, &cursor.token, cookie).await?;
@@ -1053,29 +1068,108 @@ fn channel_metadata(data: &Value) -> Author {
     Author { name, avatar }
 }
 
-#[tauri::command]
-pub async fn youtube_channel(id: String) -> Result<Feed, String> {
-    if !channel_id(&id) {
-        return Err("Некорректный канал YouTube.".into());
+fn channel_feed_from_page(page: HtmlPage, source: Source) -> Feed {
+    Feed {
+        connected: false,
+        expired: false,
+        error: None,
+        author: Some(channel_metadata(&page.data)),
+        recent_uploads_only: false,
+        page: video_page(&page.data, source, page.context, None),
     }
-    let page = page(&format!("/channel/{id}/videos"), &[("hl", "ru")], None).await?;
-    let author = channel_metadata(&page.data);
+}
+
+fn channel_feed_from_atom(xml: &str, expected_id: &str) -> Result<Feed, String> {
+    const INVALID: &str = "YouTube вернул некорректную ленту канала.";
+    let mut reader = Reader::from_str(xml);
+    let mut name = String::new();
+    let mut feed_id = String::new();
+    let mut entry = None;
+    let mut videos = Vec::new();
+    let mut seen = HashSet::new();
+    loop {
+        match reader.read_event().map_err(|_| INVALID)? {
+            Event::Start(tag) => {
+                let tag_name = tag.name();
+                if tag_name.as_ref() == "entry" {
+                    entry = Some((String::new(), String::new(), String::new()));
+                    continue;
+                }
+                let field = match (tag_name.as_ref(), entry.as_mut()) {
+                    ("title", None) => &mut name,
+                    ("yt:channelId", None) => &mut feed_id,
+                    ("title", Some((_, title, _))) => title,
+                    ("yt:videoId", Some((id, _, _))) => id,
+                    ("yt:channelId", Some((_, _, channel))) => channel,
+                    _ => continue,
+                };
+                let text = reader.read_text(tag_name).map_err(|_| INVALID)?;
+                *field = unescape(text.as_ref().trim()).map_err(|_| INVALID)?.into_owned();
+            }
+            Event::End(tag) if tag.name().as_ref() == "entry" => {
+                if let Some((id, title, channel)) = entry.take() {
+                    if channel == expected_id && video_id(&id) && !title.is_empty() && seen.insert(id.clone()) {
+                        videos.push(Video {
+                            id, title, channel: name.clone(), duration: String::new(), details: Vec::new(),
+                            channel_id: Some(channel), avatar: None, is_live: false,
+                        });
+                    }
+                }
+            }
+            Event::End(tag) if tag.name().as_ref() == "feed" => break,
+            Event::Eof | Event::DocType(_) => return Err(INVALID.into()),
+            _ => {}
+        }
+    }
+    if name.is_empty() || (feed_id != expected_id && expected_id.strip_prefix("UC") != Some(feed_id.as_str())) {
+        return Err(INVALID.into());
+    }
     Ok(Feed {
         connected: false,
         expired: false,
         error: None,
-        author: Some(author),
-        page: video_page(&page.data, Source::Channel, page.context, None),
+        author: Some(Author { name, avatar: None }),
+        recent_uploads_only: true,
+        page: VideoPage { videos, next: None },
     })
 }
 
-#[tauri::command]
-pub async fn youtube_author(id: String) -> Result<Author, String> {
-    if !channel_id(&id) {
+async fn channel_feed(app: &AppHandle, state: &YoutubeSession, id: &str) -> Result<Feed, String> {
+    if !channel_id(id) {
         return Err("Некорректный канал YouTube.".into());
     }
-    let page = page(&format!("/channel/{id}/videos"), &[("hl", "ru")], None).await?;
-    Ok(channel_metadata(&page.data))
+    let path = format!("/channel/{id}/videos");
+    let query = [("hl", "ru")];
+    if let Some(response) = page_response(&path, &query, None).await? {
+        return Ok(channel_feed_from_page(parse_page(response).await?, Source::Channel));
+    }
+    // Anonymous channel pages may redirect to YouTube's consent screen. Retry
+    // the same URL using an already connected session, then use the public Atom feed.
+    if let Some(session) = load_session(app).ok().flatten().filter(|session| session.header.is_some()) {
+        if let Ok(Some(response)) = page_response(&path, &query, session.header.clone()).await {
+            if let Ok(page) = parse_page(response).await {
+                if let Some(updated) = refreshed_signed_in_cookies(&session, &page.data, &page.set_cookies, unix_now()) {
+                    let _ = store_session_update(app, state, &session, &updated).await;
+                }
+                return Ok(channel_feed_from_page(page, Source::ChannelSession));
+            }
+        }
+    }
+    let response = page_response("/feeds/videos.xml", &[("channel_id", id)], None)
+        .await?
+        .ok_or("YouTube перенаправил запрос ленты канала. Проверьте подключение в браузере.")?;
+    let xml = read_page_body(response, MAX_CHANNEL_FEED).await?;
+    channel_feed_from_atom(&String::from_utf8_lossy(&xml), id)
+}
+
+#[tauri::command]
+pub async fn youtube_channel(app: AppHandle, id: String, state: State<'_, YoutubeSession>) -> Result<Feed, String> {
+    channel_feed(&app, &state, &id).await
+}
+
+#[tauri::command]
+pub async fn youtube_author(app: AppHandle, id: String, state: State<'_, YoutubeSession>) -> Result<Author, String> {
+    channel_feed(&app, &state, &id).await?.author.ok_or_else(|| "YouTube не вернул данные автора.".into())
 }
 
 #[tauri::command]
@@ -1164,6 +1258,7 @@ async fn finish_connect(app: &AppHandle, session: Cookies, feed: HtmlPage) -> Re
         expired: false,
         error: None,
         author: None,
+        recent_uploads_only: false,
         page: video_page(&feed.data, Source::WebHome, feed.context, None),
     })
 }
@@ -1392,6 +1487,28 @@ mod tests {
         ] {
             assert!(next_page_url(&url, &HeaderValue::from_static(location)).is_none());
         }
+    }
+
+    #[test]
+    fn public_channel_feed_preserves_recent_uploads_after_a_consent_redirect() {
+        let id = "UC2Nsvuf928WIHrkm08nJ8BA";
+        let xml = format!(r#"
+            <feed xmlns:yt="http://www.youtube.com/xml/schemas/2015">
+                <yt:channelId>2Nsvuf928WIHrkm08nJ8BA</yt:channelId>
+                <title>Нарезки &amp; видео</title>
+                <entry><yt:videoId>F3qenOIMyHE</yt:videoId><yt:channelId>{id}</yt:channelId><title>Новая нарезка &quot;Кино&quot;</title></entry>
+                <entry><yt:videoId>F3qenOIMyHE</yt:videoId><yt:channelId>{id}</yt:channelId><title>Повтор</title></entry>
+                <entry><yt:videoId>abcdefghijk</yt:videoId><yt:channelId>other</yt:channelId><title>Другой канал</title></entry>
+                <entry><yt:videoId>bcdefghijkl</yt:videoId><yt:channelId>{id}</yt:channelId><title>Второе видео</title></entry>
+            </feed>
+        "#);
+        let feed = channel_feed_from_atom(&xml, id).unwrap();
+        assert_eq!(feed.author.unwrap().name, "Нарезки & видео");
+        assert!(feed.recent_uploads_only && feed.page.next.is_none());
+        assert_eq!(feed.page.videos.iter().map(|video| video.id.as_str()).collect::<Vec<_>>(), ["F3qenOIMyHE", "bcdefghijkl"]);
+        assert_eq!(feed.page.videos[0].title, "Новая нарезка \"Кино\"");
+        assert!(channel_feed_from_atom(&xml, "UCdnYXYR4vEwfSrZ5O-fYRtA").is_err());
+        assert!(channel_feed_from_atom("<html>Consent required</html>", id).is_err());
     }
 
     #[test]

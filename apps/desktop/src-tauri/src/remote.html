@@ -59,7 +59,6 @@
   .media .key { height: 64px; font-size: 28px; }
   .media .main { background: var(--accent); color: var(--on-accent); border-color: transparent; font-size: 32px; }
   .media .main.down { background: var(--accent-deep); }
-  .key small { position: absolute; bottom: 5px; font-size: 11px; color: var(--text-dim); letter-spacing: .02em; }
 
   .pad-wrap { flex: 1; min-height: 0; display: grid; place-items: center; }
   /* The volume: "−", the level, "+" in one capsule, above the navigation keys. */
@@ -69,8 +68,15 @@
   }
   .vol .key { flex: none; width: 46px; height: 46px; border-radius: 50%; }
   .vol .key svg { width: 24px; height: 24px; }
-  .vol-track { position: relative; flex: 1; height: 6px; border-radius: 3px; background: var(--line-hi); overflow: hidden; }
-  .vol-fill { position: absolute; top: 0; bottom: 0; left: 0; width: var(--v, 50%); border-radius: inherit; background: var(--accent); transition: width .25s ease; }
+  .vol-track {
+    flex: 1; min-width: 0; height: 44px; margin: 0; padding: 0; appearance: none; -webkit-appearance: none;
+    background: transparent; touch-action: none; cursor: pointer;
+  }
+  .vol-track::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--accent) var(--v, 0%), var(--line-hi) var(--v, 0%)); }
+  .vol-track::-moz-range-track { height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--accent) var(--v, 0%), var(--line-hi) var(--v, 0%)); }
+  .vol-track::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6px; border-radius: 50%; background: var(--text); }
+  .vol-track::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 50%; background: var(--text); }
+  .vol :disabled { opacity: .45; cursor: default; }
   .pad {
     position: relative; width: min(100%, 52vh, 360px); aspect-ratio: 1;
     border-radius: 50%; background: var(--surface); border: 1px solid var(--line); overflow: hidden;
@@ -112,16 +118,12 @@
   .bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
   .bar .key { height: 62px; font-size: 24px; }
 
-  /* The text field slides up when the keyboard key is pressed; what is typed goes to the TV as it is typed. */
-  .typing { display: none; gap: 10px; }
-  .typing.on { display: flex; }
-  .typing input {
-    flex: 1; min-width: 0; height: 52px; border-radius: var(--radius); border: 1px solid var(--line-hi); background: var(--surface);
-    color: var(--text); padding: 0 14px; font: inherit; user-select: text; -webkit-user-select: text; outline: none;
+  /* Focusing a real input inside the tap opens the phone's native keyboard. */
+  #typing { position: fixed; }
+  .keyboard-input {
+    position: fixed; bottom: 0; left: 0; width: 1px; height: 1px; padding: 0;
+    border: 0; opacity: 0; pointer-events: none; font-size: 16px; user-select: text; -webkit-user-select: text;
   }
-  .typing input:focus { border-color: var(--accent); }
-  .typing .key { width: 52px; height: 52px; font-size: 22px; }
-  .typing .go { background: var(--accent); color: var(--on-accent); border-color: transparent; }
 
   /* Coming in: each part rises into place a beat after the one above it. */
   @keyframes rise { from { opacity: 0; transform: translateY(16px); } }
@@ -131,7 +133,6 @@
   .pad { animation: pop .6s .12s cubic-bezier(.2,.8,.2,1) both; }
   .vol { animation: rise .5s .16s cubic-bezier(.2,.8,.2,1) both; }
   .bar { animation: rise .5s .2s cubic-bezier(.2,.8,.2,1) both; }
-  .typing.on { animation: rise .28s cubic-bezier(.2,.8,.2,1) both; }
   .dot.ping { animation: ping .5s ease-out; }
   @keyframes ping { 50% { transform: scale(1.7); } }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
@@ -152,7 +153,6 @@
   /* ---- The look of the app's pages: soft rounded keys, light fill when pressed, a white OK. ---- */
   .key { border: 0; background: rgba(255,255,255,.14); border-radius: 22px; transition: transform .1s, background .14s, color .14s; }
   .key.down { transform: scale(.95); background: rgba(244,244,247,.95); color: #1d1d20; }
-  .key.down small { color: rgba(29,29,32,.6); }
   .rip { background: #fff; opacity: .35; }
   .key.down .rip { background: #1d1d20; opacity: .12; }
   .media .main { background: rgba(244,244,247,.95); color: #111; border: 0; }
@@ -168,10 +168,7 @@
   .pad .ok.down { background: #cfcfd6; }
   .pad .ok::after { border-color: #fff; }
 
-  .typing input { border: 0; border-radius: 999px; background: rgba(255,255,255,.14); padding: 0 22px; transition: background .14s, color .14s, box-shadow .14s; }
-  .typing input:focus { background: rgba(244,244,247,.95); color: #1d1d20; box-shadow: 0 0 0 2px rgba(255,255,255,.9); }
-  .typing .key { border-radius: 50%; }
-  .typing .go { background: rgba(244,244,247,.95); color: #111; }
+  #kb[aria-pressed="true"] { background: rgba(244,244,247,.95); color: #111; }
 </style>
 <style id="app-theme">/*THEME*/</style>
 </head>
@@ -187,19 +184,19 @@
     <div class="side" id="side">
       <div class="media">
         <button class="key" data-k="MediaRewind" data-rep="1" aria-label="Назад на 15 секунд">
-          <svg viewBox="0 0 24 24"><polygon points="11 19 2 12 11 5 11 19"/><polygon points="22 19 13 12 22 5 22 19"/></svg><small>−15 с</small>
+          <svg viewBox="0 0 24 24"><polygon points="11 19 2 12 11 5 11 19"/><polygon points="22 19 13 12 22 5 22 19"/></svg>
         </button>
         <button class="key main" data-k="p" aria-label="Пауза / продолжить">
           <svg viewBox="0 0 24 24"><polygon class="fill" points="6 4 20 12 6 20 6 4"/></svg>
         </button>
         <button class="key" data-k="MediaFastForward" data-rep="1" aria-label="Вперёд на 15 секунд">
-          <svg viewBox="0 0 24 24"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg><small>+15 с</small>
+          <svg viewBox="0 0 24 24"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg>
         </button>
       </div>
       <div class="vol" id="vol" aria-label="Громкость">
-        <button class="key" data-k="AudioVolumeDown" data-rep="1" aria-label="Тише"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
-        <div class="vol-track"><i class="vol-fill" id="volfill"></i></div>
-        <button class="key" data-k="AudioVolumeUp" data-rep="1" aria-label="Громче"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button class="key" data-volume-step="-1" data-rep="1" aria-label="Тише на 1%" disabled><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+        <input class="vol-track" id="volume" type="range" min="0" max="100" step="1" value="0" aria-label="Громкость в процентах" disabled>
+        <button class="key" data-volume-step="1" data-rep="1" aria-label="Громче на 1%" disabled><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
       </div>
     </div>
 
@@ -214,16 +211,14 @@
     </div>
 
     <div class="side" id="side2">
-      <form class="typing" id="typing" autocomplete="off">
-        <input id="t" type="text" enterkeyhint="search" placeholder="Текст для поиска…" autocapitalize="off" autocorrect="off" spellcheck="false">
-        <button type="button" class="key" id="clear" aria-label="Очистить"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-        <button type="submit" class="key go" aria-label="Найти"><svg viewBox="0 0 24 24"><path d="M20 4v7a4 4 0 0 1-4 4H4"/><path d="m9 10-5 5 5 5"/></svg></button>
+      <form id="typing" autocomplete="off">
+        <input class="keyboard-input" id="editor" type="text" tabindex="-1" enterkeyhint="done" maxlength="2000" aria-label="Ввод в выбранное поле KINONYX" autocapitalize="off" autocorrect="off" spellcheck="false">
       </form>
       <div class="bar">
         <button class="key" data-k="Escape" aria-label="Назад"><svg viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg></button>
         <button class="key" data-k="GamepadGuide" aria-label="Меню"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
         <button class="key" data-k="m" aria-label="Звук и субтитры"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15h4M15 15h2M7 11h2M13 11h4"/></svg></button>
-        <button class="key" id="kb" type="button" aria-label="Ввод текста"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/></svg></button>
+        <button class="key" id="kb" type="button" aria-label="Клавиатура" aria-pressed="false"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/></svg></button>
       </div>
     </div>
   </main>
@@ -246,7 +241,7 @@
     add("apple-touch-icon", "/logo.png?t=" + encodeURIComponent(t));
   })();
   document.getElementById("logo").src = "/logo.png?t=" + encodeURIComponent(t);
-  const send = (path, extra) => fetch(path + "?t=" + encodeURIComponent(t) + (extra || ""), { cache: "no-store" })
+  const send = (path, extra = "", init) => fetch(path + "?t=" + encodeURIComponent(t) + extra, { cache: "no-store", ...init })
     .then(r => { mark(r.ok); return r.ok; }).catch(() => { mark(false); return false; });
   const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
   const blink = () => { dot.classList.remove("ping"); void dot.offsetWidth; dot.classList.add("ping"); };
@@ -262,53 +257,157 @@
     setTimeout(() => span.remove(), 600);
   };
 
-  // Every key reacts at once on touch; arrows and seeks repeat while held.
-  document.querySelectorAll("[data-k]").forEach(b => {
+  const volume = document.getElementById("volume");
+  const volumeKeys = document.querySelectorAll("[data-volume-step]");
+  let nextVolume = null;
+  let volumeSending = false;
+  let volumeTimer = 0;
+  let volumeRevision = 0;
+  let volumeQuietUntil = 0;
+  let volumeDragging = false;
+  const showVolume = level => {
+    volume.value = level;
+    volume.style.setProperty("--v", level + "%");
+  };
+  const flushVolume = async () => {
+    volumeTimer = 0;
+    if (volumeSending || nextVolume === null) return;
+    const { level, feedback } = nextVolume;
+    nextVolume = null;
+    volumeSending = true;
+    await send("/volume", "&v=" + level + (feedback ? "&step=1" : ""));
+    volumeSending = false;
+    volumeQuietUntil = performance.now() + 500;
+    if (nextVolume !== null && !volumeTimer) volumeTimer = setTimeout(flushVolume, 50);
+  };
+  const setVolume = (level, feedback = false) => {
+    if (volume.disabled) return;
+    const clamped = Math.min(100, Math.max(0, level));
+    showVolume(clamped);
+    volumeRevision++;
+    nextVolume = { level: clamped, feedback: feedback || !!nextVolume?.feedback };
+    if (!volumeSending && !volumeTimer) volumeTimer = setTimeout(flushVolume, 50);
+  };
+  volume.addEventListener("input", () => setVolume(volume.valueAsNumber));
+  volume.addEventListener("pointerdown", () => { volumeDragging = true; });
+  window.addEventListener("pointerup", () => { volumeDragging = false; });
+  window.addEventListener("pointercancel", () => { volumeDragging = false; });
+  volume.addEventListener("change", () => {
+    clearTimeout(volumeTimer);
+    void flushVolume();
+  });
+
+  const editor = document.getElementById("editor");
+  const keyboard = document.getElementById("kb");
+  let editQueue = Promise.resolve();
+  const queueEdit = edit => {
+    editQueue = editQueue.then(() => send("/edit", "", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(edit)
+    }));
+  };
+  // A zero-width character lets even an empty phone editor send Backspace to the selected field.
+  const marker = "\u200b";
+  const resetEditor = () => {
+    editor.value = marker;
+    editor.setSelectionRange(1, 1);
+  };
+  let previous = [];
+  const relay = () => {
+    const raw = editor.value;
+    const next = Array.from(raw.startsWith(marker) ? raw.slice(1) : raw);
+    let same = 0;
+    while (same < previous.length && same < next.length && previous[same] === next[same]) same++;
+    const remove = previous.length - same || Number(!raw);
+    const text = next.slice(same).join("");
+    previous = next;
+    if (!raw) resetEditor();
+    if (remove || text) queueEdit({ remove, text });
+  };
+  keyboard.addEventListener("click", () => {
+    void press("RemoteKeyboard");
+    if (keyboard.getAttribute("aria-pressed") === "true") {
+      editor.blur();
+    } else {
+      previous = [];
+      resetEditor();
+      editor.focus({ preventScroll: true });
+    }
+  });
+  keyboard.addEventListener("pointerdown", e => {
+    if (document.activeElement === editor) e.preventDefault();
+  });
+  editor.addEventListener("focus", () => keyboard.setAttribute("aria-pressed", "true"));
+  editor.addEventListener("blur", () => keyboard.setAttribute("aria-pressed", "false"));
+  editor.addEventListener("input", e => { if (!e.isComposing) relay(); });
+  editor.addEventListener("compositionend", relay);
+  const finishTyping = () => {
+    relay();
+    queueEdit({ remove: 0, text: "", submit: true });
+    editor.blur();
+  };
+  editor.addEventListener("keydown", e => {
+    if (e.key !== "Enter" || e.isComposing) return;
+    e.preventDefault();
+    finishTyping();
+  });
+  document.getElementById("typing").addEventListener("submit", e => {
+    e.preventDefault();
+    finishTyping();
+  });
+
+  // Pointer input reacts once per tap, then repeats for the controls that support holding.
+  document.querySelectorAll("[data-k], [data-volume-step]").forEach(b => {
     let delay = 0, rep = 0;
+    const activate = () => {
+      if (b.dataset.volumeStep) {
+        buzz(10);
+        blink();
+        setVolume(volume.valueAsNumber + Number(b.dataset.volumeStep), true);
+      } else {
+        editor.blur();
+        void press(b.dataset.k);
+      }
+    };
     const start = e => {
+      if (!e.isPrimary || e.button !== 0) return;
       e.preventDefault();
+      b.setPointerCapture(e.pointerId);
       b.classList.add("down");
       ripple(b, e);
-      press(b.dataset.k);
-      if (b.dataset.k.startsWith("Arrow") || b.dataset.rep) {
-        delay = setTimeout(() => { rep = setInterval(() => press(b.dataset.k), 120); }, 380);
+      activate();
+      if (b.dataset.k?.startsWith("Arrow") || b.dataset.rep) {
+        delay = setTimeout(() => { rep = setInterval(activate, 120); }, 380);
       }
     };
     const stop = () => { b.classList.remove("down"); clearTimeout(delay); clearInterval(rep); };
-    b.addEventListener("touchstart", start, { passive: false });
-    b.addEventListener("touchend", stop); b.addEventListener("touchcancel", stop);
-    b.addEventListener("mousedown", start); b.addEventListener("mouseup", stop); b.addEventListener("mouseleave", stop);
+    b.addEventListener("pointerdown", start);
+    b.addEventListener("lostpointercapture", stop);
+    b.addEventListener("click", e => { if (e.detail === 0) activate(); });
   });
-
-  // Text: shown on the TV as it is typed; the check key presses OK there.
-  const typing = document.getElementById("typing"), input = document.getElementById("t");
-  let pending = 0;
-  const push = () => { clearTimeout(pending); pending = setTimeout(() => send("/txt", "&v=" + encodeURIComponent(input.value)), 120); };
-  document.getElementById("kb").addEventListener("click", () => {
-    const on = !typing.classList.contains("on");
-    typing.classList.toggle("on", on);
-    buzz(10);
-    if (on) input.focus(); else input.blur();
-  });
-  input.addEventListener("input", push);
-  document.getElementById("clear").addEventListener("click", () => { input.value = ""; push(); input.focus(); });
-  typing.addEventListener("submit", e => { e.preventDefault(); clearTimeout(pending); send("/txt", "&v=" + encodeURIComponent(input.value)).then(() => press("Enter")); input.blur(); });
 
   // The app's theme: read again every few seconds (it doubles as the connection check), so changing the
   // theme in the app changes the remote too.
   let lastTheme = "";
-  const loadTheme = () => fetch("/theme?t=" + encodeURIComponent(t), { cache: "no-store" })
-    .then(r => r.ok ? r.text() : Promise.reject()).then(text => {
-      mark(true);
-      if (text === lastTheme) return;
-      lastTheme = text;
-      const vars = JSON.parse(text), root = document.documentElement.style;
-      for (const k in vars) if (/^--[a-z0-9-]+$/.test(k)) root.setProperty(k, vars[k]);
-      const level = parseFloat(vars["--player-volume"]);
-      document.getElementById("volfill").style.setProperty("--v", (isFinite(level) ? Math.round(Math.max(0, Math.min(1, level)) * 100) : 50) + "%");
-      const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
-      if (bg) document.querySelector('meta[name="theme-color"]').content = bg;
-    }).catch(() => mark(false));
+  const loadTheme = () => {
+    const revision = volumeRevision;
+    return fetch("/theme?t=" + encodeURIComponent(t), { cache: "no-store" })
+      .then(r => r.ok ? r.text() : Promise.reject()).then(text => {
+        mark(true);
+        const vars = JSON.parse(text);
+        if (revision === volumeRevision && !volumeDragging && !volumeSending && nextVolume === null && performance.now() >= volumeQuietUntil) {
+          const level = Number.parseFloat(vars["--player-volume"]);
+          volume.disabled = !Number.isFinite(level);
+          volumeKeys.forEach(key => { key.disabled = volume.disabled; });
+          showVolume(volume.disabled ? 0 : Math.round(Math.max(0, Math.min(1, level)) * 100));
+        }
+        if (text === lastTheme) return;
+        lastTheme = text;
+        const root = document.documentElement.style;
+        for (const k in vars) if (/^--[a-z0-9-]+$/.test(k)) root.setProperty(k, vars[k]);
+        const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+        if (bg) document.querySelector('meta[name="theme-color"]').content = bg;
+      }).catch(() => mark(false));
+  };
   loadTheme();
 
   // The phone stays awake while the remote is open.

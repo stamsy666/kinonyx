@@ -1,4 +1,4 @@
-import { setSoundHandlers } from "@kinonyx/ui";
+import { emitBackSound, emitPressSound, setSoundHandlers } from "@kinonyx/ui";
 import { useApp, type SoundKitId } from "../store/app";
 
 type SoundCategory = "buttons" | "navigation" | "menuNavigation" | "typing" | "back";
@@ -127,9 +127,26 @@ export function previewSoundKit(id: SoundKitId, volume: number) {
   playUrl(SOUND_KITS[id].sounds.buttons, volume);
 }
 
+let soundRequests = 0;
+
 export function playCategorySound(category: SoundCategory) {
+  soundRequests++;
   const state = useApp.getState();
   playUrl(SOUND_KITS[state.soundKit].sounds[category], state.sfxVolume);
+}
+
+/** Keep the action's own sound, including typing. A command with no sound still acknowledges the phone tap. */
+export function withRemoteKeySound(key: string, dispatch: () => void) {
+  const before = soundRequests;
+  dispatch();
+  if (soundRequests !== before) return;
+  if (key.startsWith("Arrow")) {
+    playCategorySound(useApp.getState().sidebarOpen ? "menuNavigation" : "navigation");
+  } else if (key === "Escape") {
+    emitBackSound();
+  } else {
+    emitPressSound();
+  }
 }
 
 export function installSoundEngine() {

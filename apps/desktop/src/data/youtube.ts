@@ -14,7 +14,7 @@ export interface YoutubeVideo {
 
 export interface YoutubeCursor {
   token: string;
-  source: "web_home" | "history" | "search" | "public_search" | "channel";
+  source: "web_home" | "history" | "search" | "public_search" | "channel" | "channel_session";
   context?: unknown;
 }
 
@@ -28,6 +28,7 @@ export interface YoutubeFeed extends YoutubeVideoPage {
   expired: boolean;
   error?: string;
   author?: YoutubeAuthor;
+  recentUploadsOnly?: boolean;
 }
 
 export interface ImportedYoutubeSession {

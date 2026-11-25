@@ -157,7 +157,7 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   // remote opens it with OK and then holds the focus in it. Only the second takes the focus.
   const [volumeByMouse, setVolumeByMouse] = useState(false);
   const volumeLeave = useRef(0);
-  const nudgeVolumeRef = useRef<(d: number) => void>(() => {});
+  const setPlayerVolumeRef = useRef<(value: number, relative?: boolean) => void>(() => {});
   // `offset`: seconds into the programme the archive stream starts at (it starts at its beginning when absent).
   const [archive, setArchive] = useState<{ programme: Programme; offset?: number } | null>(programme ? { programme } : null);
   // The latest "move by N seconds along the programme" (the media keys' handler lives longer than a render).
@@ -381,8 +381,8 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
     if (mini) return; // …and does not swallow the keys of the screen the viewer is on
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === "Backspace") return;
-      if (e.key === "AudioVolumeUp") nudgeVolumeRef.current(PLAYER_VOLUME_STEP);
-      else if (e.key === "AudioVolumeDown") nudgeVolumeRef.current(-PLAYER_VOLUME_STEP);
+      if (e.key === "AudioVolumeUp") setPlayerVolumeRef.current(PLAYER_VOLUME_STEP, true);
+      else if (e.key === "AudioVolumeDown") setPlayerVolumeRef.current(-PLAYER_VOLUME_STEP, true);
       else if (e.key === "MediaRewind") seekByRef.current(-REMOTE_SEEK);
       else if (e.key === "MediaFastForward") seekByRef.current(REMOTE_SEEK);
       else if (e.key === "m") openSheet("audio");
@@ -393,20 +393,27 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
       }
       bump();
     };
+    const onVolume = (e: WindowEventMap["kinonyx:remote-volume"]) => {
+      setPlayerVolumeRef.current(e.detail);
+      bump();
+    };
+    window.addEventListener("kinonyx:remote-volume", onVolume);
     window.addEventListener("keydown", onKey, true);
     window.addEventListener("mousemove", bump);
     return () => {
+      window.removeEventListener("kinonyx:remote-volume", onVolume);
       window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("mousemove", bump);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [osd, bump, mini]);
 
-  // The phone remote's "+" / "−": a step of the volume, with the level shown for a moment (the same capsule as over the button).
-  nudgeVolumeRef.current = (d) => {
+  // Phone volume changes show the same capsule as the player button.
+  setPlayerVolumeRef.current = (value, relative = false) => {
     const a = adapterRef.current;
     if (!a) return;
-    const v = Math.min(1, Math.max(0, (stateRef.current.muted ? 0 : stateRef.current.volume) + d));
+    const current = stateRef.current.muted ? 0 : stateRef.current.volume;
+    const v = Math.min(1, Math.max(0, relative ? current + value : value));
     void a.setVolume(v);
     if (v > 0 && stateRef.current.muted) void a.setMuted(false);
     setVolumeByMouse(true);
@@ -416,11 +423,12 @@ export function TvPlayerScreen({ channelId, programme, mini = false }: { channel
   };
   // The level for the phone remote's bar.
   useEffect(() => {
+    if (mini) return;
     document.documentElement.style.setProperty("--player-volume", String(state.muted ? 0 : state.volume));
     return () => {
       document.documentElement.style.removeProperty("--player-volume");
     };
-  }, [state.volume, state.muted]);
+  }, [mini, state.volume, state.muted]);
 
   // Read from the latest state, not the render the key handler was made in (see the film player).
   const togglePlay = async () => {

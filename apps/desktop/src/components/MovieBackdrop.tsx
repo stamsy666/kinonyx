@@ -523,6 +523,11 @@ export function MovieBackdrop({
       else if (k === "ArrowDown") setUi({ bar: true, item: "play" });
       else if (ok) L.togglePlay();
     };
+    const onVolume = (e: WindowEventMap["kinonyx:remote-volume"]) => {
+      changeVolume(e.detail);
+      touch();
+    };
+    window.addEventListener("kinonyx:remote-volume", onVolume);
     window.addEventListener("keydown", key, true);
     // Back lets go of the innermost thing first: a list, the held bar, the focus; only then the trailer.
     const unback = onBack(() => {
@@ -534,6 +539,7 @@ export function MovieBackdrop({
       return true;
     });
     return () => {
+      window.removeEventListener("kinonyx:remote-volume", onVolume);
       window.removeEventListener("keydown", key, true);
       v.removeEventListener("timeupdate", sync);
       v.removeEventListener("pause", sync);

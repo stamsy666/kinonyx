@@ -190,7 +190,7 @@ export function PlayerScreen({
   // and then holds the focus in it. Only the second takes the focus.
   const [volumeByMouse, setVolumeByMouse] = useState(false);
   const volumeLeave = useRef(0);
-  const nudgeVolumeRef = useRef<(d: number) => void>(() => {});
+  const setPlayerVolumeRef = useRef<(value: number, relative?: boolean) => void>(() => {});
 
   const hideTimer = useRef<number>(0);
 
@@ -565,8 +565,8 @@ export function PlayerScreen({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === "Backspace") return;
       const a = adapterRef.current;
-      if (e.key === "AudioVolumeUp") nudgeVolumeRef.current(PLAYER_VOLUME_STEP);
-      else if (e.key === "AudioVolumeDown") nudgeVolumeRef.current(-PLAYER_VOLUME_STEP);
+      if (e.key === "AudioVolumeUp") setPlayerVolumeRef.current(PLAYER_VOLUME_STEP, true);
+      else if (e.key === "AudioVolumeDown") setPlayerVolumeRef.current(-PLAYER_VOLUME_STEP, true);
       else if (e.key === "MediaRewind") void a?.seekBy(-SEEK_STEP);
       else if (e.key === "MediaFastForward") void a?.seekBy(SEEK_STEP);
       else if ((e.key === "s" || e.key === "S") && filmId) skipCreditsRef.current();
@@ -578,9 +578,15 @@ export function PlayerScreen({
       }
       bump();
     };
+    const onVolume = (e: WindowEventMap["kinonyx:remote-volume"]) => {
+      setPlayerVolumeRef.current(e.detail);
+      bump();
+    };
+    window.addEventListener("kinonyx:remote-volume", onVolume);
     window.addEventListener("keydown", onKey, true);
     window.addEventListener("mousemove", bump);
     return () => {
+      window.removeEventListener("kinonyx:remote-volume", onVolume);
       window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("mousemove", bump);
     };
@@ -589,11 +595,12 @@ export function PlayerScreen({
 
   // Read from the latest state, not the render the key handler was made in: the phone remote's "play" is a key
   // press, and a handler that remembered an old status paused a playing picture "to play" it and the other way round.
-  // The phone remote's "+" / "−": a step of the volume, with the level shown for a moment (the same capsule as over the button).
-  nudgeVolumeRef.current = (d) => {
+  // Phone volume changes show the same capsule as the player button.
+  setPlayerVolumeRef.current = (value, relative = false) => {
     const a = adapterRef.current;
     if (!a) return;
-    const v = Math.min(1, Math.max(0, (stateRef.current.muted ? 0 : stateRef.current.volume) + d));
+    const current = stateRef.current.muted ? 0 : stateRef.current.volume;
+    const v = Math.min(1, Math.max(0, relative ? current + value : value));
     void a.setVolume(v);
     if (v > 0 && stateRef.current.muted) void a.setMuted(false);
     setVolumeByMouse(true);
@@ -603,11 +610,12 @@ export function PlayerScreen({
   };
   // The level for the phone remote's bar.
   useEffect(() => {
+    if (mini) return;
     document.documentElement.style.setProperty("--player-volume", String(state.muted ? 0 : state.volume));
     return () => {
       document.documentElement.style.removeProperty("--player-volume");
     };
-  }, [state.volume, state.muted]);
+  }, [mini, state.volume, state.muted]);
 
   const togglePlay = async () => {
     const a = adapterRef.current;
